@@ -33,7 +33,7 @@ private:
     GridView gridView;
     juce::Label status;
     juce::Label editLabel { {}, "Edit" };
-    juce::TextButton probabilityButton { "Probability" }, velocityButton { "Velocity" };
+    juce::TextButton probabilityButton { "Probability" }, velocityButton { "Velocity" }, octaveButton { "Octave" };
 
     juce::Label scaleLabel { {}, "Scale" }, rootLabel { {}, "Root" }, octaveLabel { {}, "Octave" };
     juce::ComboBox scaleBox, rootBox;

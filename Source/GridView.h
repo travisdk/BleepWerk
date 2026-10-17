@@ -8,8 +8,9 @@
 
 // The probability grid: rows are the scale's notes (root at the bottom), columns the steps.
 // The edit mode chooses what a cell shows and what dragging it changes: its probability
-// (mint) or its velocity (amber), as the cell's fill height. Cells flash when they actually
-// play, and the playing step is highlighted.
+// (mint) or its velocity (amber) as the fill height, or its octave offset (blue) as a number.
+// In every mode a cell is darker the lower its octave and lighter the higher. Cells flash
+// when they actually play, and the playing step is highlighted.
 //   click: on/off   drag up/down: the mode's value   double-click: reset the mode's value
 class GridView : public juce::Component, private juce::Timer
 {

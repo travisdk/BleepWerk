@@ -14,7 +14,8 @@
 #include <string>
 
 // Probability grid sequencer: rows are the degrees of a scale over one octave (plus the root
-// an octave up), columns are steps. Each cell has on/off, probability, velocity and ratchet.
+// an octave up), columns are steps. Each cell has on/off, probability, velocity, an octave
+// offset and ratchet.
 // Played against the host timeline; the timing approach (steps counted from beat 0, events
 // on the first sample at or after their beat, jump detection) comes from SubForge.
 // JUCE-free so it can be tested on its own.
@@ -23,6 +24,7 @@ namespace bleepforge
 inline constexpr int kMaxSteps = 32;
 inline constexpr int kDefaultSteps = 16;
 inline constexpr int kMaxRows = 13; // chromatic: 12 degrees + the octave
+inline constexpr int kMaxCellOctave = 3; // a cell plays up to 3 octaves above or below its row
 
 struct Scale
 {
@@ -64,6 +66,7 @@ struct Cell
     float probability = 1.0f; // 0..1, in 1 % steps
     float velocity = 0.8f;    // 1/127..1
     int ratchet = 1;          // 1..4 hits within the step
+    int octave = 0;           // -kMaxCellOctave..kMaxCellOctave from the row's note
 
     // One 32-bit word, so the GUI and the audio thread share cells without locks.
     uint32_t pack() const
@@ -71,7 +74,8 @@ struct Cell
         const auto prob = (uint32_t) std::lround (std::clamp (probability, 0.0f, 1.0f) * 100.0f);
         const auto vel = (uint32_t) std::clamp ((int) std::lround (velocity * 127.0f), 1, 127);
         const auto rat = (uint32_t) (std::clamp (ratchet, 1, 4) - 1);
-        return (on ? 1u : 0u) | (prob << 1) | (vel << 8) | (rat << 15);
+        const auto oct = (uint32_t) std::clamp (octave, -kMaxCellOctave, kMaxCellOctave) & 7u; // 3-bit two's complement
+        return (on ? 1u : 0u) | (prob << 1) | (vel << 8) | (rat << 15) | (oct << 17);
     }
 
     static Cell unpack (uint32_t word)
@@ -81,6 +85,8 @@ struct Cell
         c.probability = (float) std::min (100u, (word >> 1) & 0x7fu) / 100.0f;
         c.velocity = (float) std::max (1u, (word >> 8) & 0x7fu) / 127.0f;
         c.ratchet = (int) ((word >> 15) & 3u) + 1;
+        const int oct = (int) ((word >> 17) & 7u);
+        c.octave = std::clamp (oct >= 4 ? oct - 8 : oct, -kMaxCellOctave, kMaxCellOctave);
         return c;
     }
 
@@ -116,19 +122,20 @@ public:
         setLength (other.getLength());
     }
 
-    // "grid 1 length 16 cell <row> <step> <on> <prob%> <vel> <ratchet> ...", only cells that
-    // differ from a blank one. Stored with the project; numbers keep the classic locale.
+    // "grid 2 length 16 cell <row> <step> <on> <prob%> <vel> <ratchet> <octave> ...", only cells
+    // that differ from a blank one. Stored with the project; numbers keep the classic locale.
+    // Version 1 had no octave.
     std::string toString() const
     {
         std::ostringstream out;
         out.imbue (std::locale::classic());
-        out << "grid 1 length " << getLength();
+        out << "grid 2 length " << getLength();
         const Cell blank;
         for (int row = 0; row < kMaxRows; ++row)
             for (int step = 0; step < kMaxSteps; ++step)
                 if (const auto c = get (row, step); c != blank)
                     out << " cell " << row << ' ' << step << ' ' << (c.on ? 1 : 0) << ' '
-                        << std::lround (c.probability * 100.0f) << ' ' << std::lround (c.velocity * 127.0f) << ' ' << c.ratchet;
+                        << std::lround (c.probability * 100.0f) << ' ' << std::lround (c.velocity * 127.0f) << ' ' << c.ratchet << ' ' << c.octave;
         return out.str();
     }
 
@@ -139,7 +146,7 @@ public:
         in.imbue (std::locale::classic());
         std::string word;
         int version = 0, steps = 0;
-        if (! (in >> word) || word != "grid" || ! (in >> version) || version != 1
+        if (! (in >> word) || word != "grid" || ! (in >> version) || version < 1 || version > 2
             || ! (in >> word) || word != "length" || ! (in >> steps))
             return false;
 
@@ -147,8 +154,8 @@ public:
         parsed.setLength (steps);
         while (in >> word)
         {
-            int row, step, on, prob, vel, ratchet;
-            if (word != "cell" || ! (in >> row >> step >> on >> prob >> vel >> ratchet))
+            int row, step, on, prob, vel, ratchet, octave = 0;
+            if (word != "cell" || ! (in >> row >> step >> on >> prob >> vel >> ratchet) || (version >= 2 && ! (in >> octave)))
                 return false;
             if (row < 0 || row >= kMaxRows || step < 0 || step >= kMaxSteps)
                 continue;
@@ -157,6 +164,7 @@ public:
             c.probability = (float) std::clamp (prob, 0, 100) / 100.0f;
             c.velocity = (float) std::clamp (vel, 1, 127) / 127.0f;
             c.ratchet = std::clamp (ratchet, 1, 4);
+            c.octave = std::clamp (octave, -kMaxCellOctave, kMaxCellOctave);
             parsed.set (row, step, c);
         }
         copyFrom (parsed);
@@ -177,21 +185,22 @@ private:
 inline void loadStarterPattern (Grid& grid)
 {
     grid.clear();
-    auto put = [&grid] (int row, int step, float probability, float velocity)
+    auto put = [&grid] (int row, int step, float probability, float velocity, int octave = 0)
     {
         Cell c;
         c.on = true;
         c.probability = probability;
         c.velocity = velocity;
+        c.octave = octave;
         grid.set (row, step, c);
     };
     put (0, 0, 1.0f, 0.95f);
     put (0, 6, 1.0f, 0.8f);
-    put (0, 10, 0.85f, 0.85f);
+    put (0, 10, 0.85f, 0.85f, -1);
     put (7, 3, 0.6f, 0.7f);
     put (7, 11, 0.4f, 0.6f);
     put (4, 8, 1.0f, 0.75f);
-    put (4, 14, 0.5f, 0.6f);
+    put (4, 14, 0.5f, 0.6f, 1);
     put (2, 13, 0.3f, 0.65f);
     put (6, 15, 0.25f, 0.5f);
 }
@@ -306,7 +315,7 @@ private:
             if (! cell.on || (cell.probability < 1.0f && nextRandom() >= cell.probability))
                 continue;
 
-            const int note = std::clamp (rowNote (row, settings.scale, settings.rootNote), 0, 127);
+            const int note = std::clamp (rowNote (row, settings.scale, settings.rootNote) + 12 * cell.octave, 0, 127);
             for (int i = 0; i < numSounding; ++i) // still sounding: end it before the new hit
                 if (sounding[(size_t) i].note == note)
                 {

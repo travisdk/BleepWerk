@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Renders the interface of a fresh instance to a PNG, for checking the layout and for the
-// README: BleepForge_Screenshot <output.png> [scale] [velocity]
+// README: BleepForge_Screenshot <output.png> [scale] [velocity|octave]
 
 #include "MainView.h"
 #include "Theme.h"
@@ -11,7 +11,7 @@ int main (int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [velocity]\n";
+        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [velocity|octave]\n";
         return 1;
     }
 
@@ -23,6 +23,8 @@ int main (int argc, char* argv[])
     const float scale = argc > 2 ? juce::String (argv[2]).getFloatValue() : 1.0f;
     if (argc > 3 && juce::String (argv[3]) == "velocity")
         processor.editMode = BleepForgeProcessor::EditMode::Velocity;
+    if (argc > 3 && juce::String (argv[3]) == "octave")
+        processor.editMode = BleepForgeProcessor::EditMode::Octave;
 
     auto view = std::make_unique<MainView> (processor);
     const auto image = view->createComponentSnapshot (view->getLocalBounds(), true, scale);
