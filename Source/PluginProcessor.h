@@ -45,7 +45,7 @@ public:
     bleepforge::SequencerSettings sequencerSettings() const; // scale and root from the parameters
 
     // What dragging a cell edits; kept here so it survives closing the editor.
-    enum class EditMode { Probability, Velocity, Octave };
+    enum class EditMode { Probability, Velocity };
     std::atomic<EditMode> editMode { EditMode::Probability };
 
     // Tells the host the project changed after a grid edit (the grid isn't a parameter).

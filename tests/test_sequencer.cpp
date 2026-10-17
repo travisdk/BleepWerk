@@ -279,16 +279,14 @@ static void cellsPack()
         for (int prob : { 0, 1, 37, 100 })
             for (int vel : { 1, 64, 127 })
                 for (int ratchet : { 1, 2, 3, 4 })
-                    for (int octave = -kMaxCellOctave; octave <= kMaxCellOctave; ++octave)
                 {
                     Cell c;
                     c.on = on;
                     c.probability = (float) prob / 100.0f;
                     c.velocity = (float) vel / 127.0f;
                     c.ratchet = ratchet;
-                    c.octave = octave;
                     const auto back = Cell::unpack (c.pack());
-                    CHECK (back.on == on && back.ratchet == ratchet && back.octave == octave);
+                    CHECK (back.on == on && back.ratchet == ratchet);
                     CHECK (std::lround (back.probability * 100.0f) == prob);
                     CHECK (std::lround (back.velocity * 127.0f) == vel);
                 }
@@ -302,7 +300,6 @@ static void gridSavesAndLoads()
     Cell offButShaped;
     offButShaped.probability = 0.42f;
     offButShaped.ratchet = 3;
-    offButShaped.octave = -2;
     grid.set (12, 31, offButShaped);
 
     Grid loaded;
@@ -316,36 +313,9 @@ static void gridSavesAndLoads()
 
     // text that isn't a grid leaves it alone
     CHECK (! loaded.fromString (""));
-    CHECK (! loaded.fromString ("grid 3 length 16"));
-    CHECK (! loaded.fromString ("grid 2 length 16 cell 0 0 1 100 100 1"));
+    CHECK (! loaded.fromString ("grid 2 length 16"));
     CHECK (! loaded.fromString ("grid 1 length 16 cell 0 0 1"));
     CHECK (loaded.getLength() == 23 && loaded.get (12, 31) == offButShaped);
-}
-
-static void version1GridsStillLoad()
-{
-    Grid grid;
-    CHECK (grid.fromString ("grid 1 length 12 cell 2 3 1 40 90 1"));
-    const auto c = grid.get (2, 3);
-    CHECK (grid.getLength() == 12 && c.on && std::lround (c.probability * 100.0f) == 40 && c.octave == 0);
-}
-
-static void cellOctaveMovesTheNote()
-{
-    Grid grid;
-    auto c = hit();
-    c.octave = 2;
-    grid.set (0, 0, c);
-    c.octave = -1;
-    grid.set (2, 1, c);
-    c.octave = 3;
-    grid.set (7, 2, c); // C5 + 3 octaves
-    SequencerSettings high;
-    high.rootNote = 96;
-    const auto normal = run (grid, 256, 3);
-    CHECK (normal.size() == 6 && normal[0].note == 84 && normal[2].note == 51 && normal[4].note == 108);
-    const auto clamped = run (grid, 256, 3, high);
-    CHECK (clamped.size() == 6 && clamped[4].note == 127); // C8 + 3 octaves stops at the top
 }
 
 int main()
@@ -363,7 +333,5 @@ int main()
     lengthWraps();
     cellsPack();
     gridSavesAndLoads();
-    version1GridsStillLoad();
-    cellOctaveMovesTheNote();
     return finish ("sequencer");
 }

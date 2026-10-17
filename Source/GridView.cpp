@@ -9,57 +9,28 @@ using namespace bleepforge;
 namespace
 {
 constexpr float kDragPixelsForFullRange = 150.0f;
-constexpr float kDragPixelsPerOctave = 24.0f;
 constexpr float kDragThreshold = 3.0f;
 const Cell kDefaultCell;
 
 using EditMode = BleepForgeProcessor::EditMode;
 
-// The value the mode edits: 0..1 for probability and velocity, the offset in octaves for Octave.
 float valueOf (const Cell& cell, EditMode mode)
 {
-    switch (mode)
-    {
-        case EditMode::Velocity: return cell.velocity;
-        case EditMode::Octave: return (float) cell.octave;
-        case EditMode::Probability: break;
-    }
-    return cell.probability;
+    return mode == EditMode::Velocity ? cell.velocity : cell.probability;
 }
 
 void setValue (Cell& cell, EditMode mode, float value)
 {
-    switch (mode)
-    {
-        case EditMode::Velocity: cell.velocity = juce::jlimit (1.0f / 127.0f, 1.0f, value); break;
-        case EditMode::Octave: cell.octave = juce::jlimit (-kMaxCellOctave, kMaxCellOctave, juce::roundToInt (value)); break;
-        case EditMode::Probability: cell.probability = juce::jlimit (0.0f, 1.0f, value); break;
-    }
+    if (mode == EditMode::Velocity)
+        cell.velocity = juce::jlimit (1.0f / 127.0f, 1.0f, value);
+    else
+        cell.probability = juce::jlimit (0.0f, 1.0f, value);
 }
 
-// The number a cell shows, or empty when it is at its usual value.
 juce::String valueText (const Cell& cell, EditMode mode)
 {
-    switch (mode)
-    {
-        case EditMode::Velocity:
-            return cell.velocity < 1.0f ? juce::String (juce::roundToInt (cell.velocity * 127.0f)) : juce::String();
-        case EditMode::Octave:
-            return cell.octave == 0 ? juce::String() : (cell.octave > 0 ? juce::String ("+") : juce::String (juce::CharPointer_UTF8 ("\xe2\x88\x92"))) + juce::String (std::abs (cell.octave));
-        case EditMode::Probability: break;
-    }
-    return cell.probability < 1.0f ? juce::String (juce::roundToInt (cell.probability * 100.0f)) : juce::String();
-}
-
-juce::Colour modeColour (EditMode mode)
-{
-    switch (mode)
-    {
-        case EditMode::Velocity: return theme::velocity;
-        case EditMode::Octave: return theme::octave;
-        case EditMode::Probability: break;
-    }
-    return theme::accent;
+    return mode == EditMode::Velocity ? juce::String (juce::roundToInt (cell.velocity * 127.0f))
+                                      : juce::String (juce::roundToInt (cell.probability * 100.0f));
 }
 
 juce::String noteName (int note)
@@ -113,13 +84,11 @@ juce::String GridView::describe (CellPos pos) const
         return {};
     const auto settings = processor.sequencerSettings();
     const auto cell = grid.get (pos.row, pos.step);
-    const int note = juce::jlimit (0, 127, rowNote (pos.row, settings.scale, settings.rootNote) + 12 * cell.octave);
-    auto text = noteName (note) + "  step " + juce::String (pos.step + 1);
+    auto text = noteName (rowNote (pos.row, settings.scale, settings.rootNote)) + "  step " + juce::String (pos.step + 1);
     if (! cell.on)
         return text + "  off";
     return text + "  probability " + juce::String (juce::roundToInt (cell.probability * 100.0f)) + " %"
-         + "  velocity " + juce::String (juce::roundToInt (cell.velocity * 127.0f))
-         + "  octave " + (cell.octave > 0 ? "+" : "") + juce::String (cell.octave);
+         + "  velocity " + juce::String (juce::roundToInt (cell.velocity * 127.0f));
 }
 
 void GridView::setHover (CellPos pos)
@@ -139,7 +108,7 @@ void GridView::paint (juce::Graphics& g)
     const int playing = processor.getSequencer().getCurrentStep();
     const auto area = cellArea();
     const auto mode = processor.editMode.load();
-    const auto colour = modeColour (mode);
+    const auto colour = mode == EditMode::Velocity ? theme::velocity : theme::accent;
 
     // row labels: the note each row plays, roots in the accent colour
     for (int row = 0; row < numRowsShown; ++row)
@@ -171,21 +140,18 @@ void GridView::paint (juce::Graphics& g)
 
             if (cell.on)
             {
-                // probability and velocity as the fill height; Octave fills the cell and shows
-                // the offset in its middle
-                const auto shade = theme::forOctave (colour, cell.octave);
-                const float fill = mode == EditMode::Octave ? 1.0f : valueOf (cell, mode);
-                g.setColour (shade.withAlpha (0.8f));
-                g.fillRoundedRectangle (r.withTop (r.getBottom() - r.getHeight() * fill), corner);
-                g.setColour (shade);
+                // the mode's value as the fill height, its number while below the maximum
+                const float value = valueOf (cell, mode);
+                g.setColour (colour.withAlpha (0.8f));
+                g.fillRoundedRectangle (r.withTop (r.getBottom() - r.getHeight() * value), corner);
+                g.setColour (colour);
                 g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.2f);
 
-                if (const auto label = valueText (cell, mode); label.isNotEmpty() && r.getWidth() >= 24.0f && r.getHeight() >= 14.0f)
+                if (value < 1.0f && r.getWidth() >= 24.0f && r.getHeight() >= 14.0f)
                 {
-                    const bool big = mode == EditMode::Octave;
-                    g.setColour (big ? (cell.octave > 0 ? theme::background : theme::text) : theme::text.withAlpha (0.85f));
-                    g.setFont (juce::FontOptions (big ? 14.0f : 10.0f, big ? juce::Font::bold : juce::Font::plain));
-                    g.drawText (label, r.reduced (2.0f, 1.0f), big ? juce::Justification::centred : juce::Justification::topRight);
+                    g.setColour (theme::text.withAlpha (0.85f));
+                    g.setFont (juce::FontOptions (10.0f));
+                    g.drawText (valueText (cell, mode), r.reduced (2.0f, 1.0f), juce::Justification::topRight);
                 }
             }
             else if (hover.row == row && hover.step == step)
@@ -290,8 +256,7 @@ void GridView::mouseDrag (const juce::MouseEvent& e)
     // dragging a cell sets it, and switches it on
     auto cell = grid.get (drag.row, drag.step);
     cell.on = true;
-    const auto mode = processor.editMode.load();
-    setValue (cell, mode, dragStartValue - dy / (mode == EditMode::Octave ? kDragPixelsPerOctave : kDragPixelsForFullRange));
+    setValue (cell, processor.editMode.load(), dragStartValue - dy / kDragPixelsForFullRange);
     grid.set (drag.row, drag.step, cell);
 
     hover = drag;

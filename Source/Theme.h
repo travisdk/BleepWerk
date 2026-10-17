@@ -16,17 +16,6 @@ inline const juce::Colour text { 0xffd8dce4 };
 inline const juce::Colour dimText { 0xff7a8190 };
 inline const juce::Colour accent { 0xff4fe0b0 };
 inline const juce::Colour velocity { 0xffffb547 }; // the grid in Velocity mode
-inline const juce::Colour octave { 0xff6fa8ff };   // the grid in Octave mode
-
-// A cell's colour for its octave offset: darker below its row's note, lighter above.
-inline juce::Colour forOctave (juce::Colour base, int octaveOffset)
-{
-    if (octaveOffset > 0)
-        return base.interpolatedWith (juce::Colours::white, 0.17f * (float) octaveOffset);
-    if (octaveOffset < 0)
-        return base.interpolatedWith (juce::Colours::black, 0.2f * (float) -octaveOffset);
-    return base;
-}
 
 class LookAndFeel : public juce::LookAndFeel_V4
 {
