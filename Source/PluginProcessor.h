@@ -23,7 +23,7 @@ public:
     bool hasEditor() const override { return true; }
 
     const juce::String getName() const override { return JucePlugin_Name; }
-    bool acceptsMidi() const override { return true; }
+    bool acceptsMidi() const override { return false; } // plays its own sequencer only
     bool producesMidi() const override { return true; } // sequencer notes to the host (MIDI output mode)
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 0.5; } // longest release
@@ -46,9 +46,9 @@ public:
     juce::AudioProcessorValueTreeState apvts;
 
 private:
-    void handleMidi (const juce::MidiMessage& message);
+    void handleNote (const juce::MidiMessage& message);
     void readParams();
-    void buildVoiceMidi (const juce::MidiBuffer& midi, int numSamples);
+    void runSequencer (int numSamples);
 
     // Saved with the plug-in state so later versions can migrate older projects.
     //   1: 0.1.0
@@ -57,7 +57,7 @@ private:
     bleepforge::BleepSynth bleep;
     bleepforge::Grid grid;
     bleepforge::SequencerEngine sequencer;
-    juce::MidiBuffer voiceMidi; // incoming MIDI merged with the sequencer's notes
+    juce::MidiBuffer seqMidi; // the sequencer's notes for one block
     std::vector<float> mono; // one block of engine output, sized in prepareToPlay
     juce::LinearSmoothedValue<float> outputGain { 1.0f };
 

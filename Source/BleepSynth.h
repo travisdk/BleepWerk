@@ -85,7 +85,7 @@ public:
     void release() { amp.noteOff(); }
 
     // Adds the voice to out. glideCoef is the per-sample one-pole coefficient (0 = no glide).
-    void render (float* out, int numSamples, const BleepParams& p, float glideCoef, float bendSemis)
+    void render (float* out, int numSamples, const BleepParams& p, float glideCoef)
     {
         amp.set (fs, p.attackMs, p.decayMs, 0.0f, p.releaseMs);
         const float pitchCoef = std::exp (-4.6f / std::max (1.0f, p.pitchEnvDecayMs * 0.001f * fs)); // -40 dB
@@ -95,7 +95,7 @@ public:
         for (int i = 0; i < numSamples && amp.isActive(); ++i)
         {
             currentPitch = targetPitch + (currentPitch - targetPitch) * glideCoef;
-            const float pitch = currentPitch + bendSemis + p.pitchEnvSemis * pitchEnv;
+            const float pitch = currentPitch + p.pitchEnvSemis * pitchEnv;
             pitchEnv *= pitchCoef;
             const float inc = std::min (0.45f, 440.0f * std::exp2 ((pitch - 69.0f) / 12.0f) / fs);
 
@@ -187,8 +187,6 @@ public:
         glideCoef = ms <= 0.0f ? 0.0f : std::exp (-4.6f / (ms * 0.001f * fs));
     }
 
-    void setPitchBend (float semis) { bendSemis = semis; }
-
     void noteOn (int note, float velocity)
     {
         if (mode == Mode::Mono)
@@ -240,7 +238,7 @@ public:
         const float coef = mode == Mode::Mono ? glideCoef : 0.0f;
         for (auto& voice : voices)
             if (voice.isActive())
-                voice.render (out, numSamples, params, coef, bendSemis);
+                voice.render (out, numSamples, params, coef);
     }
 
     int activeVoices() const
@@ -286,7 +284,7 @@ private:
     float fs = 48000.0f;
     BleepParams params;
     Mode mode = Mode::Poly;
-    float glideMs = 0.0f, glideCoef = 0.0f, bendSemis = 0.0f;
+    float glideMs = 0.0f, glideCoef = 0.0f;
     std::array<BleepVoice, kMaxVoices> voices;
     std::array<uint64_t, kMaxVoices> startOrder {};
     uint64_t startCounter = 0;

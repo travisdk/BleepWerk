@@ -75,7 +75,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
         scales.add (scale.name);
     for (auto* name : bleepforge::kRootNames)
         roots.add (name);
-    params.push_back (std::make_unique<AudioParameterBool> (ParameterID { "seqOn", 1 }, "Sequencer", true));
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqScale", 1 }, "Scale", scales,
                                                               bleepforge::kDefaultScale));
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqRoot", 1 }, "Root", roots, 0));
@@ -96,7 +95,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
 void BleepForgeProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     mono.assign ((size_t) juce::jmax (1, samplesPerBlock), 0.0f);
-    voiceMidi.ensureSize (4096);
+    seqMidi.ensureSize (4096);
     bleep.prepare (sampleRate);
     readParams();
     outputGain.reset (sampleRate, 0.02);
@@ -130,16 +129,12 @@ void BleepForgeProcessor::readParams()
     bleep.setGlideMs (get ("glide"));
 }
 
-void BleepForgeProcessor::handleMidi (const juce::MidiMessage& message)
+void BleepForgeProcessor::handleNote (const juce::MidiMessage& message)
 {
     if (message.isNoteOn())
         bleep.noteOn (message.getNoteNumber(), message.getFloatVelocity());
     else if (message.isNoteOff())
         bleep.noteOff (message.getNoteNumber());
-    else if (message.isAllNotesOff() || message.isAllSoundOff())
-        bleep.allNotesOff();
-    else if (message.isPitchWheel())
-        bleep.setPitchBend ((float) (message.getPitchWheelValue() - 8192) / 8192.0f * 2.0f);
 }
 
 void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
@@ -149,9 +144,9 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
     const int numSamples = buffer.getNumSamples();
     buffer.clear();
-    buildVoiceMidi (midi, numSamples);
+    runSequencer (numSamples);
 
-    // Render in chunks between MIDI events so notes start on their exact sample. The scratch
+    // Render in chunks between the sequencer's notes so they start on their exact sample. The scratch
     // buffer is sized in prepareToPlay; a host block larger than promised is done in pieces.
     const int chunkMax = (int) mono.size();
     auto renderRange = [&] (int from, int to)
@@ -167,26 +162,25 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     };
 
     int position = 0;
-    for (const auto metadata : voiceMidi)
+    for (const auto metadata : seqMidi)
     {
         const int eventPos = juce::jlimit (0, numSamples, metadata.samplePosition);
         renderRange (position, eventPos);
         position = juce::jmax (position, eventPos);
-        handleMidi (metadata.getMessage());
+        handleNote (metadata.getMessage());
     }
     renderRange (position, numSamples);
 
-    // Incoming MIDI is consumed here: with producesMidi() whatever is left in the buffer goes
-    // to the host, and MIDI thru will be an explicit option later.
+    // BleepForge plays only its sequencer. With producesMidi() whatever is left in this buffer
+    // goes to the host, so it is cleared; the MIDI output mode will fill it with seqMidi.
     midi.clear();
 
     outputGain.setTargetValue (juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("outputGain")->load()));
     outputGain.applyGain (buffer, numSamples);
 }
 
-// Incoming MIDI plays the engine whether the sequencer runs or not; the sequencer's notes are
-// merged in. Steps follow the host's position, so the sequencer only runs while it plays.
-void BleepForgeProcessor::buildVoiceMidi (const juce::MidiBuffer& midi, int numSamples)
+// Steps follow the host's position, so the sequencer runs while the host plays.
+void BleepForgeProcessor::runSequencer (int numSamples)
 {
     double bpm = 120.0, ppq = 0.0;
     bool playing = false;
@@ -206,16 +200,14 @@ void BleepForgeProcessor::buildVoiceMidi (const juce::MidiBuffer& midi, int numS
 
     auto get = [this] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
     bleepforge::SequencerSettings settings;
-    settings.enabled = get ("seqOn") >= 0.5f;
     settings.scale = (int) get ("seqScale");
     settings.rootNote = 60 + (int) get ("seqRoot") + 12 * (int) get ("seqOctave");
 
-    voiceMidi.clear();
-    voiceMidi.addEvents (midi, 0, numSamples, 0);
+    seqMidi.clear();
     sequencer.process (playing, ppq, bpm, getSampleRate(), numSamples, settings, grid,
                        [this] (int sample, bool on, int note, float velocity)
                        {
-                           voiceMidi.addEvent (on ? juce::MidiMessage::noteOn (1, note, velocity)
+                           seqMidi.addEvent (on ? juce::MidiMessage::noteOn (1, note, velocity)
                                                   : juce::MidiMessage::noteOff (1, note), sample);
                        });
 }

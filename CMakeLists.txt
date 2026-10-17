@@ -59,7 +59,7 @@ juce_add_plugin(BleepForge
     COPY_PLUGIN_AFTER_BUILD ${BLEEPFORGE_INSTALL_AFTER_BUILD}   # VST3 (CLAP is copied by the command further down)
     VST3_COPY_DIR "${VST3_INSTALL_DIR}"
     IS_SYNTH TRUE
-    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_INPUT FALSE   # plays its own sequencer only
     NEEDS_MIDI_OUTPUT TRUE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE)

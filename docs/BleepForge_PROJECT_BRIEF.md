@@ -71,14 +71,13 @@ UX inspired by Stochas, own implementation.
   - Velocity
   - Ratchet (1 to 4 repeats within the step)
 - Global swing
-- Sequencer can be bypassed so the plugin also plays from incoming MIDI
+- No MIDI input: the plugin plays its own sequencer only (decided 2026-10-17)
 
 ### 5.1 MIDI output (optional mode)
 
 - The plugin declares MIDI output (JUCE `producesMidi()`), so the sequencer's generated notes (after probability, ratchets, velocity and Chaos on velocity) are sent to the host
 - **Output mode** parameter: Audio only, Audio + MIDI, MIDI only
 - In **MIDI only** mode the sound engine is disabled entirely (no voices rendered, no CPU cost), so BleepForge works purely as a probability sequencer driving another synth
-- **MIDI thru** toggle: incoming MIDI notes are passed through to the output as well
 - Selectable output MIDI channel
 - Note-offs must always be sent correctly (also on transport stop, mode change and bypass), so no hanging notes
 - Note: host support for MIDI output from instrument plugins varies. CLAP note output is the primary target (Bitwig handles it well); VST3 MIDI output should be implemented but tested per host
@@ -105,13 +104,13 @@ UX inspired by Stochas, own implementation.
 ## 9. Milestones
 
 1. **Skeleton:** JUCE 8 project with CMake, CLAP + VST3 build on Linux and Windows, empty UI, APVTS in place
-2. **Bleep engine** playable from MIDI, mono/poly
+2. **Bleep engine**, mono/poly
 3. **Sequencer core:** grid model, host sync, scale/root/octave, probability, velocity
 4. **Grid UI**
 5. **Foley engine**
 6. **Ratchets, Chaos, swing, step length/rate**
 7. **Effects**
-7b. **MIDI output mode** (Audio / Audio + MIDI / MIDI only, MIDI thru, channel)
+7b. **MIDI output mode** (Audio / Audio + MIDI / MIDI only, channel)
 8. **Presets, state save/restore, polish**
 9. **Testing and release** (README, license, build artifacts)
 
