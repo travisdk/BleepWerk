@@ -85,22 +85,31 @@ static bool balanced (const std::vector<Event>& events)
 
 static void scaleMapping()
 {
-    const int minor[] = { 60, 62, 63, 65, 67, 68, 70, 72 };
-    CHECK (numRows (1, 1) == 8);
+    // C minor from the bottom of MIDI: C-1 D-1 D#-1 F-1 G-1 G#-1 A#-1, then C0
+    const int minor[] = { 0, 2, 3, 5, 7, 8, 10, 12 };
     for (int row = 0; row < 8; ++row)
-        CHECK (rowNote (row, 1, 60) == minor[row]);
+        CHECK (rowNote (row, 1, 0) == minor[row]);
+    CHECK (rowNote (5 * 7, 1, 0) == 60);  // C4
+    CHECK (rowNote (5 * 7 + 2, 1, 0) == 63);
+    CHECK (rowNote (2, 4, 4) == 7);       // E Phrygian: F# isn't in it, G is
 
-    CHECK (numRows (0, 1) == 13);
-    CHECK (rowNote (12, 0, 60) == 72);
-    CHECK (numRows (6, 1) == 6);
+    // every note of the scale that MIDI has, and nothing above 127
+    CHECK (numRows (0, 0) == 128);
+    CHECK (numRows (0, 11) == 117);       // chromatic from B-1
+    CHECK (numRows (1, 0) == 75);         // C minor: 10 octaves of 7, then C9 D9 D#9 F9 G9
+    for (int scale = 0; scale < kNumScales; ++scale)
+        for (int root = 0; root < 12; ++root)
+        {
+            const int rows = numRows (scale, root);
+            CHECK (rowNote (rows - 1, scale, root) <= 127 && rowNote (rows, scale, root) > 127);
+            CHECK (rowSlot (rows - 1, scale) < kNumSlots);
+        }
 
-    // over several octaves the rows keep climbing the scale
-    CHECK (numRows (1, 3) == 22);
-    CHECK (numRows (0, kMaxRange) == kMaxRows);
-    CHECK (rowNote (21, 1, 36) == 72);  // C2 minor, range 3: the top row is C5
-    CHECK (rowNote (9, 1, 36) == 51);   // the third degree in the second octave: D#3
-    CHECK (rowNote (5, 6, 57) == 69); // A minor pentatonic: the top row is A an octave up
-    CHECK (rowNote (2, 4, 64) == 67); // E Phrygian: F# isn't in it, G is
+    // storage by octave and degree, so the same slot is the same degree in any scale
+    CHECK (rowSlot (5 * 7 + 2, 1) == 5 * 12 + 2);
+    CHECK (rowSlot (5 * 5 + 2, 6) == 5 * 12 + 2);
+    CHECK (rowAtOrAbove (61, 1, 0) == 5 * 7 + 1); // C#4 isn't in C minor: D4 is next
+    CHECK (rowAtOrAbove (200, 1, 0) == numRows (1, 0) - 1);
 }
 
 static void stepsLandOnTheirSample()
@@ -130,11 +139,11 @@ static void blockSizeDoesNotMatter()
     Grid grid;
     loadStarterPattern (grid);
     for (int step = 0; step < kDefaultSteps; ++step)
-        for (int row = 0; row < numRows (kDefaultScale, 1); ++row)
-            if (auto c = grid.get (row, step); c.on)
+        for (int slot = 0; slot < kNumSlots; ++slot)
+            if (auto c = grid.get (slot, step); c.on)
             {
                 c.probability = 1.0f; // so every run plays the same notes
-                grid.set (row, step, c);
+                grid.set (slot, step, c);
             }
 
     const auto reference = run (grid, 64, 48);
@@ -157,22 +166,26 @@ static void severalRowsSoundTogether()
     CHECK (balanced (events));
 }
 
-static void rowsAboveTheScaleAreSilent()
+static void scaleAndKeyChooseTheNotes()
 {
     Grid grid;
-    grid.set (10, 0, hit()); // only exists in the chromatic scale, or over more octaves
+    grid.set (5 * 12 + 2, 0, hit());  // octave 5, third degree
+    grid.set (5 * 12 + 10, 1, hit()); // octave 5, eleventh degree: chromatic only
+
     SequencerSettings minor;
-    CHECK (run (grid, 256, 16, minor).empty());
+    auto events = run (grid, 256, 2, minor);
+    CHECK (events.size() == 2 && events[0].note == 63); // D#4
+
+    SequencerSettings aMajor;
+    aMajor.scale = 2;
+    aMajor.root = 9;
+    events = run (grid, 256, 2, aMajor);
+    CHECK (events.size() == 2 && events[0].note == 73); // C#5: the third degree of A major in that octave
 
     SequencerSettings chromatic;
     chromatic.scale = 0;
-    auto events = run (grid, 256, 16, chromatic);
-    CHECK (events.size() == 2 && events[0].note == 70);
-
-    SequencerSettings minorTwoOctaves;
-    minorTwoOctaves.range = 2;
-    events = run (grid, 256, 16, minorTwoOctaves);
-    CHECK (events.size() == 2 && events[0].note == 77); // F5: fourth degree, second octave
+    events = run (grid, 256, 2, chromatic);
+    CHECK (events.size() == 4 && events[0].note == 62 && events[2].note == 70);
 }
 
 static void probabilityDistribution()
@@ -251,7 +264,7 @@ static void loopRestartsAtStepZero()
     const auto events = run (grid, 512, 20, {}, 0.0, 8); // jump back to beat 0 at step 8
     std::vector<long> rootOns;
     for (const auto& e : events)
-        if (e.on && e.note == 60)
+        if (e.on && e.note == 0) // slot 0: C-1
             rootOns.push_back (e.sample);
     CHECK (rootOns.size() == 2);
     CHECK (rootOns.size() == 2 && rootOns[1] == 8 * samplesPerStep);
@@ -311,22 +324,22 @@ static void gridSavesAndLoads()
     Cell offButShaped;
     offButShaped.probability = 0.42f;
     offButShaped.ratchet = 3;
-    grid.set (12, 31, offButShaped);
+    grid.set (kNumSlots - 1, 31, offButShaped);
 
     Grid loaded;
     CHECK (loaded.fromString (grid.toString()));
     CHECK (loaded.getLength() == 23);
     bool same = true;
-    for (int row = 0; row < kMaxRows; ++row)
+    for (int slot = 0; slot < kNumSlots; ++slot)
         for (int step = 0; step < kMaxSteps; ++step)
-            same = same && loaded.get (row, step) == grid.get (row, step);
+            same = same && loaded.get (slot, step) == grid.get (slot, step);
     CHECK (same);
 
     // text that isn't a grid leaves it alone
     CHECK (! loaded.fromString (""));
-    CHECK (! loaded.fromString ("grid 2 length 16"));
-    CHECK (! loaded.fromString ("grid 1 length 16 cell 0 0 1"));
-    CHECK (loaded.getLength() == 23 && loaded.get (12, 31) == offButShaped);
+    CHECK (! loaded.fromString ("grid 1 length 16"));
+    CHECK (! loaded.fromString ("grid 2 length 16 cell 0 0 1"));
+    CHECK (loaded.getLength() == 23 && loaded.get (kNumSlots - 1, 31) == offButShaped);
 }
 
 int main()
@@ -335,7 +348,7 @@ int main()
     stepsLandOnTheirSample();
     blockSizeDoesNotMatter();
     severalRowsSoundTogether();
-    rowsAboveTheScaleAreSilent();
+    scaleAndKeyChooseTheNotes();
     probabilityDistribution();
     velocityIsPassedOn();
     stopAndJumpsLeaveNoNoteHanging();

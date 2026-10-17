@@ -8,7 +8,7 @@
 #include "GridView.h"
 
 // Everything in the editor, laid out at a fixed design size; the editor scales it as a whole.
-// Top: title, edit mode, the sequencer's Scale, Root and Octave, and a settings menu (Range).
+// Top: title, edit mode, the sequencer's Scale and Root, and a settings menu (visible range).
 // Middle: the grid and a status line.
 // Bottom: the engine section (later milestones).
 class MainView : public juce::Component
@@ -23,7 +23,6 @@ public:
 
 private:
     using ComboAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
-    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
 
     juce::Rectangle<int> headerArea() const;
     juce::Rectangle<int> engineArea() const;
@@ -44,12 +43,10 @@ private:
     juce::Label editLabel { {}, "Edit" };
     juce::TextButton probabilityButton { "Probability" }, velocityButton { "Velocity" };
 
-    juce::Label scaleLabel { {}, "Scale" }, rootLabel { {}, "Root" }, octaveLabel { {}, "Octave" };
+    juce::Label scaleLabel { {}, "Scale" }, rootLabel { {}, "Root" };
     juce::ComboBox scaleBox, rootBox;
-    juce::Slider octaveSlider { juce::Slider::IncDecButtons, juce::Slider::TextBoxLeft };
     GearButton settingsButton;
     std::unique_ptr<ComboAttachment> scaleAttachment, rootAttachment;
-    std::unique_ptr<SliderAttachment> octaveAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainView)
 };

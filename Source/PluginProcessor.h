@@ -43,11 +43,12 @@ public:
     bleepforge::Grid& getGrid() { return grid; }
     const bleepforge::SequencerEngine& getSequencer() const { return sequencer; }
     bleepforge::SequencerSettings sequencerSettings() const; // scale and root from the parameters
+    static constexpr int kMaxVisibleOctaves = 4;
 
     // What dragging a cell edits; kept here so it survives closing the editor.
     enum class EditMode { Probability, Velocity };
     std::atomic<EditMode> editMode { EditMode::Probability };
-    std::atomic<int> firstVisibleRow { 0 }; // the grid's bottom row while browsing a large range
+    std::atomic<int> bottomNote { -1 }; // the grid's lowest note in view; -1 until first shown
 
     // Tells the host the project changed after a grid edit (the grid isn't a parameter).
     void gridEdited();

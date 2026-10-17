@@ -78,10 +78,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqScale", 1 }, "Scale", scales,
                                                               bleepforge::kDefaultScale));
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqRoot", 1 }, "Root", roots, 0));
-    params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqOctave", 1 }, "Octave", -3, 3, 0));
-    // a setting rather than something to automate: it changes how big the grid is
-    params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqRange", 1 }, "Range", 1, bleepforge::kMaxRange, 1,
-                                                           AudioParameterIntAttributes().withAutomatable (false)));
+    // how many octaves the grid shows at a time: a view setting, saved with the project
+    params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqRange", 1 }, "Visible Range", 1, kMaxVisibleOctaves,
+                                                           2, AudioParameterIntAttributes().withAutomatable (false)));
 
     // Voices
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "voiceMode", 1 }, "Voice Mode",
@@ -216,8 +215,7 @@ bleepforge::SequencerSettings BleepForgeProcessor::sequencerSettings() const
     auto get = [this] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
     bleepforge::SequencerSettings settings;
     settings.scale = (int) get ("seqScale");
-    settings.rootNote = 60 + (int) get ("seqRoot") + 12 * (int) get ("seqOctave");
-    settings.range = (int) get ("seqRange");
+    settings.root = (int) get ("seqRoot");
     return settings;
 }
 

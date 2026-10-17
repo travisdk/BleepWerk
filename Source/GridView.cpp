@@ -10,6 +10,7 @@ namespace
 {
 constexpr float kDragPixelsForFullRange = 150.0f;
 constexpr float kDragThreshold = 3.0f;
+constexpr int kEmptyGridBottomNote = 48; // C3: where an empty grid opens
 const Cell kDefaultCell;
 
 using EditMode = BleepForgeProcessor::EditMode;
@@ -42,8 +43,15 @@ juce::String noteName (int note)
 GridView::GridView (BleepForgeProcessor& p)
     : processor (p), grid (p.getGrid())
 {
-    for (int row = 0; row < kMaxRows; ++row)
-        shownHits[(size_t) row] = processor.getSequencer().getLastHit (row);
+    for (int slot = 0; slot < kNumSlots; ++slot)
+        shownHits[(size_t) slot] = processor.getSequencer().getLastHit (slot);
+
+    // the first time the grid is shown, it opens on the pattern's lowest note
+    if (processor.bottomNote.load() < 0)
+    {
+        const int lowest = lowestUsedRow();
+        processor.bottomNote = lowest >= 0 ? rowNote (lowest, settings().scale, settings().root) : kEmptyGridBottomNote;
+    }
     startTimerHz (30);
 }
 
@@ -52,22 +60,34 @@ GridView::~GridView()
     stopTimer();
 }
 
-int GridView::rows() const
+int GridView::rows() const { return numRows (settings().scale, settings().root); }
+int GridView::steps() const { return grid.getLength(); }
+int GridView::slotOf (int row) const { return rowSlot (row, settings().scale); }
+
+// The visible range in octaves, from the root up to the root again: 15 rows for two octaves
+// of a 7-note scale.
+int GridView::visibleRows() const
 {
-    const auto settings = processor.sequencerSettings();
-    return numRows (settings.scale, settings.range);
+    const int octaves = (int) processor.apvts.getRawParameterValue ("seqRange")->load();
+    return juce::jmin (rows(), scaleAt (settings().scale).size * octaves + 1);
 }
 
-int GridView::steps() const { return grid.getLength(); }
-int GridView::visibleRows() const { return juce::jmin (rows(), kMaxVisibleRows); }
-int GridView::firstRow() const { return juce::jlimit (0, rows() - visibleRows(), processor.firstVisibleRow.load()); }
+// The view is kept as a note rather than a row, so it stays in the same register when the
+// scale or key changes.
+int GridView::firstRow() const
+{
+    const auto s = settings();
+    return juce::jlimit (0, rows() - visibleRows(), rowAtOrAbove (processor.bottomNote.load(), s.scale, s.root));
+}
 
 void GridView::scrollTo (int bottomRow)
 {
+    const auto s = settings();
     const int clamped = juce::jlimit (0, rows() - visibleRows(), bottomRow);
-    if (clamped == processor.firstVisibleRow.load())
+    const int note = rowNote (clamped, s.scale, s.root);
+    if (note == processor.bottomNote.load())
         return;
-    processor.firstVisibleRow = clamped;
+    processor.bottomNote = note;
     hover = {};
     repaint();
 }
@@ -78,6 +98,16 @@ void GridView::scrollToOverview (float y)
     const auto strip = overviewArea();
     const float fromBottom = (strip.getBottom() - y) / strip.getHeight() * (float) rows();
     scrollTo (juce::roundToInt (fromBottom - (float) visibleRows() * 0.5f));
+}
+
+int GridView::lowestUsedRow() const
+{
+    const int total = rows(), numSteps = steps();
+    for (int row = 0; row < total; ++row)
+        for (int step = 0; step < numSteps; ++step)
+            if (grid.get (slotOf (row), step).on)
+                return row;
+    return -1;
 }
 
 juce::Rectangle<float> GridView::cellArea() const
@@ -116,9 +146,9 @@ juce::String GridView::describe (CellPos pos) const
 {
     if (! pos.valid())
         return {};
-    const auto settings = processor.sequencerSettings();
-    const auto cell = grid.get (pos.row, pos.step);
-    auto text = noteName (rowNote (pos.row, settings.scale, settings.rootNote)) + "  step " + juce::String (pos.step + 1);
+    const auto s = settings();
+    const auto cell = grid.get (slotOf (pos.row), pos.step);
+    auto text = noteName (rowNote (pos.row, s.scale, s.root)) + "  step " + juce::String (pos.step + 1);
     if (! cell.on)
         return text + "  off";
     return text + "  probability " + juce::String (juce::roundToInt (cell.probability * 100.0f)) + " %"
@@ -137,37 +167,45 @@ void GridView::setHover (CellPos pos)
 
 void GridView::paint (juce::Graphics& g)
 {
-    const auto settings = processor.sequencerSettings();
+    const auto s = settings();
+    const int scaleSize = scaleAt (s.scale).size;
     const int numSteps = steps(), first = firstRow(), last = first + visibleRows() - 1;
     const int playing = processor.getSequencer().getCurrentStep();
     const auto area = cellArea();
     const auto mode = processor.editMode.load();
     const auto colour = mode == EditMode::Velocity ? theme::velocity : theme::accent;
+    const float rowHeight = cellBounds (first, 0).getHeight();
 
-    // row labels: the note each row plays, roots in the accent colour
+    // row labels: the note each row plays, roots in the accent colour; on rows too low for
+    // text, only the roots
+    const float labelFont = juce::jmin (12.0f, rowHeight * 0.85f);
     for (int row = first; row <= last; ++row)
     {
-        const int note = rowNote (row, settings.scale, settings.rootNote);
+        const bool isRoot = row % scaleSize == 0;
+        if (rowHeight < 9.0f && ! isRoot)
+            continue;
         const auto r = cellBounds (row, 0).withX (0.0f).withWidth (kLabelWidth - 6.0f);
-        const bool isRoot = row % scaleAt (settings.scale).size == 0;
         g.setColour (isRoot ? theme::accent : (hover.row == row ? theme::text : theme::dimText));
-        g.setFont (juce::FontOptions (12.0f, isRoot ? juce::Font::bold : juce::Font::plain));
-        g.drawText (noteName (note), r, juce::Justification::centredRight);
+        g.setFont (juce::FontOptions (juce::jmax (8.0f, labelFont), isRoot ? juce::Font::bold : juce::Font::plain));
+        g.drawText (noteName (rowNote (row, s.scale, s.root)), r.withSizeKeepingCentre (r.getWidth(), juce::jmax (r.getHeight(), 10.0f)),
+                    juce::Justification::centredRight);
     }
 
     // the playing step's column
     if (playing >= 0 && playing < numSteps)
     {
         g.setColour (juce::Colours::white.withAlpha (0.07f));
-        g.fillRect (cellBounds (0, playing).withY (area.getY()).withHeight (area.getHeight()));
+        g.fillRect (cellBounds (first, playing).withY (area.getY()).withHeight (area.getHeight()));
     }
 
+    const float gap = rowHeight < 12.0f ? 1.0f : 2.0f;
     for (int step = 0; step < numSteps; ++step)
         for (int row = first; row <= last; ++row)
         {
-            const auto cell = grid.get (row, step);
-            const auto r = cellBounds (row, step).reduced (2.0f);
-            const float corner = 3.0f;
+            const int slot = slotOf (row);
+            const auto cell = grid.get (slot, step);
+            const auto r = cellBounds (row, step).reduced (2.0f, gap);
+            const float corner = juce::jmin (3.0f, r.getHeight() * 0.3f);
 
             g.setColour ((step / 4) % 2 == 1 ? theme::panelAlt : theme::panel);
             g.fillRoundedRectangle (r, corner);
@@ -194,17 +232,17 @@ void GridView::paint (juce::Graphics& g)
                 g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.0f);
             }
 
-            if (const float f = flash[(size_t) (row * kMaxSteps + step)]; f > 0.01f)
+            if (const float f = flash[(size_t) (slot * kMaxSteps + step)]; f > 0.01f)
             {
                 g.setColour (juce::Colours::white.withAlpha (0.55f * f));
                 g.fillRoundedRectangle (r, corner);
             }
         }
 
-    // overview of the whole range: a tick for each row with notes, roots as faint lines, and
-    // the part in view; only when the range has more rows than fit
-    if (const int total = rows(); total > visibleRows())
+    // overview of all rows: a tick for each row with notes, roots as faint lines, and the
+    // part in view
     {
+        const int total = rows();
         const auto strip = overviewArea();
         const float rowH = strip.getHeight() / (float) total;
         auto rowRect = [&] (int row) { return juce::Rectangle<float> (strip.getX(), strip.getBottom() - (float) (row + 1) * rowH, strip.getWidth(), rowH); };
@@ -213,18 +251,18 @@ void GridView::paint (juce::Graphics& g)
         g.fillRoundedRectangle (strip, 3.0f);
         for (int row = 0; row < total; ++row)
         {
-            if (row % scaleAt (settings.scale).size == 0)
+            if (row % scaleSize == 0)
             {
                 g.setColour (theme::outline);
                 g.fillRect (rowRect (row).withSizeKeepingCentre (strip.getWidth(), 1.0f));
             }
             bool used = false;
             for (int step = 0; step < numSteps && ! used; ++step)
-                used = grid.get (row, step).on;
+                used = grid.get (slotOf (row), step).on;
             if (used)
             {
                 g.setColour (colour);
-                g.fillRect (rowRect (row).reduced (2.0f, 0.0f).withSizeKeepingCentre (strip.getWidth() - 4.0f, juce::jmax (1.5f, rowH - 1.0f)));
+                g.fillRect (rowRect (row).withSizeKeepingCentre (strip.getWidth() - 4.0f, juce::jmax (2.0f, rowH)));
             }
         }
         const auto window = rowRect (last).withBottom (rowRect (first).getBottom());
@@ -235,7 +273,8 @@ void GridView::paint (juce::Graphics& g)
     }
 
     // footer: beat numbers and the playhead
-    const auto footer = getLocalBounds().toFloat().removeFromBottom (kFooterHeight).withTrimmedLeft (kLabelWidth);
+    const auto footer = getLocalBounds().toFloat().removeFromBottom (kFooterHeight).withTrimmedLeft (kLabelWidth)
+                            .withWidth (area.getWidth());
     const float w = footer.getWidth() / (float) numSteps;
     g.setFont (juce::FontOptions (11.0f));
     for (int step = 0; step < numSteps; ++step)
@@ -266,27 +305,27 @@ void GridView::timerCallback()
             changed = true;
         }
 
-    for (int row = 0; row < kMaxRows; ++row)
+    for (int slot = 0; slot < kNumSlots; ++slot)
     {
-        const auto hit = sequencer.getLastHit (row);
-        if (hit != shownHits[(size_t) row])
+        const auto hit = sequencer.getLastHit (slot);
+        if (hit != shownHits[(size_t) slot])
         {
-            shownHits[(size_t) row] = hit;
-            flash[(size_t) (row * kMaxSteps + (int) (hit & 63u) % kMaxSteps)] = 1.0f;
+            shownHits[(size_t) slot] = hit;
+            flash[(size_t) (slot * kMaxSteps + (int) (hit & 63u) % kMaxSteps)] = 1.0f;
             changed = true;
         }
     }
 
-    const auto settings = processor.sequencerSettings();
+    const auto s = settings();
     const int step = sequencer.getCurrentStep();
-    if (step != shownStep || settings.scale != shownScale || settings.rootNote != shownRoot || steps() != shownLength
-        || settings.range != shownRange)
+    const int range = (int) processor.apvts.getRawParameterValue ("seqRange")->load();
+    if (step != shownStep || s.scale != shownScale || s.root != shownRoot || steps() != shownLength || range != shownRange)
     {
-        shownRange = settings.range;
         shownStep = step;
-        shownScale = settings.scale;
-        shownRoot = settings.rootNote;
+        shownScale = s.scale;
+        shownRoot = s.root;
         shownLength = steps();
+        shownRange = range;
         changed = true;
     }
 
@@ -299,11 +338,14 @@ void GridView::mouseMove (const juce::MouseEvent& e)
     setHover (cellAt (e.position));
 }
 
+void GridView::mouseExit (const juce::MouseEvent&)
+{
+    setHover ({});
+}
+
 // Mouse wheels give about 0.12 per notch, trackpads many small steps; a row per 0.1.
 void GridView::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
 {
-    if (rows() <= visibleRows())
-        return;
     wheelAccumulator += wheel.isReversed ? -wheel.deltaY : wheel.deltaY;
     int rowsToMove = 0;
     for (; wheelAccumulator >= 0.1f; wheelAccumulator -= 0.1f)
@@ -317,14 +359,9 @@ void GridView::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheel
     }
 }
 
-void GridView::mouseExit (const juce::MouseEvent&)
-{
-    setHover ({});
-}
-
 void GridView::mouseDown (const juce::MouseEvent& e)
 {
-    browsing = rows() > visibleRows() && overviewArea().expanded (4.0f, 0.0f).contains (e.position);
+    browsing = overviewArea().expanded (4.0f, 0.0f).contains (e.position);
     if (browsing)
     {
         scrollToOverview (e.position.y);
@@ -334,7 +371,7 @@ void GridView::mouseDown (const juce::MouseEvent& e)
     dragged = false;
     if (! drag.valid())
         return;
-    dragStartValue = valueOf (grid.get (drag.row, drag.step), processor.editMode.load());
+    dragStartValue = valueOf (grid.get (slotOf (drag.row), drag.step), processor.editMode.load());
 }
 
 void GridView::mouseDrag (const juce::MouseEvent& e)
@@ -352,10 +389,11 @@ void GridView::mouseDrag (const juce::MouseEvent& e)
     dragged = true;
 
     // dragging a cell sets it, and switches it on
-    auto cell = grid.get (drag.row, drag.step);
+    const int slot = slotOf (drag.row);
+    auto cell = grid.get (slot, drag.step);
     cell.on = true;
     setValue (cell, processor.editMode.load(), dragStartValue - dy / kDragPixelsForFullRange);
-    grid.set (drag.row, drag.step, cell);
+    grid.set (slot, drag.step, cell);
 
     hover = drag;
     repaint();
@@ -370,9 +408,10 @@ void GridView::mouseUp (const juce::MouseEvent&)
         return;
     if (! dragged)
     {
-        auto cell = grid.get (drag.row, drag.step);
+        const int slot = slotOf (drag.row);
+        auto cell = grid.get (slot, drag.step);
         cell.on = ! cell.on;
-        grid.set (drag.row, drag.step, cell);
+        grid.set (slot, drag.step, cell);
     }
     processor.gridEdited();
     repaint();
@@ -387,10 +426,11 @@ void GridView::mouseDoubleClick (const juce::MouseEvent& e)
     if (! pos.valid())
         return;
     const auto mode = processor.editMode.load();
-    auto cell = grid.get (pos.row, pos.step);
+    const int slot = slotOf (pos.row);
+    auto cell = grid.get (slot, pos.step);
     cell.on = true;
     setValue (cell, mode, valueOf (kDefaultCell, mode));
-    grid.set (pos.row, pos.step, cell);
+    grid.set (slot, pos.step, cell);
     processor.gridEdited();
     repaint();
     if (onStatus)

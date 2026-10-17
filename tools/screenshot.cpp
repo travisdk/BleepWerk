@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Renders the interface of a fresh instance to a PNG, for checking the layout and for the
-// README: BleepForge_Screenshot <output.png> [scale] [velocity] [range=<octaves>] [row=<bottom row>]
+// README: BleepForge_Screenshot <output.png> [scale] [velocity] [range=<octaves>] [note=<bottom note>]
 
 #include "MainView.h"
 #include "Theme.h"
@@ -11,7 +11,7 @@ int main (int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [velocity] [range=<octaves>] [row=<bottom row>]\n";
+        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [velocity] [range=<octaves>] [note=<bottom note>]\n";
         return 1;
     }
 
@@ -31,8 +31,8 @@ int main (int argc, char* argv[])
             auto* range = processor.apvts.getParameter ("seqRange");
             range->setValueNotifyingHost (range->convertTo0to1 (option.fromFirstOccurrenceOf ("=", false, false).getFloatValue()));
         }
-        else if (option.startsWith ("row="))
-            processor.firstVisibleRow = option.fromFirstOccurrenceOf ("=", false, false).getIntValue();
+        else if (option.startsWith ("note="))
+            processor.bottomNote = option.fromFirstOccurrenceOf ("=", false, false).getIntValue();
     }
 
     auto view = std::make_unique<MainView> (processor);

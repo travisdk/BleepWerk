@@ -26,10 +26,8 @@ MainView::MainView (BleepForgeProcessor& p)
         rootBox.addItem (name, rootBox.getNumItems() + 1);
     scaleAttachment = std::make_unique<ComboAttachment> (processor.apvts, "seqScale", scaleBox);
     rootAttachment = std::make_unique<ComboAttachment> (processor.apvts, "seqRoot", rootBox);
-    octaveSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 34, 24);
-    octaveAttachment = std::make_unique<SliderAttachment> (processor.apvts, "seqOctave", octaveSlider);
 
-    for (auto* label : { &scaleLabel, &rootLabel, &octaveLabel })
+    for (auto* label : { &scaleLabel, &rootLabel })
     {
         label->setJustificationType (juce::Justification::centredRight);
         label->setFont (juce::FontOptions (13.0f));
@@ -37,7 +35,6 @@ MainView::MainView (BleepForgeProcessor& p)
     }
     addAndMakeVisible (scaleBox);
     addAndMakeVisible (rootBox);
-    addAndMakeVisible (octaveSlider);
     settingsButton.setTooltip ("Settings");
     settingsButton.onClick = [this] { showSettingsMenu(); };
     addAndMakeVisible (settingsButton);
@@ -90,7 +87,7 @@ void MainView::showSettingsMenu()
     const int current = (int) processor.apvts.getRawParameterValue ("seqRange")->load();
 
     juce::PopupMenu rangeMenu;
-    for (int octaves = 1; octaves <= bleepforge::kMaxRange; ++octaves)
+    for (int octaves = 1; octaves <= BleepForgeProcessor::kMaxVisibleOctaves; ++octaves)
         rangeMenu.addItem (juce::String (octaves) + (octaves == 1 ? " octave" : " octaves"), true, octaves == current,
                            [range, octaves]
                            {
@@ -101,7 +98,7 @@ void MainView::showSettingsMenu()
 
     juce::PopupMenu menu;
     menu.addSectionHeader ("Grid");
-    menu.addSubMenu ("Range: " + juce::String (current) + (current == 1 ? " octave" : " octaves"), rangeMenu);
+    menu.addSubMenu ("Visible range: " + juce::String (current) + (current == 1 ? " octave" : " octaves"), rangeMenu);
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (settingsButton));
 }
 
@@ -175,10 +172,7 @@ void MainView::resized()
     auto header = headerArea();
     auto place = [&header] (juce::Component& c, int width) { c.setBounds (header.removeFromRight (width).withSizeKeepingCentre (width, 26)); };
     place (settingsButton, 26);
-    header.removeFromRight (12);
-    place (octaveSlider, 96);
-    place (octaveLabel, 54);
-    header.removeFromRight (12);
+    header.removeFromRight (16);
     place (rootBox, 64);
     place (rootLabel, 40);
     header.removeFromRight (12);

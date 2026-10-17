@@ -13,8 +13,10 @@
 #include <sstream>
 #include <string>
 
-// Probability grid sequencer: rows climb the degrees of a scale over 1-4 octaves (the range),
-// ending on the root an octave above the last one; columns are steps. Each cell has on/off, probability, velocity and ratchet.
+// Probability grid sequencer: rows are every MIDI note (0-127) in the chosen scale and key,
+// columns are steps. Each cell has on/off, probability, velocity and ratchet. Cells are stored
+// per octave and scale degree, so changing the scale or key keeps a pattern's shape and
+// register: the third degree stays the third degree, in the same octave.
 // Played against the host timeline; the timing approach (steps counted from beat 0, events
 // on the first sample at or after their beat, jump detection) comes from SubForge.
 // JUCE-free so it can be tested on its own.
@@ -22,8 +24,9 @@ namespace bleepforge
 {
 inline constexpr int kMaxSteps = 32;
 inline constexpr int kDefaultSteps = 16;
-inline constexpr int kMaxRange = 4;                // octaves the grid can span
-inline constexpr int kMaxRows = 12 * kMaxRange + 1; // chromatic over the full range + the top root
+inline constexpr int kNumOctaves = 11;              // MIDI notes 0-127 span 11 octaves from C-1
+inline constexpr int kNumSlots = kNumOctaves * 12;  // cell storage: an octave times up to 12 degrees
+inline constexpr int kMaxRows = 128;                // chromatic: every MIDI note
 
 struct Scale
 {
@@ -49,14 +52,37 @@ inline constexpr const char* kRootNames[] = { "C", "C#", "D", "D#", "E", "F", "F
 
 inline const Scale& scaleAt (int index) { return kScales[std::clamp (index, 0, kNumScales - 1)]; }
 
-// Rows the scale shows over range octaves: its degrees in each, and the root above the last.
-inline int numRows (int scale, int range) { return scaleAt (scale).size * std::clamp (range, 1, kMaxRange) + 1; }
-
-// Row 0 is the root (a MIDI note); rows above it climb the scale.
-inline int rowNote (int row, int scale, int rootNote)
+// Row 0 is the lowest root, root (0-11 for C-B) itself; rows above it climb the scale.
+inline int rowNote (int row, int scale, int root)
 {
     const auto& s = scaleAt (scale);
-    return rootNote + 12 * (row / s.size) + s.degrees[(size_t) (row % s.size)];
+    return root + 12 * (row / s.size) + s.degrees[(size_t) (row % s.size)];
+}
+
+// Rows from the lowest root up to the highest note of the scale that MIDI has.
+inline int numRows (int scale, int root)
+{
+    int rows = 0;
+    while (rowNote (rows, scale, root) <= 127)
+        ++rows;
+    return rows;
+}
+
+// Where a row's cells are stored: its octave and its degree in the scale.
+inline int rowSlot (int row, int scale)
+{
+    const int size = scaleAt (scale).size;
+    return (row / size) * 12 + row % size;
+}
+
+// The lowest row at or above a note (the top row for notes above them all).
+inline int rowAtOrAbove (int note, int scale, int root)
+{
+    const int rows = numRows (scale, root);
+    for (int row = 0; row < rows; ++row)
+        if (rowNote (row, scale, root) >= note)
+            return row;
+    return rows - 1;
 }
 
 struct Cell
@@ -90,14 +116,14 @@ struct Cell
 };
 
 // The pattern: edited by the GUI while the audio thread plays it. Every cell is one atomic
-// word, so a read never sees half an edit.
+// word, so a read never sees half an edit. Cells are addressed by slot (see rowSlot).
 class Grid
 {
 public:
     Grid() { clear(); }
 
-    Cell get (int row, int step) const { return Cell::unpack (cells[index (row, step)].load (std::memory_order_relaxed)); }
-    void set (int row, int step, const Cell& cell) { cells[index (row, step)].store (cell.pack(), std::memory_order_relaxed); }
+    Cell get (int slot, int step) const { return Cell::unpack (cells[index (slot, step)].load (std::memory_order_relaxed)); }
+    void set (int slot, int step, const Cell& cell) { cells[index (slot, step)].store (cell.pack(), std::memory_order_relaxed); }
 
     int getLength() const { return length.load (std::memory_order_relaxed); }
     void setLength (int steps) { length.store (std::clamp (steps, 1, kMaxSteps), std::memory_order_relaxed); }
@@ -117,18 +143,19 @@ public:
         setLength (other.getLength());
     }
 
-    // "grid 1 length 16 cell <row> <step> <on> <prob%> <vel> <ratchet> ...", only cells that
+    // "grid 2 length 16 cell <slot> <step> <on> <prob%> <vel> <ratchet> ...", only cells that
     // differ from a blank one. Stored with the project; numbers keep the classic locale.
+    // Version 1 counted rows from a root note and is not read.
     std::string toString() const
     {
         std::ostringstream out;
         out.imbue (std::locale::classic());
-        out << "grid 1 length " << getLength();
+        out << "grid 2 length " << getLength();
         const Cell blank;
-        for (int row = 0; row < kMaxRows; ++row)
+        for (int slot = 0; slot < kNumSlots; ++slot)
             for (int step = 0; step < kMaxSteps; ++step)
-                if (const auto c = get (row, step); c != blank)
-                    out << " cell " << row << ' ' << step << ' ' << (c.on ? 1 : 0) << ' '
+                if (const auto c = get (slot, step); c != blank)
+                    out << " cell " << slot << ' ' << step << ' ' << (c.on ? 1 : 0) << ' '
                         << std::lround (c.probability * 100.0f) << ' ' << std::lround (c.velocity * 127.0f) << ' ' << c.ratchet;
         return out.str();
     }
@@ -140,7 +167,7 @@ public:
         in.imbue (std::locale::classic());
         std::string word;
         int version = 0, steps = 0;
-        if (! (in >> word) || word != "grid" || ! (in >> version) || version != 1
+        if (! (in >> word) || word != "grid" || ! (in >> version) || version != 2
             || ! (in >> word) || word != "length" || ! (in >> steps))
             return false;
 
@@ -148,33 +175,34 @@ public:
         parsed.setLength (steps);
         while (in >> word)
         {
-            int row, step, on, prob, vel, ratchet;
-            if (word != "cell" || ! (in >> row >> step >> on >> prob >> vel >> ratchet))
+            int slot, step, on, prob, vel, ratchet;
+            if (word != "cell" || ! (in >> slot >> step >> on >> prob >> vel >> ratchet))
                 return false;
-            if (row < 0 || row >= kMaxRows || step < 0 || step >= kMaxSteps)
+            if (slot < 0 || slot >= kNumSlots || step < 0 || step >= kMaxSteps)
                 continue;
             Cell c;
             c.on = on != 0;
             c.probability = (float) std::clamp (prob, 0, 100) / 100.0f;
             c.velocity = (float) std::clamp (vel, 1, 127) / 127.0f;
             c.ratchet = std::clamp (ratchet, 1, 4);
-            parsed.set (row, step, c);
+            parsed.set (slot, step, c);
         }
         copyFrom (parsed);
         return true;
     }
 
 private:
-    static size_t index (int row, int step)
+    static size_t index (int slot, int step)
     {
-        return (size_t) (std::clamp (row, 0, kMaxRows - 1) * kMaxSteps + std::clamp (step, 0, kMaxSteps - 1));
+        return (size_t) (std::clamp (slot, 0, kNumSlots - 1) * kMaxSteps + std::clamp (step, 0, kMaxSteps - 1));
     }
 
-    std::array<std::atomic<uint32_t>, (size_t) (kMaxRows * kMaxSteps)> cells;
+    std::array<std::atomic<uint32_t>, (size_t) (kNumSlots * kMaxSteps)> cells;
     std::atomic<int> length { kDefaultSteps };
 };
 
-// A pattern for a fresh instance, so the sequencer plays something before it is edited.
+// A pattern for a fresh instance, so the sequencer plays something before it is edited:
+// in the default scale, rows counted from C4.
 inline void loadStarterPattern (Grid& grid)
 {
     grid.clear();
@@ -184,7 +212,8 @@ inline void loadStarterPattern (Grid& grid)
         c.on = true;
         c.probability = probability;
         c.velocity = velocity;
-        grid.set (row, step, c);
+        const int fromC4 = 5 * scaleAt (kDefaultScale).size + row;
+        grid.set (rowSlot (fromC4, kDefaultScale), step, c);
     };
     put (0, 0, 1.0f, 0.95f);
     put (0, 6, 1.0f, 0.8f);
@@ -201,8 +230,7 @@ struct SequencerSettings
 {
     bool enabled = true;
     int scale = kDefaultScale;
-    int rootNote = 60;        // MIDI note of row 0
-    int range = 1;            // octaves the rows span
+    int root = 0;             // 0-11 for C-B
     double stepBeats = 0.25;  // 1/16
 };
 
@@ -218,9 +246,9 @@ public:
 
     int getCurrentStep() const { return currentStep.load(); }
 
-    // The last cell of a row that played, for the GUI: (count << 6) | step, where count goes
+    // The last cell of a slot that played, for the GUI: (count << 6) | step, where count goes
     // up with every hit so the same step playing again shows as a new hit. 0: none yet.
-    uint32_t getLastHit (int row) const { return lastHits[(size_t) std::clamp (row, 0, kMaxRows - 1)].load (std::memory_order_relaxed); }
+    uint32_t getLastHit (int slot) const { return lastHits[(size_t) std::clamp (slot, 0, kNumSlots - 1)].load (std::memory_order_relaxed); }
 
     // emit (int sampleOffset, bool noteOn, int note, float velocity)
     template <typename Emit>
@@ -301,14 +329,15 @@ private:
                       const Grid& grid, Emit& emit)
     {
         currentStep.store (step);
-        const int rows = numRows (settings.scale, settings.range);
+        const int rows = numRows (settings.scale, settings.root);
         for (int row = 0; row < rows; ++row)
         {
-            const auto cell = grid.get (row, step);
+            const int slot = rowSlot (row, settings.scale);
+            const auto cell = grid.get (slot, step);
             if (! cell.on || (cell.probability < 1.0f && nextRandom() >= cell.probability))
                 continue;
 
-            const int note = std::clamp (rowNote (row, settings.scale, settings.rootNote), 0, 127);
+            const int note = rowNote (row, settings.scale, settings.root);
             for (int i = 0; i < numSounding; ++i) // still sounding: end it before the new hit
                 if (sounding[(size_t) i].note == note)
                 {
@@ -318,7 +347,7 @@ private:
                 }
 
             emit (sample, true, note, cell.velocity);
-            auto& hit = lastHits[(size_t) row];
+            auto& hit = lastHits[(size_t) slot];
             hit.store ((((hit.load (std::memory_order_relaxed) >> 6) + 1) << 6) | (uint32_t) step, std::memory_order_relaxed);
             if (numSounding < (int) sounding.size())
                 sounding[(size_t) numSounding++] = { note, start + beats * kGate };
@@ -336,11 +365,11 @@ private:
         return (float) (rng >> 8) * (1.0f / 16777216.0f);
     }
 
-    std::array<Sounding, kMaxRows * 4> sounding {};
+    std::array<Sounding, kMaxRows> sounding {}; // each note at most once
     int numSounding = 0;
     double lastPpqEnd = -1.0;
     uint32_t rng = 0x2545f491u;
     std::atomic<int> currentStep { -1 };
-    std::array<std::atomic<uint32_t>, kMaxRows> lastHits {};
+    std::array<std::atomic<uint32_t>, kNumSlots> lastHits {};
 };
 } // namespace bleepforge
