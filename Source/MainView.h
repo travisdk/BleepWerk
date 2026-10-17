@@ -6,11 +6,12 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
 #include "GridView.h"
+#include "EngineView.h"
 
 // Everything in the editor, laid out at a fixed design size; the editor scales it as a whole.
 // Top: title, edit mode, the sequencer's Scale and Root, and a settings menu (visible range).
 // Middle: the grid and a status line.
-// Bottom: the engine section (later milestones).
+// Bottom: the sound: engine, voices and the selected engine's controls.
 class MainView : public juce::Component
 {
 public:
@@ -39,6 +40,7 @@ private:
 
     BleepForgeProcessor& processor;
     GridView gridView;
+    EngineView engineView;
     juce::Label status;
     juce::Label editLabel { {}, "Edit" };
     juce::TextButton probabilityButton { "Probability" }, velocityButton { "Velocity" };

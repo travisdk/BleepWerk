@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Renders the interface of a fresh instance to a PNG, for checking the layout and for the
-// README: BleepForge_Screenshot <output.png> [scale] [velocity] [range=<octaves>] [note=<bottom note>]
+// README: BleepForge_Screenshot <output.png> [scale] [velocity] [foley] [range=<octaves>] [note=<bottom note>]
 
 #include "MainView.h"
 #include "Theme.h"
@@ -11,7 +11,7 @@ int main (int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [velocity] [range=<octaves>] [note=<bottom note>]\n";
+        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [velocity] [foley] [range=<octaves>] [note=<bottom note>]\n";
         return 1;
     }
 
@@ -26,6 +26,8 @@ int main (int argc, char* argv[])
         const juce::String option (argv[i]);
         if (option == "velocity")
             processor.editMode = BleepForgeProcessor::EditMode::Velocity;
+        else if (option == "foley")
+            processor.apvts.getParameter ("engine")->setValueNotifyingHost (1.0f);
         else if (option.startsWith ("range="))
         {
             auto* range = processor.apvts.getParameter ("seqRange");

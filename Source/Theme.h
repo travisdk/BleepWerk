@@ -40,6 +40,47 @@ public:
         setColour (juce::TextButton::buttonOnColourId, outline);
         setColour (juce::TextButton::textColourOnId, text);
         setColour (juce::Label::textColourId, dimText);
+        setColour (juce::Slider::textBoxHighlightColourId, accent.withAlpha (0.3f));
+    }
+
+    // A ring with the value as an arc (from the middle for bipolar controls, from the start
+    // otherwise) and a pointer.
+    void drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height, float position,
+                           float startAngle, float endAngle, juce::Slider& slider) override
+    {
+        const auto bounds = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height).reduced (4.0f);
+        const float radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
+        const auto centre = bounds.getCentre();
+        const float angle = startAngle + position * (endAngle - startAngle);
+        const bool bipolar = slider.getProperties()["bipolar"];
+        const float from = bipolar ? (startAngle + endAngle) * 0.5f : startAngle;
+        const float thickness = juce::jmax (2.0f, radius * 0.14f);
+
+        juce::Path track, value;
+        track.addCentredArc (centre.x, centre.y, radius - thickness, radius - thickness, 0.0f, startAngle, endAngle, true);
+        value.addCentredArc (centre.x, centre.y, radius - thickness, radius - thickness, 0.0f, juce::jmin (from, angle),
+                             juce::jmax (from, angle), true);
+        const juce::PathStrokeType stroke (thickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+        g.setColour (outline);
+        g.strokePath (track, stroke);
+        g.setColour (slider.isEnabled() ? accent : dimText);
+        g.strokePath (value, stroke);
+
+        const float body = radius - thickness * 2.4f;
+        g.setColour (background);
+        g.fillEllipse (juce::Rectangle<float> (body * 2.0f, body * 2.0f).withCentre (centre));
+        g.setColour (text);
+        g.drawLine (juce::Line<float> (centre.getPointOnCircumference (body * 0.25f, angle),
+                                       centre.getPointOnCircumference (body * 0.9f, angle)), 2.0f);
+    }
+
+    juce::Label* createSliderTextBox (juce::Slider& slider) override
+    {
+        auto* label = LookAndFeel_V4::createSliderTextBox (slider);
+        label->setFont (juce::FontOptions (11.0f));
+        label->setColour (juce::Label::outlineColourId, juce::Colours::transparentBlack);
+        label->setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
+        return label;
     }
 };
 } // namespace bleepforge::theme

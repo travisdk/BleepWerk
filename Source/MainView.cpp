@@ -16,7 +16,7 @@ juce::String helpText (BleepForgeProcessor::EditMode mode)
 } // namespace
 
 MainView::MainView (BleepForgeProcessor& p)
-    : processor (p), gridView (p)
+    : processor (p), gridView (p), engineView (p)
 {
     setSize (kWidth, kHeight);
 
@@ -61,6 +61,7 @@ MainView::MainView (BleepForgeProcessor& p)
 
     gridView.onStatus = [this] (const juce::String& text) { showStatus (text); };
     addAndMakeVisible (gridView);
+    addAndMakeVisible (engineView);
 }
 
 void MainView::showStatus (const juce::String& text)
@@ -156,15 +157,6 @@ void MainView::paint (juce::Graphics& g)
     g.setFont (juce::FontOptions (11.0f));
     g.drawText (BLEEPFORGE_VERSION_STRING, header.withTrimmedLeft (128.0f).withTrimmedTop (6.0f),
                 juce::Justification::centredLeft);
-
-    const auto engine = engineArea().toFloat();
-    g.setColour (theme::panel);
-    g.fillRoundedRectangle (engine, 6.0f);
-    g.setColour (theme::outline);
-    g.drawRoundedRectangle (engine.reduced (0.5f), 6.0f, 1.0f);
-    g.setColour (theme::dimText);
-    g.setFont (juce::FontOptions (13.0f));
-    g.drawText ("Engine / Chaos / Effects", engine, juce::Justification::centred);
 }
 
 void MainView::resized()
@@ -192,4 +184,5 @@ void MainView::resized()
     middle.removeFromBottom (kEngineHeight + 10);
     status.setBounds (middle.removeFromBottom (kStatusHeight).withTrimmedLeft ((int) GridView::kLabelWidth - 4));
     gridView.setBounds (middle);
+    engineView.setBounds (engineArea());
 }

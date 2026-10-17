@@ -79,7 +79,23 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "foleyExciter", 1 }, "Exciter", exciters,
                                                               (int) bleepforge::FoleyExciter::Mallet));
     params.push_back (floatParam ("foleyLength", "Exciter Length", skewedRange (0.05f, 200.0f, 5.0f), 0.3f, "ms"));
-    params.push_back (floatParam ("foleyMaterial", "Material", { 0.0f, 1.0f }, 0.0f));
+    // Material shows the material it sounds like rather than a percentage
+    params.push_back (std::make_unique<AudioParameterFloat> (
+        ParameterID { "foleyMaterial", 1 }, "Material", NormalisableRange<float> (0.0f, 1.0f), 0.0f,
+        AudioParameterFloatAttributes()
+            .withStringFromValueFunction ([] (float v, int)
+                                          {
+                                              return String (v < 0.15f ? "Wood" : v < 0.4f ? "Wood/Metal" : v < 0.6f ? "Metal"
+                                                                         : v < 0.85f ? "Metal/Glass" : "Glass");
+                                          })
+            .withValueFromStringFunction ([] (const String& text)
+                                          {
+                                              const auto t = text.trim().toLowerCase();
+                                              if (t == "wood") return 0.0f;
+                                              if (t == "metal") return 0.5f;
+                                              if (t == "glass") return 1.0f;
+                                              return t.retainCharacters ("0123456789.").getFloatValue() / 100.0f;
+                                          })));
     params.push_back (floatParam ("foleySize", "Size", { 0.0f, 1.0f }, 0.5f));
     params.push_back (floatParam ("foleyDamping", "Damping", { 0.0f, 1.0f }, 0.5f));
     params.push_back (floatParam ("foleyBrightness", "Brightness", { 0.0f, 1.0f }, 0.5f));
@@ -103,9 +119,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
                                                               StringArray { "Mono", "Poly" }, 1));
     params.push_back (floatParam ("glide", "Glide", skewedRange (0.0f, 500.0f, 60.0f), 0.0f, "ms"));
 
-    params.push_back (std::make_unique<AudioParameterFloat> (ParameterID { "outputGain", 1 }, "Output Gain",
-                                                             NormalisableRange<float> (-48.0f, 6.0f, 0.1f), 0.0f,
-                                                             AudioParameterFloatAttributes().withLabel ("dB")));
+    params.push_back (floatParam ("outputGain", "Output Gain", { -48.0f, 6.0f, 0.1f }, 0.0f, "dB"));
 
     return { params.begin(), params.end() };
 }
