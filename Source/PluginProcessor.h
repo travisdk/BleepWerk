@@ -5,6 +5,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "BleepSynth.h"
+#include "FoleySynth.h"
 #include "Sequencer.h"
 
 class BleepForgeProcessor : public juce::AudioProcessor
@@ -26,7 +27,7 @@ public:
     bool acceptsMidi() const override { return false; } // plays its own sequencer only
     bool producesMidi() const override { return true; } // sequencer notes to the host (MIDI output mode)
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.5; } // longest release
+    double getTailLengthSeconds() const override { return 6.0; } // a big, undamped metal object
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -64,7 +65,11 @@ private:
     //   1: 0.1.0
     static constexpr int kStateVersion = 1;
 
+    // Both engines render every block, so switching lets the old one ring out; notes go to
+    // the selected one.
     bleepforge::BleepSynth bleep;
+    bleepforge::FoleySynth foley;
+    bool foleySelected = false;
     bleepforge::Grid grid;
     bleepforge::SequencerEngine sequencer;
     juce::MidiBuffer seqMidi; // the sequencer's notes for one block

@@ -57,6 +57,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     for (auto* name : bleepforge::kBleepWaveNames)
         waves.add (name);
 
+    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "engine", 1 }, "Engine",
+                                                              StringArray { "Bleep", "Foley" }, 0));
+
     // Bleep engine
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "bleepWave", 1 }, "Wave", waves, 0));
     params.push_back (floatParam ("bleepPulseWidth", "Pulse Width", { 0.05f, 0.95f }, 0.5f));
@@ -68,6 +71,19 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     params.push_back (floatParam ("bleepDecay", "Decay", skewedRange (5.0f, 2000.0f, 200.0f), 180.0f, "ms"));
     params.push_back (floatParam ("bleepRelease", "Release", skewedRange (1.0f, 500.0f, 50.0f), 30.0f, "ms"));
     params.push_back (floatParam ("bleepNoise", "Noise", { 0.0f, 1.0f }, 0.0f));
+
+    // Foley engine
+    StringArray exciters;
+    for (auto* name : bleepforge::kFoleyExciterNames)
+        exciters.add (name);
+    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "foleyExciter", 1 }, "Exciter", exciters,
+                                                              (int) bleepforge::FoleyExciter::Mallet));
+    params.push_back (floatParam ("foleyLength", "Exciter Length", skewedRange (0.05f, 200.0f, 5.0f), 0.3f, "ms"));
+    params.push_back (floatParam ("foleyMaterial", "Material", { 0.0f, 1.0f }, 0.0f));
+    params.push_back (floatParam ("foleySize", "Size", { 0.0f, 1.0f }, 0.5f));
+    params.push_back (floatParam ("foleyDamping", "Damping", { 0.0f, 1.0f }, 0.5f));
+    params.push_back (floatParam ("foleyBrightness", "Brightness", { 0.0f, 1.0f }, 0.5f));
+    params.push_back (floatParam ("foleySweep", "Sweep", { -24.0f, 24.0f, 0.1f }, 0.0f, "st"));
 
     // Sequencer
     StringArray scales, roots;
@@ -99,6 +115,7 @@ void BleepForgeProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     mono.assign ((size_t) juce::jmax (1, samplesPerBlock), 0.0f);
     seqMidi.ensureSize (4096);
     bleep.prepare (sampleRate);
+    foley.prepare (sampleRate);
     readParams();
     outputGain.reset (sampleRate, 0.02);
     outputGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("outputGain")->load()));
@@ -127,16 +144,39 @@ void BleepForgeProcessor::readParams()
     p.noise = get ("bleepNoise");
     bleep.setParams (p);
 
-    bleep.setMode ((int) get ("voiceMode") == 0 ? bleepforge::BleepSynth::Mode::Mono : bleepforge::BleepSynth::Mode::Poly);
+    bleepforge::FoleyParams f;
+    f.exciter = (bleepforge::FoleyExciter) juce::jlimit (0, bleepforge::kNumFoleyExciters - 1, (int) get ("foleyExciter"));
+    f.exciterMs = get ("foleyLength");
+    f.material = get ("foleyMaterial");
+    f.size = get ("foleySize");
+    f.damping = get ("foleyDamping");
+    f.brightness = get ("foleyBrightness");
+    f.sweepSemis = get ("foleySweep");
+    foley.setParams (f);
+
+    const bool monoMode = (int) get ("voiceMode") == 0;
+    bleep.setMode (monoMode ? bleepforge::BleepSynth::Mode::Mono : bleepforge::BleepSynth::Mode::Poly);
+    foley.setMode (monoMode ? bleepforge::FoleySynth::Mode::Mono : bleepforge::FoleySynth::Mode::Poly);
     bleep.setGlideMs (get ("glide"));
+    foley.setGlideMs (get ("glide"));
+    foleySelected = (int) get ("engine") == 1;
 }
 
 void BleepForgeProcessor::handleNote (const juce::MidiMessage& message)
 {
+    // note-offs go to both, so a note that started before an engine switch still ends
     if (message.isNoteOn())
-        bleep.noteOn (message.getNoteNumber(), message.getFloatVelocity());
+    {
+        if (foleySelected)
+            foley.noteOn (message.getNoteNumber(), message.getFloatVelocity());
+        else
+            bleep.noteOn (message.getNoteNumber(), message.getFloatVelocity());
+    }
     else if (message.isNoteOff())
+    {
         bleep.noteOff (message.getNoteNumber());
+        foley.noteOff (message.getNoteNumber());
+    }
 }
 
 void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
@@ -157,6 +197,7 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         {
             const int length = juce::jmin (chunkMax, to - from);
             bleep.render (mono.data(), length);
+            foley.renderAdding (mono.data(), length);
             for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
                 buffer.copyFrom (ch, from, mono.data(), length);
             from += length;
