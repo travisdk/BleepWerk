@@ -99,8 +99,9 @@ public:
     float getLevel() const { return level; }
 
     // Striking an object that still rings keeps its vibration, so a retrigger doesn't click.
-    void start (int midiNote, float velocity, bool glide)
+    void start (int midiNote, float velocity, bool glide, const Variation& v = {})
     {
+        variation = v;
         if (! active)
             glide = false;
         note = midiNote;
@@ -140,7 +141,7 @@ public:
         }
 
         // the exciter's tone: a one-pole lowpass from 600 Hz to 16 kHz
-        const float cutoff = 600.0f * std::exp2 (std::clamp (p.brightness, 0.0f, 1.0f) * 4.74f);
+        const float cutoff = 600.0f * std::exp2 (brightnessOf (p) * 4.74f);
         const float lpCoef = 1.0f - std::exp (-kTwoPi * cutoff / fs);
         const float sweepCoef = std::exp (-1.0f / (0.04f * fs)); // 40 ms slide
 
@@ -180,6 +181,9 @@ public:
     }
 
 private:
+    // the patch's brightness moved by this note's Chaos tone
+    float brightnessOf (const FoleyParams& p) const { return std::clamp (p.brightness + 0.5f * variation.tone, 0.0f, 1.0f); }
+
     struct Mode
     {
         float a1 = 0.0f, a2 = 0.0f, gain = 0.0f;
@@ -219,13 +223,13 @@ private:
         needsCoefs = false;
         const auto material = blendMaterial (p.material);
         const float size = std::clamp (p.size, 0.0f, 1.0f);
-        const float pitch = currentPitch + 12.0f * (1.0f - 2.0f * size) - p.sweepSemis * sweepEnv;
+        const float pitch = currentPitch + variation.pitchSemis + 12.0f * (1.0f - 2.0f * size) - p.sweepSemis * sweepEnv;
         const float f0 = 440.0f * std::exp2 ((pitch - 69.0f) / 12.0f);
 
         // ring time of the fundamental: 3 s .. 20 ms, longer for big objects and metal
         const float baseT60 = std::exp (std::log (3.0f) + std::clamp (p.damping, 0.0f, 1.0f) * (std::log (0.02f) - std::log (3.0f)))
-                            * material.decayScale * std::exp2 (2.0f * size - 1.0f);
-        const float tilt = 1.6f - 1.3f * std::clamp (p.brightness, 0.0f, 1.0f); // high modes quieter when dark
+                            * material.decayScale * std::exp2 (2.0f * size - 1.0f) * variation.decayScale;
+        const float tilt = 1.6f - 1.3f * brightnessOf (p); // high modes quieter when dark
 
         float total = 0.0f;
         std::array<float, kNumModes> amps {};
@@ -259,6 +263,7 @@ private:
     int exciterPos = 0, exciterLeft = 0, exciterLength = 1;
     float strength = 1.0f, lowpass = 0.0f, x1 = 0.0f, x2 = 0.0f, sweepEnv = 0.0f, level = 0.0f, levelDecay = 0.999f;
     float currentPitch = 60.0f, targetPitch = 60.0f;
+    Variation variation;
     int note = -1;
 };
 

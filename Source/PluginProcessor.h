@@ -73,7 +73,6 @@ private:
     bleepforge::Grid grid;
     bleepforge::SequencerEngine sequencer;
     juce::MidiBuffer seqMidi; // the sequencer's notes for one block
-    std::vector<float> mono; // one block of engine output, sized in prepareToPlay
     juce::LinearSmoothedValue<float> outputGain { 1.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BleepForgeProcessor)

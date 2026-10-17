@@ -42,6 +42,7 @@ public:
     void prepare (float sampleRate, uint32_t noiseSeed)
     {
         fs = sampleRate;
+        tiltCoef = 1.0f - std::exp (-kTwoPi * 1500.0f / fs);
         noise.seed (noiseSeed);
         reset();
     }
@@ -60,8 +61,9 @@ public:
 
     // A voice that is still sounding keeps its phase and attacks from its current level, so
     // retriggering or stealing it doesn't click. With glide it slides from its current pitch.
-    void start (int midiNote, float velocity, bool glide)
+    void start (int midiNote, float velocity, bool glide, const Variation& v = {})
     {
+        variation = v;
         if (! amp.isActive())
         {
             carrierPhase = modulatorPhase = 0.0f;
@@ -88,7 +90,7 @@ public:
     // Adds the voice to out. glideCoef is the per-sample one-pole coefficient (0 = no glide).
     void render (float* out, int numSamples, const BleepParams& p, float glideCoef)
     {
-        amp.set (fs, p.attackMs, p.decayMs, 0.0f, p.releaseMs);
+        amp.set (fs, p.attackMs, p.decayMs * variation.decayScale, 0.0f, p.releaseMs * variation.decayScale);
         const float pitchCoef = std::exp (-4.6f / std::max (1.0f, p.pitchEnvDecayMs * 0.001f * fs)); // -40 dB
         const float fmIndex = p.fmAmount * kMaxFmIndex;
         const float pw = std::clamp (p.pulseWidth, 0.05f, 0.95f);
@@ -96,13 +98,19 @@ public:
         for (int i = 0; i < numSamples && amp.isActive(); ++i)
         {
             currentPitch = targetPitch + (currentPitch - targetPitch) * glideCoef;
-            const float pitch = currentPitch + p.pitchEnvSemis * pitchEnv;
+            const float pitch = currentPitch + variation.pitchSemis + p.pitchEnvSemis * pitchEnv;
             pitchEnv *= pitchCoef;
             const float inc = std::min (0.45f, 440.0f * std::exp2 ((pitch - 69.0f) / 12.0f) / fs);
 
             float s = oscillator (inc, p, pw, fmIndex);
             if (p.noise > 0.0f)
                 s += p.noise * (noise.next() - s);
+            if (std::abs (variation.tone) > 1.0e-3f)
+            {
+                // a tilt around 1.5 kHz: the highs go down to none or up to double
+                tiltLowpass += tiltCoef * (s - tiltLowpass);
+                s = tiltLowpass + (1.0f + variation.tone) * (s - tiltLowpass);
+            }
             out[i] += s * gain * amp.next() * kLevel;
         }
     }
@@ -151,6 +159,8 @@ private:
     WhiteNoise noise;
     float carrierPhase = 0.0f, modulatorPhase = 0.0f;
     float currentPitch = 60.0f, targetPitch = 60.0f, pitchEnv = 0.0f, gain = 1.0f;
+    float tiltLowpass = 0.0f, tiltCoef = 0.2f;
+    Variation variation;
     int note = -1;
 };
 

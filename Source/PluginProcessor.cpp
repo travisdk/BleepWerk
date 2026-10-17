@@ -110,6 +110,24 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqScale", 1 }, "Scale", scales,
                                                               bleepforge::kDefaultScale));
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqRoot", 1 }, "Root", roots, 0));
+    StringArray rates;
+    for (auto* name : bleepforge::kSeqRateNames)
+        rates.add (name);
+    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqRate", 1 }, "Rate", rates, bleepforge::kDefaultSeqRate));
+    params.push_back (std::make_unique<AudioParameterFloat> (
+        ParameterID { "seqSwing", 1 }, "Swing", NormalisableRange<float> (0.5f, 0.75f, 0.005f), 0.5f,
+        AudioParameterFloatAttributes()
+            .withStringFromValueFunction ([] (float v, int) { return String (roundToInt (v * 100.0f)) + " %"; })
+            .withValueFromStringFunction ([] (const String& t) { return t.retainCharacters ("0123456789.").getFloatValue() / 100.0f; })));
+
+    // Chaos: Amount scales every target's depth
+    params.push_back (floatParam ("chaosAmount", "Chaos", { 0.0f, 1.0f }, 0.25f));
+    params.push_back (floatParam ("chaosPitch", "Chaos Pitch", { 0.0f, 1.0f }, 0.2f));
+    params.push_back (floatParam ("chaosDecay", "Chaos Decay", { 0.0f, 1.0f }, 0.5f));
+    params.push_back (floatParam ("chaosTone", "Chaos Tone", { 0.0f, 1.0f }, 0.5f));
+    params.push_back (floatParam ("chaosPan", "Chaos Pan", { 0.0f, 1.0f }, 0.5f));
+    params.push_back (floatParam ("chaosVelocity", "Chaos Velocity", { 0.0f, 1.0f }, 0.3f));
+
     // how many octaves the grid shows at a time: a view setting, saved with the project
     params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqRange", 1 }, "Visible Range", 1, kMaxVisibleOctaves,
                                                            2, AudioParameterIntAttributes().withAutomatable (false)));
@@ -124,9 +142,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     return { params.begin(), params.end() };
 }
 
-void BleepForgeProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void BleepForgeProcessor::prepareToPlay (double sampleRate, int)
 {
-    mono.assign ((size_t) juce::jmax (1, samplesPerBlock), 0.0f);
     seqMidi.ensureSize (4096);
     bleep.prepare (sampleRate);
     foley.prepare (sampleRate);
@@ -173,6 +190,15 @@ void BleepForgeProcessor::readParams()
     foley.setMode (monoMode ? bleepforge::FoleySynth::Mode::Mono : bleepforge::FoleySynth::Mode::Poly);
     bleep.setGlideMs (get ("glide"));
     foley.setGlideMs (get ("glide"));
+
+    const float amount = get ("chaosAmount");
+    bleepforge::ChaosDepths chaos;
+    chaos.pitch = amount * get ("chaosPitch");
+    chaos.decay = amount * get ("chaosDecay");
+    chaos.tone = amount * get ("chaosTone");
+    chaos.pan = amount * get ("chaosPan");
+    bleep.setChaos (chaos);
+    foley.setChaos (chaos);
     foleySelected = (int) get ("engine") == 1;
 }
 
@@ -202,20 +228,16 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     buffer.clear();
     runSequencer (numSamples);
 
-    // Render in chunks between the sequencer's notes so they start on their exact sample. The scratch
-    // buffer is sized in prepareToPlay; a host block larger than promised is done in pieces.
-    const int chunkMax = (int) mono.size();
+    // Render between the sequencer's notes so they start on their exact sample. Chaos pans
+    // each note; a mono output gets them unpanned.
+    float* left = buffer.getWritePointer (0);
+    float* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
     auto renderRange = [&] (int from, int to)
     {
-        while (from < to)
-        {
-            const int length = juce::jmin (chunkMax, to - from);
-            bleep.render (mono.data(), length);
-            foley.renderAdding (mono.data(), length);
-            for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
-                buffer.copyFrom (ch, from, mono.data(), length);
-            from += length;
-        }
+        if (to <= from)
+            return;
+        bleep.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
+        foley.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
     };
 
     int position = 0;
@@ -271,6 +293,9 @@ bleepforge::SequencerSettings BleepForgeProcessor::sequencerSettings() const
     bleepforge::SequencerSettings settings;
     settings.scale = (int) get ("seqScale");
     settings.root = (int) get ("seqRoot");
+    settings.stepBeats = bleepforge::kSeqRateBeats[(size_t) juce::jlimit (0, bleepforge::kNumSeqRates - 1, (int) get ("seqRate"))];
+    settings.swing = get ("seqSwing");
+    settings.velocityChaos = get ("chaosAmount") * get ("chaosVelocity");
     return settings;
 }
 

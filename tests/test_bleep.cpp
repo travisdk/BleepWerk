@@ -6,6 +6,7 @@
 #include "BleepSynth.h"
 #include "TestUtils.h"
 
+#include <algorithm>
 #include <vector>
 
 using namespace bleepforge;
@@ -220,6 +221,100 @@ static void modeSwitchReleasesEverything()
     CHECK (synth.activeVoices() == 0);
 }
 
+static void chaosVariesEachNote()
+{
+    // without Chaos the same note is the same every time
+    auto p = steady (BleepWave::Sine);
+    auto synth = makeSynth (p);
+    std::vector<double> pitches;
+    ChaosDepths chaos;
+    chaos.pitch = 1.0f;
+    for (bool withChaos : { false, true })
+    {
+        synth.setChaos (withChaos ? chaos : ChaosDepths {});
+        pitches.clear();
+        for (int i = 0; i < 12; ++i)
+        {
+            synth.allNotesOff();
+            render (synth, ms (300));
+            synth.noteOn (69, 1.0f);
+            const auto out = render (synth, ms (150));
+            pitches.push_back (frequency (out, ms (20), ms (150)));
+        }
+        const auto [lo, hi] = std::minmax_element (pitches.begin(), pitches.end());
+        if (! withChaos)
+            CHECK (*hi - *lo < 0.5);
+        else
+        {
+            CHECK (*hi - *lo > 20.0);                                  // audibly different notes
+            CHECK (*lo > 440.0 * std::exp2 (-kChaosMaxPitchSemis / 12.0) - 1.0); // within the range
+            CHECK (*hi < 440.0 * std::exp2 (kChaosMaxPitchSemis / 12.0) + 1.0);
+        }
+    }
+}
+
+static void chaosPansNotes()
+{
+    auto synth = makeSynth (steady (BleepWave::Sine));
+    ChaosDepths chaos;
+    chaos.pan = 1.0f;
+    synth.setChaos (chaos);
+    int leftHeavy = 0, rightHeavy = 0;
+    for (int i = 0; i < 16; ++i)
+    {
+        synth.allNotesOff();
+        std::vector<float> l ((size_t) ms (300)), r ((size_t) ms (300));
+        synth.renderAdding (l.data(), r.data(), ms (300)); // let the last note end
+        synth.noteOn (69, 1.0f);
+        std::fill (l.begin(), l.end(), 0.0f);
+        std::fill (r.begin(), r.end(), 0.0f);
+        synth.renderAdding (l.data(), r.data(), ms (100));
+        double el = 0.0, er = 0.0;
+        for (int s = ms (10); s < ms (100); ++s)
+        {
+            el += l[(size_t) s] * l[(size_t) s];
+            er += r[(size_t) s] * r[(size_t) s];
+        }
+        leftHeavy += el > 1.5 * er ? 1 : 0;
+        rightHeavy += er > 1.5 * el ? 1 : 0;
+    }
+    CHECK (leftHeavy > 2 && rightHeavy > 2);
+
+    // centred notes keep full level on both sides
+    auto centred = makeSynth (steady (BleepWave::Sine));
+    centred.noteOn (69, 1.0f);
+    std::vector<float> l ((size_t) ms (50)), r ((size_t) ms (50)), m ((size_t) ms (50));
+    centred.renderAdding (l.data(), r.data(), ms (50));
+    auto mono = makeSynth (steady (BleepWave::Sine));
+    mono.noteOn (69, 1.0f);
+    mono.render (m.data(), ms (50));
+    CHECK (std::equal (l.begin(), l.end(), m.begin()) && std::equal (r.begin(), r.end(), m.begin()));
+}
+
+static void chaosVariesDecay()
+{
+    auto p = steady (BleepWave::Sine);
+    p.decayMs = 200.0f;
+    auto synth = makeSynth (p);
+    ChaosDepths chaos;
+    chaos.decay = 1.0f;
+    synth.setChaos (chaos);
+    int shortOnes = 0, longOnes = 0;
+    for (int i = 0; i < 16; ++i)
+    {
+        synth.noteOn (69, 1.0f);
+        int samples = 0;
+        while (synth.activeVoices() > 0 && samples < ms (2000))
+        {
+            render (synth, 64);
+            samples += 64;
+        }
+        shortOnes += samples < ms (140) ? 1 : 0;
+        longOnes += samples > ms (280) ? 1 : 0;
+    }
+    CHECK (shortOnes > 1 && longOnes > 1);
+}
+
 int main()
 {
     pitchIsRight();
@@ -232,5 +327,8 @@ int main()
     monoGlideSlides();
     polyAllocatesAndSteals();
     modeSwitchReleasesEverything();
+    chaosVariesEachNote();
+    chaosPansNotes();
+    chaosVariesDecay();
     return finish ("bleep");
 }

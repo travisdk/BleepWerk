@@ -342,6 +342,122 @@ static void gridSavesAndLoads()
     CHECK (loaded.getLength() == 23 && loaded.get (kNumSlots - 1, 31) == offButShaped);
 }
 
+static void swingDelaysEverySecondStep()
+{
+    Grid grid;
+    for (int step = 0; step < 4; ++step)
+        grid.set (0, step, hit());
+    SequencerSettings swung;
+    swung.swing = 0.625; // the second 1/16 of each pair comes a quarter step late
+    const auto events = run (grid, 333, 4, swung);
+    std::vector<long> ons;
+    for (const auto& e : events)
+        if (e.on)
+            ons.push_back (e.sample);
+    CHECK ((ons == std::vector<long> { 0, 7500, 12000, 19500 }));
+    CHECK (balanced (events));
+}
+
+static void rateSetsTheStepLength()
+{
+    Grid grid;
+    grid.set (0, 0, hit());
+    grid.set (0, 1, hit());
+    SequencerSettings triplets;
+    triplets.stepBeats = kSeqRateBeats[3]; // 1/8T: a third of a beat, 8000 samples at 120 BPM
+    const auto events = run (grid, 512, 6, triplets);
+    std::vector<long> ons;
+    for (const auto& e : events)
+        if (e.on)
+            ons.push_back (e.sample);
+    CHECK (ons.size() >= 2 && ons[0] == 0 && ons[1] == 8000);
+}
+
+static void ratchetsSplitTheStep()
+{
+    Grid grid;
+    auto c = hit();
+    c.ratchet = 3;
+    grid.set (0, 0, c);
+    c.ratchet = 4;
+    grid.set (2, 1, c);
+    const auto reference = run (grid, 64, 2);
+
+    std::vector<long> ons, offs;
+    for (const auto& e : reference)
+        (e.on ? ons : offs).push_back (e.sample);
+    CHECK ((ons == std::vector<long> { 0, 2000, 4000, 6000, 7500, 9000, 10500 }));
+    CHECK ((offs == std::vector<long> { 1000, 3000, 5000, 6750, 8250, 9750, 11250 }));
+    CHECK (balanced (reference));
+
+    // the later hits fall in later blocks, whatever their size
+    for (int blockSize : { 1, 100, 999, 6000, 4096 })
+        CHECK (run (grid, blockSize, 2) == reference);
+}
+
+static void ratchetsAreOneChance()
+{
+    // probability decides for the whole ratchet: 0 or 3 hits per step, never 1 or 2
+    Grid grid;
+    auto c = hit (0.5f);
+    c.ratchet = 3;
+    grid.set (0, 0, c);
+    const auto events = run (grid, 512, 16 * 200);
+    std::array<int, 4> perPass {};
+    std::array<int, 200> count {};
+    for (const auto& e : events)
+        if (e.on)
+            ++count[(size_t) (e.sample / (16 * samplesPerStep))];
+    for (int n : count)
+        if (n <= 3)
+            ++perPass[(size_t) n];
+    CHECK (perPass[1] == 0 && perPass[2] == 0);
+    CHECK (perPass[0] > 60 && perPass[3] > 60);
+}
+
+static void stoppingInsideARatchetForgetsTheRest()
+{
+    Grid grid;
+    auto c = hit();
+    c.ratchet = 4;
+    grid.set (0, 0, c);
+    SequencerEngine engine;
+    std::vector<Event> events;
+    auto emit = [&] (int s, bool on, int note, float vel) { events.push_back ({ s, on, note, vel }); };
+    engine.process (true, 0.0, bpm, sampleRate, 2000, {}, grid, emit); // stop after the second hit starts
+    engine.process (false, 0.0, bpm, sampleRate, 512, {}, grid, emit);
+    engine.process (true, 0.25, bpm, sampleRate, 512, {}, grid, emit);  // starting again later plays nothing stale
+    int ons = 0;
+    for (const auto& e : events)
+        ons += e.on ? 1 : 0;
+    CHECK (ons == 2);
+    CHECK (balanced (events));
+}
+
+static void velocityChaosVariesEachHit()
+{
+    Grid grid;
+    for (int step = 0; step < kDefaultSteps; ++step)
+        grid.set (0, step, hit (1.0f, 0.5f));
+
+    const auto steady = run (grid, 512, 64);
+    for (const auto& e : steady)
+        if (e.on)
+            CHECK (std::abs (e.velocity - 64.0f / 127.0f) < 1.0e-6f);
+
+    SequencerSettings chaotic;
+    chaotic.velocityChaos = 1.0f;
+    float lowest = 1.0f, highest = 0.0f;
+    for (const auto& e : run (grid, 512, 64, chaotic))
+        if (e.on)
+        {
+            lowest = std::min (lowest, e.velocity);
+            highest = std::max (highest, e.velocity);
+        }
+    CHECK (lowest < 0.3f && lowest >= 0.5f * 0.4f - 0.01f);
+    CHECK (highest > 0.7f && highest <= 0.5f * 1.6f + 0.01f);
+}
+
 int main()
 {
     scaleMapping();
@@ -357,5 +473,11 @@ int main()
     lengthWraps();
     cellsPack();
     gridSavesAndLoads();
+    swingDelaysEverySecondStep();
+    rateSetsTheStepLength();
+    ratchetsSplitTheStep();
+    ratchetsAreOneChance();
+    stoppingInsideARatchetForgetsTheRest();
+    velocityChaosVariesEachHit();
     return finish ("sequencer");
 }

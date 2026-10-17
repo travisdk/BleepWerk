@@ -206,12 +206,13 @@ private:
 inline void loadStarterPattern (Grid& grid)
 {
     grid.clear();
-    auto put = [&grid] (int row, int step, float probability, float velocity)
+    auto put = [&grid] (int row, int step, float probability, float velocity, int ratchet = 1)
     {
         Cell c;
         c.on = true;
         c.probability = probability;
         c.velocity = velocity;
+        c.ratchet = ratchet;
         const int fromC4 = 5 * scaleAt (kDefaultScale).size + row;
         grid.set (rowSlot (fromC4, kDefaultScale), step, c);
     };
@@ -220,23 +221,41 @@ inline void loadStarterPattern (Grid& grid)
     put (0, 10, 0.85f, 0.85f);
     put (7, 3, 0.6f, 0.7f);
     put (7, 11, 0.4f, 0.6f);
-    put (4, 8, 1.0f, 0.75f);
+    put (4, 8, 1.0f, 0.75f, 2);
     put (4, 14, 0.5f, 0.6f);
     put (2, 13, 0.3f, 0.65f);
     put (6, 15, 0.25f, 0.5f);
 }
 
+// Step rates, in quarter-note beats per step.
+inline constexpr double kSeqRateBeats[] = { 0.5, 0.25, 0.125, 1.0 / 3.0, 1.0 / 6.0 };
+inline constexpr const char* kSeqRateNames[] = { "1/8", "1/16", "1/32", "1/8T", "1/16T" };
+inline constexpr int kNumSeqRates = (int) std::size (kSeqRateBeats);
+inline constexpr int kDefaultSeqRate = 1; // 1/16
+
 struct SequencerSettings
 {
     bool enabled = true;
     int scale = kDefaultScale;
-    int root = 0;             // 0-11 for C-B
-    double stepBeats = 0.25;  // 1/16
+    int root = 0;               // 0-11 for C-B
+    double stepBeats = 0.25;    // 1/16
+    double swing = 0.5;         // 0.5 straight .. 0.75 heavy shuffle; delays every second step
+    float velocityChaos = 0.0f; // 0..1: how far each hit's velocity may stray
 };
+
+// Start of step k in beats from the timeline's zero; swing delays every second step. (The
+// swing scheme comes from SubForge.)
+inline double stepStartBeats (int64_t k, double beats, double swing)
+{
+    const auto pairStart = (double) (k - (k & 1)) * beats;
+    return (k & 1) ? pairStart + 2.0 * beats * swing : pairStart;
+}
 
 // Turns the grid into note on/off events for one audio block. Steps are counted from beat 0
 // of the host timeline, so loops and jumps land on the right step and the timing doesn't
-// depend on the block size. Each played cell gets a note-off after kGate of its step.
+// depend on the block size. A played cell is scheduled when its step starts: one hit, or its
+// ratchet's hits spread evenly over the step, each ending after kGate of its share. Hits are
+// queued, so the later ones of a ratchet can fall in later blocks.
 class SequencerEngine
 {
 public:
@@ -275,58 +294,97 @@ public:
         auto sampleFor = [&] (double ppq) { return (int64_t) std::ceil ((ppq - ppqStart) / ppqPerSample - 1.0e-6); };
 
         const double beats = settings.stepBeats;
+        const double swing = std::clamp (settings.swing, 0.5, 0.75);
         const int length = std::clamp (grid.getLength(), 1, kMaxSteps);
-        const auto first = (int64_t) std::floor (ppqStart / beats) - 1;
+        const auto first = (int64_t) std::floor (ppqStart / beats) - 2;
         const auto last = (int64_t) std::ceil (ppqEnd / beats) + 1;
 
         for (int64_t j = first; j <= last; ++j)
         {
-            const double start = (double) j * beats; // silent before beat 0 (a host's pre-roll)
+            const double start = stepStartBeats (j, beats, swing); // silent before beat 0 (a host's pre-roll)
             const auto sample = sampleFor (start);
             if (start < 0.0 || sample < 0 || sample >= numSamples)
                 continue;
 
-            flushNoteOffs (sample, numSamples, sampleFor, emit);
-            triggerStep ((int) (j % length), start, beats, (int) sample, settings, grid, emit);
+            flush (sample - 1, numSamples, sampleFor, emit); // everything before this step
+            scheduleStep ((int) (j % length), start, stepStartBeats (j + 1, beats, swing) - start, settings, grid);
         }
-        flushNoteOffs (numSamples - 1, numSamples, sampleFor, emit);
+        flush (numSamples - 1, numSamples, sampleFor, emit);
     }
 
-    // Note-offs for everything the sequencer has sounding (stop, bypass, jumps).
+    // Note-offs for everything the sequencer has sounding, and forgets the hits still to
+    // come (stop, bypass, jumps).
     template <typename Emit>
     void releaseAll (int sample, Emit& emit)
     {
-        for (int i = 0; i < numSounding; ++i)
-            emit (sample, false, sounding[(size_t) i].note, 0.0f);
-        numSounding = 0;
+        for (int i = 0; i < numPending; ++i)
+            if (pending[(size_t) i].started)
+                emit (sample, false, pending[(size_t) i].note, 0.0f);
+        numPending = 0;
     }
 
 private:
-    struct Sounding
+    struct Hit
     {
-        int note;
-        double offPpq;
+        int note, slot, step;
+        float velocity;
+        double onPpq, offPpq;
+        bool started;
     };
 
+    void remove (int index) { pending[(size_t) index] = pending[(size_t) --numPending]; }
+
+    // Emits the queued note-ons and note-offs up to sample upTo in time order; at the same
+    // sample, note-offs first.
     template <typename SampleFor, typename Emit>
-    void flushNoteOffs (int64_t upTo, int numSamples, SampleFor& sampleFor, Emit& emit)
+    void flush (int64_t upTo, int numSamples, SampleFor& sampleFor, Emit& emit)
     {
-        for (int i = 0; i < numSounding;)
+        for (;;)
         {
-            const auto offSample = sampleFor (sounding[(size_t) i].offPpq);
-            if (offSample <= upTo)
+            int best = -1;
+            int64_t bestSample = 0;
+            for (int i = 0; i < numPending; ++i)
             {
-                emit ((int) std::clamp<int64_t> (offSample, 0, numSamples - 1), false, sounding[(size_t) i].note, 0.0f);
-                sounding[(size_t) i] = sounding[(size_t) --numSounding];
+                const auto& h = pending[(size_t) i];
+                const auto s = sampleFor (h.started ? h.offPpq : h.onPpq);
+                if (s <= upTo && (best < 0 || s < bestSample || (s == bestSample && h.started && ! pending[(size_t) best].started)))
+                {
+                    best = i;
+                    bestSample = s;
+                }
             }
-            else
-                ++i;
+            if (best < 0)
+                return;
+
+            const int sample = (int) std::clamp<int64_t> (bestSample, 0, numSamples - 1);
+            if (pending[(size_t) best].started)
+            {
+                emit (sample, false, pending[(size_t) best].note, 0.0f);
+                remove (best);
+                continue;
+            }
+
+            // the same note still sounding (a long ratchet hit, two cells on one note): end it first
+            const int note = pending[(size_t) best].note;
+            for (int i = 0; i < numPending; ++i)
+                if (i != best && pending[(size_t) i].started && pending[(size_t) i].note == note)
+                {
+                    emit (sample, false, note, 0.0f);
+                    remove (i);
+                    if (best == numPending)
+                        best = i; // it was moved into the removed one's place
+                    break;
+                }
+
+            auto& h = pending[(size_t) best];
+            emit (sample, true, note, h.velocity);
+            h.started = true;
+            auto& hit = lastHits[(size_t) h.slot];
+            hit.store ((((hit.load (std::memory_order_relaxed) >> 6) + 1) << 6) | (uint32_t) h.step, std::memory_order_relaxed);
         }
     }
 
-    template <typename Emit>
-    void triggerStep (int step, double start, double beats, int sample, const SequencerSettings& settings,
-                      const Grid& grid, Emit& emit)
+    void scheduleStep (int step, double start, double duration, const SequencerSettings& settings, const Grid& grid)
     {
         currentStep.store (step);
         const int rows = numRows (settings.scale, settings.root);
@@ -337,22 +395,17 @@ private:
             if (! cell.on || (cell.probability < 1.0f && nextRandom() >= cell.probability))
                 continue;
 
-            const int note = rowNote (row, settings.scale, settings.root);
-            for (int i = 0; i < numSounding; ++i) // still sounding: end it before the new hit
-                if (sounding[(size_t) i].note == note)
-                {
-                    emit (sample, false, note, 0.0f);
-                    sounding[(size_t) i] = sounding[(size_t) --numSounding];
-                    break;
-                }
+            float velocity = cell.velocity;
+            if (settings.velocityChaos > 0.0f)
+                velocity = std::clamp (velocity * (1.0f + settings.velocityChaos * 0.6f * (2.0f * nextRandom() - 1.0f)), 1.0f / 127.0f, 1.0f);
 
-            emit (sample, true, note, cell.velocity);
-            auto& hit = lastHits[(size_t) slot];
-            hit.store ((((hit.load (std::memory_order_relaxed) >> 6) + 1) << 6) | (uint32_t) step, std::memory_order_relaxed);
-            if (numSounding < (int) sounding.size())
-                sounding[(size_t) numSounding++] = { note, start + beats * kGate };
-            else
-                emit (sample, false, note, 0.0f);
+            const int note = rowNote (row, settings.scale, settings.root);
+            const double share = duration / cell.ratchet;
+            for (int i = 0; i < cell.ratchet && numPending < (int) pending.size(); ++i)
+            {
+                const double on = start + i * share;
+                pending[(size_t) numPending++] = { note, slot, step, velocity, on, on + share * kGate, false };
+            }
         }
     }
 
@@ -365,8 +418,8 @@ private:
         return (float) (rng >> 8) * (1.0f / 16777216.0f);
     }
 
-    std::array<Sounding, kMaxRows> sounding {}; // each note at most once
-    int numSounding = 0;
+    std::array<Hit, kMaxRows * 4> pending {}; // every note with a full ratchet
+    int numPending = 0;
     double lastPpqEnd = -1.0;
     uint32_t rng = 0x2545f491u;
     std::atomic<int> currentStep { -1 };
