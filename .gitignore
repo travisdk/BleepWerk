@@ -1,0 +1,10 @@
+build/
+.cache/
+compile_commands.json
+dist/
+_sdks/
+
+# Claude Code
+.claude/
+CLAUDE.md
+CLAUDE.local.md

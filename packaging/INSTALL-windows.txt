@@ -1,0 +1,33 @@
+BleepForge – installation on Windows
+====================================
+
+The archive contains BleepForge in two plug-in formats, CLAP and VST®3.
+Install the one your DAW uses, or both.
+
+For your user only (no administrator rights needed):
+
+    CLAP:  copy BleepForge.clap to   %LOCALAPPDATA%\Programs\Common\CLAP\
+    VST3:  copy the BleepForge.vst3 folder to   %LOCALAPPDATA%\Programs\Common\VST3\
+
+For all users (needs administrator rights):
+
+    CLAP:  C:\Program Files\Common Files\CLAP\
+    VST3:  C:\Program Files\Common Files\VST3\
+
+Create the folder if it does not exist, then restart your DAW or rescan
+plug-ins. BleepForge appears as an instrument.
+
+If the BleepForge window looks blurry, is the wrong size or is cut off when
+Windows display scaling is above 100 %, your DAW is probably stretching the
+plug-in window. BleepForge scales itself, so turn that DAW setting off for
+BleepForge. In Ableton Live: right-click BleepForge in the browser and untick
+"Auto-Scale Plug-in Window", then reopen the plug-in.
+
+BleepForge is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License, version 3 (LICENSE.txt).
+It comes with no warranty. Source code and releases:
+https://github.com/travisdk/BleepForge
+
+Third-party licences are listed in THIRD-PARTY-NOTICES.txt.
+
+VST is a registered trademark of Steinberg Media Technologies GmbH.

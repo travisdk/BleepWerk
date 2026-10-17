@@ -1,0 +1,28 @@
+BleepForge – installation on Linux
+==================================
+
+The archive contains BleepForge in two plug-in formats, CLAP and VST®3.
+Install the one your DAW uses, or both.
+
+CLAP (Bitwig Studio, REAPER and others):
+
+    mkdir -p ~/.clap
+    cp BleepForge.clap ~/.clap/
+
+VST3:
+
+    mkdir -p ~/.vst3
+    cp -r BleepForge.vst3 ~/.vst3/
+
+(Use /usr/lib/clap/ and /usr/lib/vst3/ instead to install for all users.)
+
+Restart your DAW or rescan plug-ins. BleepForge appears as an instrument.
+
+BleepForge is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License, version 3 (LICENSE.txt).
+It comes with no warranty. Source code and releases:
+https://github.com/travisdk/BleepForge
+
+Third-party licences are listed in THIRD-PARTY-NOTICES.txt.
+
+VST is a registered trademark of Steinberg Media Technologies GmbH.
