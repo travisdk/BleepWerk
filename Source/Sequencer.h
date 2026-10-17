@@ -216,6 +216,10 @@ public:
 
     int getCurrentStep() const { return currentStep.load(); }
 
+    // The last cell of a row that played, for the GUI: (count << 6) | step, where count goes
+    // up with every hit so the same step playing again shows as a new hit. 0: none yet.
+    uint32_t getLastHit (int row) const { return lastHits[(size_t) std::clamp (row, 0, kMaxRows - 1)].load (std::memory_order_relaxed); }
+
     // emit (int sampleOffset, bool noteOn, int note, float velocity)
     template <typename Emit>
     void process (bool playing, double ppqStart, double bpm, double sampleRate, int numSamples,
@@ -312,6 +316,8 @@ private:
                 }
 
             emit (sample, true, note, cell.velocity);
+            auto& hit = lastHits[(size_t) row];
+            hit.store ((((hit.load (std::memory_order_relaxed) >> 6) + 1) << 6) | (uint32_t) step, std::memory_order_relaxed);
             if (numSounding < (int) sounding.size())
                 sounding[(size_t) numSounding++] = { note, start + beats * kGate };
             else
@@ -333,5 +339,6 @@ private:
     double lastPpqEnd = -1.0;
     uint32_t rng = 0x2545f491u;
     std::atomic<int> currentStep { -1 };
+    std::array<std::atomic<uint32_t>, kMaxRows> lastHits {};
 };
 } // namespace bleepforge

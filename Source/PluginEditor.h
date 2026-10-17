@@ -5,22 +5,25 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "PluginProcessor.h"
+#include "MainView.h"
+#include "Theme.h"
 
-// Placeholder editor: the grid (top) and engine section (bottom) arrive in later milestones.
-// Drawn at a fixed design size and scaled as a whole, so the window resizes with a fixed
-// aspect ratio between 75 % and 200 %.
+// Hosts MainView and scales it as a whole between 75 % and 200 % of its design size, keeping
+// the aspect ratio while the resize corner is dragged.
 class BleepForgeEditor : public juce::AudioProcessorEditor
 {
 public:
     explicit BleepForgeEditor (BleepForgeProcessor&);
+    ~BleepForgeEditor() override;
 
     void paint (juce::Graphics&) override;
+    void resized() override;
     void parentHierarchyChanged() override;
-
-    static constexpr int kWidth = 960, kHeight = 600;
 
 private:
     BleepForgeProcessor& processor;
+    bleepforge::theme::LookAndFeel lookAndFeel;
+    MainView view;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BleepForgeEditor)
 };

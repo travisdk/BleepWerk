@@ -66,7 +66,9 @@ juce_add_plugin(BleepForge
 
 target_sources(BleepForge PRIVATE
     Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp)
+    Source/PluginEditor.cpp
+    Source/MainView.cpp
+    Source/GridView.cpp)
 
 # BLEEPFORGE_VERSION_STRING in BleepForgeVersion.h: "git describe --tags --dirty", refreshed at
 # every build so it always names the exact commit; project VERSION when git is unavailable.
@@ -100,6 +102,13 @@ target_link_libraries(BleepForge
 clap_juce_extensions_plugin(TARGET BleepForge
     CLAP_ID "dk.hjuhl.bleepforge"
     CLAP_FEATURES instrument synthesizer)
+
+# Renders the interface to a PNG (not part of a normal build):
+#   cmake --build build --target BleepForge_Screenshot && build/BleepForge_Screenshot screenshot.png
+add_executable(BleepForge_Screenshot EXCLUDE_FROM_ALL tools/screenshot.cpp)
+target_include_directories(BleepForge_Screenshot PRIVATE Source $<TARGET_PROPERTY:BleepForge,INCLUDE_DIRECTORIES>)
+target_compile_definitions(BleepForge_Screenshot PRIVATE $<TARGET_PROPERTY:BleepForge,COMPILE_DEFINITIONS>)
+target_link_libraries(BleepForge_Screenshot PRIVATE BleepForge)
 
 if (BLEEPFORGE_INSTALL_AFTER_BUILD)
     add_custom_command(TARGET BleepForge_CLAP POST_BUILD

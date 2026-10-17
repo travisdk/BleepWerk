@@ -2,65 +2,44 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "PluginEditor.h"
-#include "BleepForgeVersion.h"
 
 namespace
 {
 constexpr float kMinScale = 0.75f, kMaxScale = 2.0f;
-
-namespace Palette
-{
-const juce::Colour background { 0xff15171c };
-const juce::Colour panel { 0xff1e2128 };
-const juce::Colour outline { 0xff2c3039 };
-const juce::Colour text { 0xffd8dce4 };
-const juce::Colour dimText { 0xff7a8190 };
-const juce::Colour accent { 0xff4fe0b0 };
-} // namespace Palette
 } // namespace
 
 BleepForgeEditor::BleepForgeEditor (BleepForgeProcessor& p)
-    : AudioProcessorEditor (&p), processor (p)
+    : AudioProcessorEditor (&p), processor (p), view (p)
 {
+    setLookAndFeel (&lookAndFeel);
+    addAndMakeVisible (view);
+
     setResizable (true, true);
-    setResizeLimits (juce::roundToInt (kWidth * kMinScale), juce::roundToInt (kHeight * kMinScale),
-                     juce::roundToInt (kWidth * kMaxScale), juce::roundToInt (kHeight * kMaxScale));
-    getConstrainer()->setFixedAspectRatio ((double) kWidth / (double) kHeight);
-    setSize (kWidth, kHeight);
+    setResizeLimits (juce::roundToInt (MainView::kWidth * kMinScale), juce::roundToInt (MainView::kHeight * kMinScale),
+                     juce::roundToInt (MainView::kWidth * kMaxScale), juce::roundToInt (MainView::kHeight * kMaxScale));
+    getConstrainer()->setFixedAspectRatio ((double) MainView::kWidth / (double) MainView::kHeight);
+    setSize (MainView::kWidth, MainView::kHeight);
+}
+
+BleepForgeEditor::~BleepForgeEditor()
+{
+    setLookAndFeel (nullptr);
 }
 
 void BleepForgeEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (Palette::background);
-    g.addTransform (juce::AffineTransform::scale ((float) getWidth() / (float) kWidth));
+    g.fillAll (bleepforge::theme::background);
+}
 
-    auto area = juce::Rectangle<float> (0.0f, 0.0f, (float) kWidth, (float) kHeight).reduced (16.0f);
-    auto header = area.removeFromTop (36.0f);
-
-    g.setColour (Palette::accent);
-    g.setFont (juce::FontOptions (22.0f, juce::Font::bold));
-    g.drawText ("BleepForge", header, juce::Justification::centredLeft);
-    g.setColour (Palette::dimText);
-    g.setFont (juce::FontOptions (13.0f));
-    g.drawText (BLEEPFORGE_VERSION_STRING, header, juce::Justification::centredRight);
-
-    area.removeFromTop (8.0f);
-    const auto grid = area.removeFromTop (area.getHeight() * 0.6f);
-    area.removeFromTop (12.0f);
-    const auto engine = area;
-
-    auto placeholder = [&g] (juce::Rectangle<float> r, const char* label)
-    {
-        g.setColour (Palette::panel);
-        g.fillRoundedRectangle (r, 6.0f);
-        g.setColour (Palette::outline);
-        g.drawRoundedRectangle (r.reduced (0.5f), 6.0f, 1.0f);
-        g.setColour (Palette::dimText);
-        g.setFont (juce::FontOptions (14.0f));
-        g.drawText (label, r, juce::Justification::centred);
-    };
-    placeholder (grid, "Sequencer grid");
-    placeholder (engine, "Engine / Chaos / Effects");
+void BleepForgeEditor::resized()
+{
+    // vector drawing throughout, so a transform keeps everything sharp at any scale; a
+    // host-set size with another aspect ratio leaves the view centred with margins
+    const float scale = juce::jmin ((float) getWidth() / (float) MainView::kWidth, (float) getHeight() / (float) MainView::kHeight);
+    view.setBounds (0, 0, MainView::kWidth, MainView::kHeight);
+    view.setTransform (juce::AffineTransform::scale (scale).translated (
+        ((float) getWidth() - (float) MainView::kWidth * scale) * 0.5f,
+        ((float) getHeight() - (float) MainView::kHeight * scale) * 0.5f));
 }
 
 void BleepForgeEditor::parentHierarchyChanged()
@@ -77,5 +56,7 @@ void BleepForgeEditor::parentHierarchyChanged()
             peer->setCustomPlatformScaleFactor (1.0);
             peer->setBounds (peer->getComponent().getBounds(), false);
         }
+   #else
+    juce::ignoreUnused (processor);
    #endif
 }

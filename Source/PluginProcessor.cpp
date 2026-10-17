@@ -198,11 +198,7 @@ void BleepForgeProcessor::runSequencer (int numSamples)
         }
     }
 
-    auto get = [this] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
-    bleepforge::SequencerSettings settings;
-    settings.scale = (int) get ("seqScale");
-    settings.rootNote = 60 + (int) get ("seqRoot") + 12 * (int) get ("seqOctave");
-
+    const auto settings = sequencerSettings();
     seqMidi.clear();
     sequencer.process (playing, ppq, bpm, getSampleRate(), numSamples, settings, grid,
                        [this] (int sample, bool on, int note, float velocity)
@@ -210,6 +206,20 @@ void BleepForgeProcessor::runSequencer (int numSamples)
                            seqMidi.addEvent (on ? juce::MidiMessage::noteOn (1, note, velocity)
                                                   : juce::MidiMessage::noteOff (1, note), sample);
                        });
+}
+
+bleepforge::SequencerSettings BleepForgeProcessor::sequencerSettings() const
+{
+    auto get = [this] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
+    bleepforge::SequencerSettings settings;
+    settings.scale = (int) get ("seqScale");
+    settings.rootNote = 60 + (int) get ("seqRoot") + 12 * (int) get ("seqOctave");
+    return settings;
+}
+
+void BleepForgeProcessor::gridEdited()
+{
+    updateHostDisplay (ChangeDetails().withNonParameterStateChanged (true));
 }
 
 juce::AudioProcessorEditor* BleepForgeProcessor::createEditor()

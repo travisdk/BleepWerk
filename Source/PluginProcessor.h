@@ -41,7 +41,11 @@ public:
 
     // The pattern, edited by the GUI while the audio thread plays it.
     bleepforge::Grid& getGrid() { return grid; }
-    int getSequencerStep() const { return sequencer.getCurrentStep(); }
+    const bleepforge::SequencerEngine& getSequencer() const { return sequencer; }
+    bleepforge::SequencerSettings sequencerSettings() const; // scale and root from the parameters
+
+    // Tells the host the project changed after a grid edit (the grid isn't a parameter).
+    void gridEdited();
 
     juce::AudioProcessorValueTreeState apvts;
 
