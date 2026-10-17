@@ -8,7 +8,11 @@
 namespace
 {
 constexpr int kMargin = 16, kHeaderHeight = 40, kStatusHeight = 22, kEngineHeight = 150;
-const juce::String kHelp = "Click: on/off    Drag up/down: probability    Shift+drag: velocity    Double-click: reset";
+juce::String helpText (BleepForgeProcessor::EditMode mode)
+{
+    const juce::String value = mode == BleepForgeProcessor::EditMode::Velocity ? "velocity" : "probability";
+    return "Click: on/off    Drag up/down: " + value + "    Double-click: reset " + value;
+}
 } // namespace
 
 MainView::MainView (BleepForgeProcessor& p)
@@ -40,13 +44,41 @@ MainView::MainView (BleepForgeProcessor& p)
     addAndMakeVisible (status);
     showStatus ({});
 
+    // edit mode: one value at a time, the other button pops out
+    editLabel.setJustificationType (juce::Justification::centredRight);
+    editLabel.setFont (juce::FontOptions (13.0f));
+    addAndMakeVisible (editLabel);
+    for (auto* button : { &probabilityButton, &velocityButton })
+    {
+        button->setClickingTogglesState (false);
+        addAndMakeVisible (*button);
+    }
+    probabilityButton.setConnectedEdges (juce::Button::ConnectedOnRight);
+    velocityButton.setConnectedEdges (juce::Button::ConnectedOnLeft);
+    probabilityButton.onClick = [this] { setEditMode (BleepForgeProcessor::EditMode::Probability); };
+    velocityButton.onClick = [this] { setEditMode (BleepForgeProcessor::EditMode::Velocity); };
+    setEditMode (processor.editMode.load());
+
     gridView.onStatus = [this] (const juce::String& text) { showStatus (text); };
     addAndMakeVisible (gridView);
 }
 
 void MainView::showStatus (const juce::String& text)
 {
-    status.setText (text.isEmpty() ? kHelp : text, juce::dontSendNotification);
+    status.setText (text.isEmpty() ? helpText (processor.editMode.load()) : text, juce::dontSendNotification);
+}
+
+void MainView::setEditMode (BleepForgeProcessor::EditMode mode)
+{
+    using namespace bleepforge;
+    processor.editMode = mode;
+    const bool velocity = mode == BleepForgeProcessor::EditMode::Velocity;
+    probabilityButton.setToggleState (! velocity, juce::dontSendNotification);
+    velocityButton.setToggleState (velocity, juce::dontSendNotification);
+    probabilityButton.setColour (juce::TextButton::textColourOnId, theme::accent);
+    velocityButton.setColour (juce::TextButton::textColourOnId, theme::velocity);
+    gridView.editModeChanged();
+    showStatus ({});
 }
 
 juce::Rectangle<int> MainView::headerArea() const
@@ -95,6 +127,14 @@ void MainView::resized()
     header.removeFromRight (12);
     place (scaleBox, 160);
     place (scaleLabel, 44);
+
+    // edit mode, after the title
+    auto left = headerArea();
+    left.removeFromLeft (190);
+    editLabel.setBounds (left.removeFromLeft (36).withSizeKeepingCentre (36, 26));
+    left.removeFromLeft (6);
+    probabilityButton.setBounds (left.removeFromLeft (90).withSizeKeepingCentre (90, 26));
+    velocityButton.setBounds (left.removeFromLeft (76).withSizeKeepingCentre (76, 26));
 
     auto middle = getLocalBounds().reduced (kMargin);
     middle.removeFromTop (kHeaderHeight + 8);

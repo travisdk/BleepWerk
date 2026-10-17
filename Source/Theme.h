@@ -15,6 +15,7 @@ inline const juce::Colour outline { 0xff2b3039 };
 inline const juce::Colour text { 0xffd8dce4 };
 inline const juce::Colour dimText { 0xff7a8190 };
 inline const juce::Colour accent { 0xff4fe0b0 };
+inline const juce::Colour velocity { 0xffffb547 }; // the grid in Velocity mode
 
 class LookAndFeel : public juce::LookAndFeel_V4
 {
@@ -35,7 +36,9 @@ public:
         setColour (juce::Slider::textBoxBackgroundColourId, panel);
         setColour (juce::Slider::textBoxOutlineColourId, outline);
         setColour (juce::TextButton::buttonColourId, panel);
-        setColour (juce::TextButton::textColourOffId, text);
+        setColour (juce::TextButton::textColourOffId, dimText);
+        setColour (juce::TextButton::buttonOnColourId, outline);
+        setColour (juce::TextButton::textColourOnId, text);
         setColour (juce::Label::textColourId, dimText);
     }
 };

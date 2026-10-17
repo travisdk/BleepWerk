@@ -7,9 +7,10 @@
 #include "PluginProcessor.h"
 
 // The probability grid: rows are the scale's notes (root at the bottom), columns the steps.
-// A cell's fill height is its probability and its brightness its velocity; cells flash when
-// they actually play, and the playing step is highlighted.
-//   click: on/off   drag up/down: probability   shift+drag: velocity   double-click: reset
+// The edit mode chooses what a cell shows and what dragging it changes: its probability
+// (mint) or its velocity (amber), as the cell's fill height. Cells flash when they actually
+// play, and the playing step is highlighted.
+//   click: on/off   drag up/down: the mode's value   double-click: reset the mode's value
 class GridView : public juce::Component, private juce::Timer
 {
 public:
@@ -23,6 +24,8 @@ public:
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
     void mouseDoubleClick (const juce::MouseEvent&) override;
+
+    void editModeChanged() { repaint(); }
 
     // A description of the cell under the mouse, or empty when there is none.
     std::function<void (const juce::String&)> onStatus;
@@ -50,7 +53,7 @@ private:
     bleepforge::Grid& grid;
 
     CellPos hover, drag;
-    bool dragged = false, dragVelocity = false;
+    bool dragged = false;
     float dragStartValue = 0.0f;
 
     // what was drawn, so the timer repaints only when something changed

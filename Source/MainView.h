@@ -27,10 +27,13 @@ private:
     juce::Rectangle<int> headerArea() const;
     juce::Rectangle<int> engineArea() const;
     void showStatus (const juce::String&);
+    void setEditMode (BleepForgeProcessor::EditMode);
 
     BleepForgeProcessor& processor;
     GridView gridView;
     juce::Label status;
+    juce::Label editLabel { {}, "Edit" };
+    juce::TextButton probabilityButton { "Probability" }, velocityButton { "Velocity" };
 
     juce::Label scaleLabel { {}, "Scale" }, rootLabel { {}, "Root" }, octaveLabel { {}, "Octave" };
     juce::ComboBox scaleBox, rootBox;

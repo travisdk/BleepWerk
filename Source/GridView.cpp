@@ -12,6 +12,27 @@ constexpr float kDragPixelsForFullRange = 150.0f;
 constexpr float kDragThreshold = 3.0f;
 const Cell kDefaultCell;
 
+using EditMode = BleepForgeProcessor::EditMode;
+
+float valueOf (const Cell& cell, EditMode mode)
+{
+    return mode == EditMode::Velocity ? cell.velocity : cell.probability;
+}
+
+void setValue (Cell& cell, EditMode mode, float value)
+{
+    if (mode == EditMode::Velocity)
+        cell.velocity = juce::jlimit (1.0f / 127.0f, 1.0f, value);
+    else
+        cell.probability = juce::jlimit (0.0f, 1.0f, value);
+}
+
+juce::String valueText (const Cell& cell, EditMode mode)
+{
+    return mode == EditMode::Velocity ? juce::String (juce::roundToInt (cell.velocity * 127.0f))
+                                      : juce::String (juce::roundToInt (cell.probability * 100.0f));
+}
+
 juce::String noteName (int note)
 {
     return juce::String (kRootNames[(size_t) (((note % 12) + 12) % 12)]) + juce::String (note / 12 - 1);
@@ -86,6 +107,8 @@ void GridView::paint (juce::Graphics& g)
     const int numRowsShown = rows(), numSteps = steps();
     const int playing = processor.getSequencer().getCurrentStep();
     const auto area = cellArea();
+    const auto mode = processor.editMode.load();
+    const auto colour = mode == EditMode::Velocity ? theme::velocity : theme::accent;
 
     // row labels: the note each row plays, roots in the accent colour
     for (int row = 0; row < numRowsShown; ++row)
@@ -117,24 +140,23 @@ void GridView::paint (juce::Graphics& g)
 
             if (cell.on)
             {
-                // fill height: probability; brightness: velocity
-                const auto fill = r.withTop (r.getBottom() - r.getHeight() * cell.probability);
-                g.setColour (theme::accent.withAlpha (0.25f + 0.75f * cell.velocity));
-                g.fillRoundedRectangle (fill, corner);
-                g.setColour (theme::accent);
+                // the mode's value as the fill height, its number while below the maximum
+                const float value = valueOf (cell, mode);
+                g.setColour (colour.withAlpha (0.8f));
+                g.fillRoundedRectangle (r.withTop (r.getBottom() - r.getHeight() * value), corner);
+                g.setColour (colour);
                 g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.2f);
 
-                if (cell.probability < 1.0f && r.getWidth() >= 24.0f && r.getHeight() >= 14.0f)
+                if (value < 1.0f && r.getWidth() >= 24.0f && r.getHeight() >= 14.0f)
                 {
                     g.setColour (theme::text.withAlpha (0.85f));
                     g.setFont (juce::FontOptions (10.0f));
-                    g.drawText (juce::String (juce::roundToInt (cell.probability * 100.0f)), r.reduced (2.0f, 1.0f),
-                                juce::Justification::topRight);
+                    g.drawText (valueText (cell, mode), r.reduced (2.0f, 1.0f), juce::Justification::topRight);
                 }
             }
             else if (hover.row == row && hover.step == step)
             {
-                g.setColour (theme::accent.withAlpha (0.35f));
+                g.setColour (colour.withAlpha (0.35f));
                 g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.0f);
             }
 
@@ -219,9 +241,7 @@ void GridView::mouseDown (const juce::MouseEvent& e)
     dragged = false;
     if (! drag.valid())
         return;
-    dragVelocity = e.mods.isShiftDown();
-    const auto cell = grid.get (drag.row, drag.step);
-    dragStartValue = dragVelocity ? cell.velocity : cell.probability;
+    dragStartValue = valueOf (grid.get (drag.row, drag.step), processor.editMode.load());
 }
 
 void GridView::mouseDrag (const juce::MouseEvent& e)
@@ -236,11 +256,7 @@ void GridView::mouseDrag (const juce::MouseEvent& e)
     // dragging a cell sets it, and switches it on
     auto cell = grid.get (drag.row, drag.step);
     cell.on = true;
-    const float value = juce::jlimit (0.0f, 1.0f, dragStartValue - dy / kDragPixelsForFullRange);
-    if (dragVelocity)
-        cell.velocity = juce::jmax (1.0f / 127.0f, value);
-    else
-        cell.probability = value;
+    setValue (cell, processor.editMode.load(), dragStartValue - dy / kDragPixelsForFullRange);
     grid.set (drag.row, drag.step, cell);
 
     hover = drag;
@@ -271,8 +287,10 @@ void GridView::mouseDoubleClick (const juce::MouseEvent& e)
     const auto pos = cellAt (e.position);
     if (! pos.valid())
         return;
-    auto cell = kDefaultCell;
+    const auto mode = processor.editMode.load();
+    auto cell = grid.get (pos.row, pos.step);
     cell.on = true;
+    setValue (cell, mode, valueOf (kDefaultCell, mode));
     grid.set (pos.row, pos.step, cell);
     processor.gridEdited();
     repaint();
