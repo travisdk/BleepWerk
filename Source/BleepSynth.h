@@ -31,7 +31,6 @@ struct BleepParams
     float decayMs = 180.0f;
     float releaseMs = 30.0f;      // after note-off, if the decay hasn't ended the note yet
     float noise = 0.0f;           // 0 oscillator only .. 1 noise only
-    int octave = 0;
 };
 
 class BleepVoice
@@ -90,14 +89,13 @@ public:
     {
         amp.set (fs, p.attackMs, p.decayMs, 0.0f, p.releaseMs);
         const float pitchCoef = std::exp (-4.6f / std::max (1.0f, p.pitchEnvDecayMs * 0.001f * fs)); // -40 dB
-        const float offset = 12.0f * (float) p.octave + bendSemis;
         const float fmIndex = p.fmAmount * kMaxFmIndex;
         const float pw = std::clamp (p.pulseWidth, 0.05f, 0.95f);
 
         for (int i = 0; i < numSamples && amp.isActive(); ++i)
         {
             currentPitch = targetPitch + (currentPitch - targetPitch) * glideCoef;
-            const float pitch = currentPitch + offset + p.pitchEnvSemis * pitchEnv;
+            const float pitch = currentPitch + bendSemis + p.pitchEnvSemis * pitchEnv;
             pitchEnv *= pitchCoef;
             const float inc = std::min (0.45f, 440.0f * std::exp2 ((pitch - 69.0f) / 12.0f) / fs);
 

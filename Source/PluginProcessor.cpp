@@ -68,7 +68,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     params.push_back (floatParam ("bleepDecay", "Decay", skewedRange (5.0f, 2000.0f, 200.0f), 180.0f, "ms"));
     params.push_back (floatParam ("bleepRelease", "Release", skewedRange (1.0f, 500.0f, 50.0f), 30.0f, "ms"));
     params.push_back (floatParam ("bleepNoise", "Noise", { 0.0f, 1.0f }, 0.0f));
-    params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "bleepOctave", 1 }, "Octave", -3, 3, 0));
 
     // Sequencer
     StringArray scales, roots;
@@ -80,7 +79,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqScale", 1 }, "Scale", scales,
                                                               bleepforge::kDefaultScale));
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqRoot", 1 }, "Root", roots, 0));
-    params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqOctave", 1 }, "Seq Octave", -3, 3, 0));
+    params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqOctave", 1 }, "Octave", -3, 3, 0));
 
     // Voices
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "voiceMode", 1 }, "Voice Mode",
@@ -125,7 +124,6 @@ void BleepForgeProcessor::readParams()
     p.decayMs = get ("bleepDecay");
     p.releaseMs = get ("bleepRelease");
     p.noise = get ("bleepNoise");
-    p.octave = (int) get ("bleepOctave");
     bleep.setParams (p);
 
     bleep.setMode ((int) get ("voiceMode") == 0 ? bleepforge::BleepSynth::Mode::Mono : bleepforge::BleepSynth::Mode::Poly);

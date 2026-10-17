@@ -66,13 +66,6 @@ static void pitchIsRight()
         const auto out = render (synth, ms (300));
         CHECK (std::abs (frequency (out, ms (50), ms (300)) - 440.0) < 0.5);
     }
-
-    auto p = steady (BleepWave::Sine);
-    p.octave = -1;
-    auto synth = makeSynth (p);
-    synth.noteOn (69, 1.0f);
-    const auto out = render (synth, ms (300));
-    CHECK (std::abs (frequency (out, ms (50), ms (300)) - 220.0) < 0.5);
 }
 
 static void pitchEnvelopeFalls()
@@ -145,9 +138,8 @@ static void everyWaveIsFinite()
         p.fmAmount = 1.0f;
         p.fmRatio = 8.0f;
         p.noise = 0.5f;
-        p.octave = 3;
         auto synth = makeSynth (p);
-        for (int note = 0; note < 128; note += 16)
+        for (int note = 7; note < 128; note += 15) // up to G9, near the top of the range
             synth.noteOn (note, 1.0f);
         const auto out = render (synth, ms (200));
         bool finite = true;
