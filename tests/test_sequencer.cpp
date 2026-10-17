@@ -86,13 +86,19 @@ static bool balanced (const std::vector<Event>& events)
 static void scaleMapping()
 {
     const int minor[] = { 60, 62, 63, 65, 67, 68, 70, 72 };
-    CHECK (numRows (1) == 8);
+    CHECK (numRows (1, 1) == 8);
     for (int row = 0; row < 8; ++row)
         CHECK (rowNote (row, 1, 60) == minor[row]);
 
-    CHECK (numRows (0) == kMaxRows);
+    CHECK (numRows (0, 1) == 13);
     CHECK (rowNote (12, 0, 60) == 72);
-    CHECK (numRows (6) == 6);
+    CHECK (numRows (6, 1) == 6);
+
+    // over several octaves the rows keep climbing the scale
+    CHECK (numRows (1, 3) == 22);
+    CHECK (numRows (0, kMaxRange) == kMaxRows);
+    CHECK (rowNote (21, 1, 36) == 72);  // C2 minor, range 3: the top row is C5
+    CHECK (rowNote (9, 1, 36) == 51);   // the third degree in the second octave: D#3
     CHECK (rowNote (5, 6, 57) == 69); // A minor pentatonic: the top row is A an octave up
     CHECK (rowNote (2, 4, 64) == 67); // E Phrygian: F# isn't in it, G is
 }
@@ -124,7 +130,7 @@ static void blockSizeDoesNotMatter()
     Grid grid;
     loadStarterPattern (grid);
     for (int step = 0; step < kDefaultSteps; ++step)
-        for (int row = 0; row < numRows (kDefaultScale); ++row)
+        for (int row = 0; row < numRows (kDefaultScale, 1); ++row)
             if (auto c = grid.get (row, step); c.on)
             {
                 c.probability = 1.0f; // so every run plays the same notes
@@ -154,14 +160,19 @@ static void severalRowsSoundTogether()
 static void rowsAboveTheScaleAreSilent()
 {
     Grid grid;
-    grid.set (10, 0, hit()); // only exists in the chromatic scale
+    grid.set (10, 0, hit()); // only exists in the chromatic scale, or over more octaves
     SequencerSettings minor;
     CHECK (run (grid, 256, 16, minor).empty());
 
     SequencerSettings chromatic;
     chromatic.scale = 0;
-    const auto events = run (grid, 256, 16, chromatic);
+    auto events = run (grid, 256, 16, chromatic);
     CHECK (events.size() == 2 && events[0].note == 70);
+
+    SequencerSettings minorTwoOctaves;
+    minorTwoOctaves.range = 2;
+    events = run (grid, 256, 16, minorTwoOctaves);
+    CHECK (events.size() == 2 && events[0].note == 77); // F5: fourth degree, second octave
 }
 
 static void probabilityDistribution()

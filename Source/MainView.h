@@ -8,7 +8,8 @@
 #include "GridView.h"
 
 // Everything in the editor, laid out at a fixed design size; the editor scales it as a whole.
-// Top: title and the sequencer's Scale, Root and Octave. Middle: the grid and a status line.
+// Top: title, edit mode, the sequencer's Scale, Root and Octave, and a settings menu (Range).
+// Middle: the grid and a status line.
 // Bottom: the engine section (later milestones).
 class MainView : public juce::Component
 {
@@ -28,6 +29,14 @@ private:
     juce::Rectangle<int> engineArea() const;
     void showStatus (const juce::String&);
     void setEditMode (BleepForgeProcessor::EditMode);
+    void showSettingsMenu();
+
+    // A gear icon, drawn so it needs no font or image.
+    struct GearButton : juce::Button
+    {
+        GearButton() : juce::Button ("Settings") {}
+        void paintButton (juce::Graphics&, bool highlighted, bool down) override;
+    };
 
     BleepForgeProcessor& processor;
     GridView gridView;
@@ -38,6 +47,7 @@ private:
     juce::Label scaleLabel { {}, "Scale" }, rootLabel { {}, "Root" }, octaveLabel { {}, "Octave" };
     juce::ComboBox scaleBox, rootBox;
     juce::Slider octaveSlider { juce::Slider::IncDecButtons, juce::Slider::TextBoxLeft };
+    GearButton settingsButton;
     std::unique_ptr<ComboAttachment> scaleAttachment, rootAttachment;
     std::unique_ptr<SliderAttachment> octaveAttachment;
 

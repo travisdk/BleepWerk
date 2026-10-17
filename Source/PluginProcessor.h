@@ -47,6 +47,7 @@ public:
     // What dragging a cell edits; kept here so it survives closing the editor.
     enum class EditMode { Probability, Velocity };
     std::atomic<EditMode> editMode { EditMode::Probability };
+    std::atomic<int> firstVisibleRow { 0 }; // the grid's bottom row while browsing a large range
 
     // Tells the host the project changed after a grid edit (the grid isn't a parameter).
     void gridEdited();

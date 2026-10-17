@@ -38,6 +38,9 @@ MainView::MainView (BleepForgeProcessor& p)
     addAndMakeVisible (scaleBox);
     addAndMakeVisible (rootBox);
     addAndMakeVisible (octaveSlider);
+    settingsButton.setTooltip ("Settings");
+    settingsButton.onClick = [this] { showSettingsMenu(); };
+    addAndMakeVisible (settingsButton);
 
     status.setFont (juce::FontOptions (12.0f));
     status.setColour (juce::Label::textColourId, bleepforge::theme::dimText);
@@ -81,6 +84,58 @@ void MainView::setEditMode (BleepForgeProcessor::EditMode mode)
     showStatus ({});
 }
 
+void MainView::showSettingsMenu()
+{
+    auto* range = processor.apvts.getParameter ("seqRange");
+    const int current = (int) processor.apvts.getRawParameterValue ("seqRange")->load();
+
+    juce::PopupMenu rangeMenu;
+    for (int octaves = 1; octaves <= bleepforge::kMaxRange; ++octaves)
+        rangeMenu.addItem (juce::String (octaves) + (octaves == 1 ? " octave" : " octaves"), true, octaves == current,
+                           [range, octaves]
+                           {
+                               range->beginChangeGesture();
+                               range->setValueNotifyingHost (range->convertTo0to1 ((float) octaves));
+                               range->endChangeGesture();
+                           });
+
+    juce::PopupMenu menu;
+    menu.addSectionHeader ("Grid");
+    menu.addSubMenu ("Range: " + juce::String (current) + (current == 1 ? " octave" : " octaves"), rangeMenu);
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (settingsButton));
+}
+
+void MainView::GearButton::paintButton (juce::Graphics& g, bool highlighted, bool down)
+{
+    using namespace bleepforge;
+    const auto area = getLocalBounds().toFloat().reduced (4.0f);
+    const auto centre = area.getCentre();
+    const float outer = juce::jmin (area.getWidth(), area.getHeight()) * 0.5f, inner = outer * 0.72f;
+
+    juce::Path gear;
+    constexpr int teeth = 8;
+    for (int i = 0; i < teeth * 2; ++i)
+    {
+        // each tooth is a flat top on the outer radius, the gaps sit on the inner one
+        const float radius = (i % 2 == 0) ? outer : inner;
+        for (float edge : { -0.5f, 0.5f })
+        {
+            const float angle = juce::MathConstants<float>::twoPi * ((float) i + edge * 0.8f) / (float) (teeth * 2);
+            const auto p = centre.getPointOnCircumference (radius, angle);
+            if (i == 0 && edge < 0.0f)
+                gear.startNewSubPath (p);
+            else
+                gear.lineTo (p);
+        }
+    }
+    gear.closeSubPath();
+    gear.addEllipse (juce::Rectangle<float> (outer * 0.7f, outer * 0.7f).withCentre (centre));
+    gear.setUsingNonZeroWinding (false);
+
+    g.setColour (down ? theme::accent : (highlighted ? theme::text : theme::dimText));
+    g.fillPath (gear);
+}
+
 juce::Rectangle<int> MainView::headerArea() const
 {
     return getLocalBounds().reduced (kMargin).removeFromTop (kHeaderHeight);
@@ -119,6 +174,8 @@ void MainView::resized()
 {
     auto header = headerArea();
     auto place = [&header] (juce::Component& c, int width) { c.setBounds (header.removeFromRight (width).withSizeKeepingCentre (width, 26)); };
+    place (settingsButton, 26);
+    header.removeFromRight (12);
     place (octaveSlider, 96);
     place (octaveLabel, 54);
     header.removeFromRight (12);

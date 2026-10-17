@@ -13,8 +13,8 @@
 #include <sstream>
 #include <string>
 
-// Probability grid sequencer: rows are the degrees of a scale over one octave (plus the root
-// an octave up), columns are steps. Each cell has on/off, probability, velocity and ratchet.
+// Probability grid sequencer: rows climb the degrees of a scale over 1-4 octaves (the range),
+// ending on the root an octave above the last one; columns are steps. Each cell has on/off, probability, velocity and ratchet.
 // Played against the host timeline; the timing approach (steps counted from beat 0, events
 // on the first sample at or after their beat, jump detection) comes from SubForge.
 // JUCE-free so it can be tested on its own.
@@ -22,7 +22,8 @@ namespace bleepforge
 {
 inline constexpr int kMaxSteps = 32;
 inline constexpr int kDefaultSteps = 16;
-inline constexpr int kMaxRows = 13; // chromatic: 12 degrees + the octave
+inline constexpr int kMaxRange = 4;                // octaves the grid can span
+inline constexpr int kMaxRows = 12 * kMaxRange + 1; // chromatic over the full range + the top root
 
 struct Scale
 {
@@ -48,8 +49,8 @@ inline constexpr const char* kRootNames[] = { "C", "C#", "D", "D#", "E", "F", "F
 
 inline const Scale& scaleAt (int index) { return kScales[std::clamp (index, 0, kNumScales - 1)]; }
 
-// Rows the scale shows: its degrees and the root an octave up.
-inline int numRows (int scale) { return scaleAt (scale).size + 1; }
+// Rows the scale shows over range octaves: its degrees in each, and the root above the last.
+inline int numRows (int scale, int range) { return scaleAt (scale).size * std::clamp (range, 1, kMaxRange) + 1; }
 
 // Row 0 is the root (a MIDI note); rows above it climb the scale.
 inline int rowNote (int row, int scale, int rootNote)
@@ -201,6 +202,7 @@ struct SequencerSettings
     bool enabled = true;
     int scale = kDefaultScale;
     int rootNote = 60;        // MIDI note of row 0
+    int range = 1;            // octaves the rows span
     double stepBeats = 0.25;  // 1/16
 };
 
@@ -299,7 +301,7 @@ private:
                       const Grid& grid, Emit& emit)
     {
         currentStep.store (step);
-        const int rows = numRows (settings.scale);
+        const int rows = numRows (settings.scale, settings.range);
         for (int row = 0; row < rows; ++row)
         {
             const auto cell = grid.get (row, step);

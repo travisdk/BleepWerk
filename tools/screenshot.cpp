@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Renders the interface of a fresh instance to a PNG, for checking the layout and for the
-// README: BleepForge_Screenshot <output.png> [scale] [velocity]
+// README: BleepForge_Screenshot <output.png> [scale] [velocity] [range=<octaves>] [row=<bottom row>]
 
 #include "MainView.h"
 #include "Theme.h"
@@ -11,7 +11,7 @@ int main (int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [velocity]\n";
+        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [velocity] [range=<octaves>] [row=<bottom row>]\n";
         return 1;
     }
 
@@ -21,8 +21,19 @@ int main (int argc, char* argv[])
     bleepforge::theme::LookAndFeel lookAndFeel;
     juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
     const float scale = argc > 2 ? juce::String (argv[2]).getFloatValue() : 1.0f;
-    if (argc > 3 && juce::String (argv[3]) == "velocity")
-        processor.editMode = BleepForgeProcessor::EditMode::Velocity;
+    for (int i = 3; i < argc; ++i)
+    {
+        const juce::String option (argv[i]);
+        if (option == "velocity")
+            processor.editMode = BleepForgeProcessor::EditMode::Velocity;
+        else if (option.startsWith ("range="))
+        {
+            auto* range = processor.apvts.getParameter ("seqRange");
+            range->setValueNotifyingHost (range->convertTo0to1 (option.fromFirstOccurrenceOf ("=", false, false).getFloatValue()));
+        }
+        else if (option.startsWith ("row="))
+            processor.firstVisibleRow = option.fromFirstOccurrenceOf ("=", false, false).getIntValue();
+    }
 
     auto view = std::make_unique<MainView> (processor);
     const auto image = view->createComponentSnapshot (view->getLocalBounds(), true, scale);
