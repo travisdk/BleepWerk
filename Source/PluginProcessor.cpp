@@ -45,6 +45,7 @@ BleepForgeProcessor::BleepForgeProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "PARAMS", createParameterLayout())
 {
+    bleepforge::loadStarterPattern (grid);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createParameterLayout()
@@ -69,6 +70,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     params.push_back (floatParam ("bleepNoise", "Noise", { 0.0f, 1.0f }, 0.0f));
     params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "bleepOctave", 1 }, "Octave", -3, 3, 0));
 
+    // Sequencer
+    StringArray scales, roots;
+    for (const auto& scale : bleepforge::kScales)
+        scales.add (scale.name);
+    for (auto* name : bleepforge::kRootNames)
+        roots.add (name);
+    params.push_back (std::make_unique<AudioParameterBool> (ParameterID { "seqOn", 1 }, "Sequencer", true));
+    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqScale", 1 }, "Scale", scales,
+                                                              bleepforge::kDefaultScale));
+    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqRoot", 1 }, "Root", roots, 0));
+    params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqOctave", 1 }, "Seq Octave", -3, 3, 0));
+
     // Voices
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "voiceMode", 1 }, "Voice Mode",
                                                               StringArray { "Mono", "Poly" }, 1));
@@ -84,6 +97,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
 void BleepForgeProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     mono.assign ((size_t) juce::jmax (1, samplesPerBlock), 0.0f);
+    voiceMidi.ensureSize (4096);
     bleep.prepare (sampleRate);
     readParams();
     outputGain.reset (sampleRate, 0.02);
@@ -137,6 +151,7 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
     const int numSamples = buffer.getNumSamples();
     buffer.clear();
+    buildVoiceMidi (midi, numSamples);
 
     // Render in chunks between MIDI events so notes start on their exact sample. The scratch
     // buffer is sized in prepareToPlay; a host block larger than promised is done in pieces.
@@ -154,7 +169,7 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     };
 
     int position = 0;
-    for (const auto metadata : midi)
+    for (const auto metadata : voiceMidi)
     {
         const int eventPos = juce::jlimit (0, numSamples, metadata.samplePosition);
         renderRange (position, eventPos);
@@ -171,17 +186,54 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     outputGain.applyGain (buffer, numSamples);
 }
 
+// Incoming MIDI plays the engine whether the sequencer runs or not; the sequencer's notes are
+// merged in. Steps follow the host's position, so the sequencer only runs while it plays.
+void BleepForgeProcessor::buildVoiceMidi (const juce::MidiBuffer& midi, int numSamples)
+{
+    double bpm = 120.0, ppq = 0.0;
+    bool playing = false;
+    if (auto* hostPlayHead = getPlayHead())
+    {
+        if (auto position = hostPlayHead->getPosition())
+        {
+            if (auto hostBpm = position->getBpm())
+                bpm = *hostBpm;
+            if (auto hostPpq = position->getPpqPosition(); hostPpq && position->getIsPlaying())
+            {
+                ppq = *hostPpq;
+                playing = true;
+            }
+        }
+    }
+
+    auto get = [this] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
+    bleepforge::SequencerSettings settings;
+    settings.enabled = get ("seqOn") >= 0.5f;
+    settings.scale = (int) get ("seqScale");
+    settings.rootNote = 60 + (int) get ("seqRoot") + 12 * (int) get ("seqOctave");
+
+    voiceMidi.clear();
+    voiceMidi.addEvents (midi, 0, numSamples, 0);
+    sequencer.process (playing, ppq, bpm, getSampleRate(), numSamples, settings, grid,
+                       [this] (int sample, bool on, int note, float velocity)
+                       {
+                           voiceMidi.addEvent (on ? juce::MidiMessage::noteOn (1, note, velocity)
+                                                  : juce::MidiMessage::noteOff (1, note), sample);
+                       });
+}
+
 juce::AudioProcessorEditor* BleepForgeProcessor::createEditor()
 {
     return new BleepForgeEditor (*this);
 }
 
-// The sequencer grid and other non-parameter data will be stored as child trees of the
-// APVTS state, so one XML blob holds the whole project state.
+// The grid and other non-parameter data are stored with the APVTS state, so one XML blob
+// holds the whole project.
 void BleepForgeProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     state.setProperty ("stateVersion", kStateVersion, nullptr);
+    state.setProperty ("grid", juce::String (grid.toString()), nullptr);
 
     if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
@@ -196,6 +248,9 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
             auto state = juce::ValueTree::fromXml (*xml);
             const int version = state.getProperty ("stateVersion", kStateVersion);
             juce::ignoreUnused (version); // migrations from older versions go here
+            if (! grid.fromString (state.getProperty ("grid").toString().toStdString()))
+                bleepforge::loadStarterPattern (grid);
+            state.removeProperty ("grid", nullptr);
             apvts.replaceState (state);
         }
     }

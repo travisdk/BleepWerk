@@ -5,6 +5,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "BleepSynth.h"
+#include "Sequencer.h"
 
 class BleepForgeProcessor : public juce::AudioProcessor
 {
@@ -38,17 +39,25 @@ public:
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
+    // The pattern, edited by the GUI while the audio thread plays it.
+    bleepforge::Grid& getGrid() { return grid; }
+    int getSequencerStep() const { return sequencer.getCurrentStep(); }
+
     juce::AudioProcessorValueTreeState apvts;
 
 private:
     void handleMidi (const juce::MidiMessage& message);
     void readParams();
+    void buildVoiceMidi (const juce::MidiBuffer& midi, int numSamples);
 
     // Saved with the plug-in state so later versions can migrate older projects.
     //   1: 0.1.0
     static constexpr int kStateVersion = 1;
 
     bleepforge::BleepSynth bleep;
+    bleepforge::Grid grid;
+    bleepforge::SequencerEngine sequencer;
+    juce::MidiBuffer voiceMidi; // incoming MIDI merged with the sequencer's notes
     std::vector<float> mono; // one block of engine output, sized in prepareToPlay
     juce::LinearSmoothedValue<float> outputGain { 1.0f };
 
