@@ -11,8 +11,9 @@
 // the mouse wheel or the overview strip on the right, which shows all of MIDI, the rows that
 // have notes and the part in view.
 // The edit mode chooses what a cell shows and what dragging it changes: its probability
-// (mint) or its velocity (amber), as the cell's fill height. Cells flash when they actually
-// play, and the playing step is highlighted.
+// (mint) or its velocity (amber) as the fill height, or its ratchet (violet) as 1-4 bars. In
+// the other modes a ratchet shows as dots. Cells flash when they actually play, and the
+// playing step is highlighted.
 //   click: on/off   drag up/down: the mode's value   double-click: reset the mode's value
 class GridView : public juce::Component, private juce::Timer
 {

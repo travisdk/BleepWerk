@@ -7,61 +7,106 @@
 
 namespace
 {
-constexpr int kMargin = 16, kHeaderHeight = 40, kStatusHeight = 22, kEngineHeight = 150;
-juce::String helpText (BleepForgeProcessor::EditMode mode)
+constexpr int kMargin = 16, kHeaderHeight = 40, kBarHeight = 28, kStatusHeight = 22, kEngineHeight = 150, kBottomHeight = 120,
+              kGap = 10, kChaosWidth = 470;
+
+using EditMode = BleepForgeProcessor::EditMode;
+
+juce::String helpText (EditMode mode)
 {
-    const juce::String value = mode == BleepForgeProcessor::EditMode::Velocity ? "velocity" : "probability";
-    return "Click: on/off    Drag up/down: " + value + "    Double-click: reset " + value;
+    const juce::String value = mode == EditMode::Velocity ? "velocity" : mode == EditMode::Ratchet ? "ratchet (1-4 hits)" : "probability";
+    return "Click: on/off    Drag up/down: " + value + "    Double-click: reset";
+}
+
+void styleBarLabel (juce::Label& label)
+{
+    label.setJustificationType (juce::Justification::centredRight);
+    label.setFont (juce::FontOptions (13.0f));
 }
 } // namespace
 
 MainView::MainView (BleepForgeProcessor& p)
-    : processor (p), gridView (p), engineView (p)
+    : processor (p), gridView (p), engineView (p), chaosView (p)
 {
     setSize (kWidth, kHeight);
+    using namespace bleepforge;
 
-    for (const auto& scale : bleepforge::kScales)
-        scaleBox.addItem (scale.name, scaleBox.getNumItems() + 1);
-    for (auto* name : bleepforge::kRootNames)
-        rootBox.addItem (name, rootBox.getNumItems() + 1);
-    scaleAttachment = std::make_unique<ComboAttachment> (processor.apvts, "seqScale", scaleBox);
-    rootAttachment = std::make_unique<ComboAttachment> (processor.apvts, "seqRoot", rootBox);
-
-    for (auto* label : { &scaleLabel, &rootLabel })
-    {
-        label->setJustificationType (juce::Justification::centredRight);
-        label->setFont (juce::FontOptions (13.0f));
-        addAndMakeVisible (*label);
-    }
-    addAndMakeVisible (scaleBox);
-    addAndMakeVisible (rootBox);
-    settingsButton.setTooltip ("Settings");
-    settingsButton.onClick = [this] { showSettingsMenu(); };
-    addAndMakeVisible (settingsButton);
-
-    status.setFont (juce::FontOptions (12.0f));
-    status.setColour (juce::Label::textColourId, bleepforge::theme::dimText);
-    addAndMakeVisible (status);
-    showStatus ({});
-
-    // edit mode: one value at a time, the other button pops out
+    // header: edit mode and settings
     editLabel.setJustificationType (juce::Justification::centredRight);
     editLabel.setFont (juce::FontOptions (13.0f));
     addAndMakeVisible (editLabel);
-    for (auto* button : { &probabilityButton, &velocityButton })
+    for (auto* button : { &probabilityButton, &velocityButton, &ratchetButton })
     {
         button->setClickingTogglesState (false);
         addAndMakeVisible (*button);
     }
     probabilityButton.setConnectedEdges (juce::Button::ConnectedOnRight);
-    velocityButton.setConnectedEdges (juce::Button::ConnectedOnLeft);
-    probabilityButton.onClick = [this] { setEditMode (BleepForgeProcessor::EditMode::Probability); };
-    velocityButton.onClick = [this] { setEditMode (BleepForgeProcessor::EditMode::Velocity); };
-    setEditMode (processor.editMode.load());
+    velocityButton.setConnectedEdges (juce::Button::ConnectedOnLeft | juce::Button::ConnectedOnRight);
+    ratchetButton.setConnectedEdges (juce::Button::ConnectedOnLeft);
+    probabilityButton.onClick = [this] { setEditMode (EditMode::Probability); };
+    velocityButton.onClick = [this] { setEditMode (EditMode::Velocity); };
+    ratchetButton.onClick = [this] { setEditMode (EditMode::Ratchet); };
+    settingsButton.setTooltip ("Settings");
+    settingsButton.onClick = [this] { showSettingsMenu(); };
+    addAndMakeVisible (settingsButton);
 
+    // sequencer bar
+    for (const auto& scale : kScales)
+        scaleBox.addItem (scale.name, scaleBox.getNumItems() + 1);
+    for (auto* name : kRootNames)
+        rootBox.addItem (name, rootBox.getNumItems() + 1);
+    for (auto* name : kSeqRateNames)
+        rateBox.addItem (name, rateBox.getNumItems() + 1);
+    scaleAttachment = std::make_unique<ComboAttachment> (processor.apvts, "seqScale", scaleBox);
+    rootAttachment = std::make_unique<ComboAttachment> (processor.apvts, "seqRoot", rootBox);
+    rateAttachment = std::make_unique<ComboAttachment> (processor.apvts, "seqRate", rateBox);
+
+    stepsSlider.setRange (1.0, (double) kMaxSteps, 1.0);
+    stepsSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 34, 24);
+    stepsSlider.setValue (processor.getGrid().getLength(), juce::dontSendNotification);
+    stepsSlider.onValueChange = [this]
+    {
+        processor.getGrid().setLength ((int) stepsSlider.getValue());
+        processor.gridEdited();
+    };
+
+    swingSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 44, 24);
+    swingAttachment = std::make_unique<SliderAttachment> (processor.apvts, "seqSwing", swingSlider);
+    if (auto* swing = processor.apvts.getParameter ("seqSwing"))
+        swingSlider.setDoubleClickReturnValue (true, swing->convertFrom0to1 (swing->getDefaultValue()));
+
+    for (auto* label : { &scaleLabel, &rootLabel, &stepsLabel, &rateLabel, &swingLabel })
+    {
+        styleBarLabel (*label);
+        addAndMakeVisible (*label);
+    }
+    for (auto* c : std::initializer_list<juce::Component*> { &scaleBox, &rootBox, &stepsSlider, &rateBox, &swingSlider })
+        addAndMakeVisible (c);
+
+    // grid, status line and sound
+    status.setFont (juce::FontOptions (12.0f));
+    status.setColour (juce::Label::textColourId, theme::dimText);
+    addAndMakeVisible (status);
     gridView.onStatus = [this] (const juce::String& text) { showStatus (text); };
     addAndMakeVisible (gridView);
     addAndMakeVisible (engineView);
+    addAndMakeVisible (chaosView);
+
+    setEditMode (processor.editMode.load());
+    startTimerHz (10);
+}
+
+MainView::~MainView()
+{
+    stopTimer();
+}
+
+// The grid's length isn't a parameter, so a loaded project doesn't tell the slider.
+void MainView::timerCallback()
+{
+    const int length = processor.getGrid().getLength();
+    if ((int) stepsSlider.getValue() != length && ! stepsSlider.isMouseButtonDown())
+        stepsSlider.setValue (length, juce::dontSendNotification);
 }
 
 void MainView::showStatus (const juce::String& text)
@@ -69,15 +114,16 @@ void MainView::showStatus (const juce::String& text)
     status.setText (text.isEmpty() ? helpText (processor.editMode.load()) : text, juce::dontSendNotification);
 }
 
-void MainView::setEditMode (BleepForgeProcessor::EditMode mode)
+void MainView::setEditMode (EditMode mode)
 {
     using namespace bleepforge;
     processor.editMode = mode;
-    const bool velocity = mode == BleepForgeProcessor::EditMode::Velocity;
-    probabilityButton.setToggleState (! velocity, juce::dontSendNotification);
-    velocityButton.setToggleState (velocity, juce::dontSendNotification);
+    probabilityButton.setToggleState (mode == EditMode::Probability, juce::dontSendNotification);
+    velocityButton.setToggleState (mode == EditMode::Velocity, juce::dontSendNotification);
+    ratchetButton.setToggleState (mode == EditMode::Ratchet, juce::dontSendNotification);
     probabilityButton.setColour (juce::TextButton::textColourOnId, theme::accent);
     velocityButton.setColour (juce::TextButton::textColourOnId, theme::velocity);
+    ratchetButton.setColour (juce::TextButton::textColourOnId, theme::ratchet);
     gridView.editModeChanged();
     showStatus ({});
 }
@@ -139,9 +185,9 @@ juce::Rectangle<int> MainView::headerArea() const
     return getLocalBounds().reduced (kMargin).removeFromTop (kHeaderHeight);
 }
 
-juce::Rectangle<int> MainView::engineArea() const
+juce::Rectangle<int> MainView::effectsArea() const
 {
-    return getLocalBounds().reduced (kMargin).removeFromBottom (kEngineHeight);
+    return getLocalBounds().reduced (kMargin).removeFromBottom (kBottomHeight).withTrimmedLeft (kChaosWidth + kGap);
 }
 
 void MainView::paint (juce::Graphics& g)
@@ -157,32 +203,58 @@ void MainView::paint (juce::Graphics& g)
     g.setFont (juce::FontOptions (11.0f));
     g.drawText (BLEEPFORGE_VERSION_STRING, header.withTrimmedLeft (128.0f).withTrimmedTop (6.0f),
                 juce::Justification::centredLeft);
+
+    // effects arrive in milestone 7
+    const auto effects = effectsArea().toFloat();
+    g.setColour (theme::panel);
+    g.fillRoundedRectangle (effects, 6.0f);
+    g.setColour (theme::outline);
+    g.drawRoundedRectangle (effects.reduced (0.5f), 6.0f, 1.0f);
+    g.setColour (theme::accent.withAlpha (0.8f));
+    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    g.drawText ("EFFECTS", effects.reduced (10.0f, 4.0f).removeFromTop (14.0f), juce::Justification::centredLeft);
+    g.setColour (theme::dimText);
+    g.setFont (juce::FontOptions (12.0f));
+    g.drawText ("Filter, bitcrush, delay and room come next", effects, juce::Justification::centred);
 }
 
 void MainView::resized()
 {
-    auto header = headerArea();
-    auto place = [&header] (juce::Component& c, int width) { c.setBounds (header.removeFromRight (width).withSizeKeepingCentre (width, 26)); };
-    place (settingsButton, 26);
-    header.removeFromRight (16);
-    place (rootBox, 64);
-    place (rootLabel, 40);
-    header.removeFromRight (12);
-    place (scaleBox, 160);
-    place (scaleLabel, 44);
+    auto area = getLocalBounds().reduced (kMargin);
 
-    // edit mode, after the title
-    auto left = headerArea();
-    left.removeFromLeft (190);
-    editLabel.setBounds (left.removeFromLeft (36).withSizeKeepingCentre (36, 26));
-    left.removeFromLeft (6);
-    probabilityButton.setBounds (left.removeFromLeft (90).withSizeKeepingCentre (90, 26));
-    velocityButton.setBounds (left.removeFromLeft (76).withSizeKeepingCentre (76, 26));
+    // header: edit mode after the title, settings on the right
+    auto header = area.removeFromTop (kHeaderHeight);
+    settingsButton.setBounds (header.removeFromRight (26).withSizeKeepingCentre (26, 26));
+    header.removeFromLeft (176);
+    editLabel.setBounds (header.removeFromLeft (36).withSizeKeepingCentre (36, 26));
+    header.removeFromLeft (6);
+    for (auto [button, width] : { std::pair { &probabilityButton, 86 }, { &velocityButton, 70 }, { &ratchetButton, 70 } })
+        button->setBounds (header.removeFromLeft (width).withSizeKeepingCentre (width, 26));
 
-    auto middle = getLocalBounds().reduced (kMargin);
-    middle.removeFromTop (kHeaderHeight + 8);
-    middle.removeFromBottom (kEngineHeight + 10);
-    status.setBounds (middle.removeFromBottom (kStatusHeight).withTrimmedLeft ((int) GridView::kLabelWidth - 4));
-    gridView.setBounds (middle);
-    engineView.setBounds (engineArea());
+    // sequencer bar
+    area.removeFromTop (4);
+    auto bar = area.removeFromTop (kBarHeight);
+    auto place = [&bar] (juce::Component& label, int labelWidth, juce::Component& control, int width)
+    {
+        label.setBounds (bar.removeFromLeft (labelWidth));
+        bar.removeFromLeft (6);
+        control.setBounds (bar.removeFromLeft (width).withSizeKeepingCentre (width, 24));
+        bar.removeFromLeft (18);
+    };
+    place (scaleLabel, 44, scaleBox, 160);
+    place (rootLabel, 36, rootBox, 64);
+    place (stepsLabel, 44, stepsSlider, 96);
+    place (rateLabel, 36, rateBox, 78);
+    place (swingLabel, 44, swingSlider, 180);
+
+    // sound at the bottom: the engine, then Chaos and the effects side by side
+    auto bottom = area.removeFromBottom (kBottomHeight);
+    chaosView.setBounds (bottom.removeFromLeft (kChaosWidth));
+    area.removeFromBottom (kGap);
+    engineView.setBounds (area.removeFromBottom (kEngineHeight));
+    area.removeFromBottom (kGap);
+
+    area.removeFromTop (8);
+    status.setBounds (area.removeFromBottom (kStatusHeight).withTrimmedLeft ((int) GridView::kLabelWidth - 4));
+    gridView.setBounds (area);
 }

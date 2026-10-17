@@ -9,23 +9,44 @@ using namespace bleepforge;
 namespace
 {
 constexpr float kDragPixelsForFullRange = 150.0f;
+constexpr float kDragPixelsPerRatchet = 24.0f;
 constexpr float kDragThreshold = 3.0f;
 constexpr int kEmptyGridBottomNote = 48; // C3: where an empty grid opens
 const Cell kDefaultCell;
 
 using EditMode = BleepForgeProcessor::EditMode;
 
+// The value the mode edits: 0..1 for probability and velocity, the number of hits for Ratchet.
 float valueOf (const Cell& cell, EditMode mode)
 {
-    return mode == EditMode::Velocity ? cell.velocity : cell.probability;
+    switch (mode)
+    {
+        case EditMode::Velocity: return cell.velocity;
+        case EditMode::Ratchet: return (float) cell.ratchet;
+        case EditMode::Probability: break;
+    }
+    return cell.probability;
 }
 
 void setValue (Cell& cell, EditMode mode, float value)
 {
-    if (mode == EditMode::Velocity)
-        cell.velocity = juce::jlimit (1.0f / 127.0f, 1.0f, value);
-    else
-        cell.probability = juce::jlimit (0.0f, 1.0f, value);
+    switch (mode)
+    {
+        case EditMode::Velocity: cell.velocity = juce::jlimit (1.0f / 127.0f, 1.0f, value); break;
+        case EditMode::Ratchet: cell.ratchet = juce::jlimit (1, 4, juce::roundToInt (value)); break;
+        case EditMode::Probability: cell.probability = juce::jlimit (0.0f, 1.0f, value); break;
+    }
+}
+
+juce::Colour modeColour (EditMode mode)
+{
+    switch (mode)
+    {
+        case EditMode::Velocity: return theme::velocity;
+        case EditMode::Ratchet: return theme::ratchet;
+        case EditMode::Probability: break;
+    }
+    return theme::accent;
 }
 
 juce::String valueText (const Cell& cell, EditMode mode)
@@ -152,7 +173,8 @@ juce::String GridView::describe (CellPos pos) const
     if (! cell.on)
         return text + "  off";
     return text + "  probability " + juce::String (juce::roundToInt (cell.probability * 100.0f)) + " %"
-         + "  velocity " + juce::String (juce::roundToInt (cell.velocity * 127.0f));
+         + "  velocity " + juce::String (juce::roundToInt (cell.velocity * 127.0f))
+         + (cell.ratchet > 1 ? "  ratchet " + juce::String (cell.ratchet) : juce::String());
 }
 
 void GridView::setHover (CellPos pos)
@@ -173,7 +195,7 @@ void GridView::paint (juce::Graphics& g)
     const int playing = processor.getSequencer().getCurrentStep();
     const auto area = cellArea();
     const auto mode = processor.editMode.load();
-    const auto colour = mode == EditMode::Velocity ? theme::velocity : theme::accent;
+    const auto colour = modeColour (mode);
     const float rowHeight = cellBounds (first, 0).getHeight();
 
     // row labels: the note each row plays, roots in the accent colour; on rows too low for
@@ -210,7 +232,18 @@ void GridView::paint (juce::Graphics& g)
             g.setColour ((step / 4) % 2 == 1 ? theme::panelAlt : theme::panel);
             g.fillRoundedRectangle (r, corner);
 
-            if (cell.on)
+            if (cell.on && mode == EditMode::Ratchet)
+            {
+                // one bar per hit
+                constexpr float barGap = 3.0f;
+                const float barWidth = (r.getWidth() - barGap * (float) (cell.ratchet - 1)) / (float) cell.ratchet;
+                g.setColour (colour.withAlpha (0.8f));
+                for (int i = 0; i < cell.ratchet; ++i)
+                    g.fillRoundedRectangle (r.withX (r.getX() + (float) i * (barWidth + barGap)).withWidth (barWidth), corner);
+                g.setColour (colour);
+                g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.2f);
+            }
+            else if (cell.on)
             {
                 // the mode's value as the fill height, its number while below the maximum
                 const float value = valueOf (cell, mode);
@@ -225,6 +258,17 @@ void GridView::paint (juce::Graphics& g)
                     g.setFont (juce::FontOptions (10.0f));
                     g.drawText (valueText (cell, mode), r.reduced (2.0f, 1.0f), juce::Justification::topRight);
                 }
+
+                // a ratchet as one dot per hit in the top left corner, ringed so it shows on the fill
+                if (cell.ratchet > 1 && r.getHeight() >= 10.0f)
+                    for (int i = 0; i < cell.ratchet; ++i)
+                    {
+                        const auto dot = juce::Rectangle<float> (r.getX() + 3.0f + (float) i * 7.0f, r.getY() + 3.0f, 6.0f, 6.0f);
+                        g.setColour (theme::background);
+                        g.fillEllipse (dot);
+                        g.setColour (theme::ratchet);
+                        g.fillEllipse (dot.reduced (1.2f));
+                    }
             }
             else if (hover.row == row && hover.step == step)
             {
@@ -392,7 +436,8 @@ void GridView::mouseDrag (const juce::MouseEvent& e)
     const int slot = slotOf (drag.row);
     auto cell = grid.get (slot, drag.step);
     cell.on = true;
-    setValue (cell, processor.editMode.load(), dragStartValue - dy / kDragPixelsForFullRange);
+    const auto mode = processor.editMode.load();
+    setValue (cell, mode, dragStartValue - dy / (mode == EditMode::Ratchet ? kDragPixelsPerRatchet : kDragPixelsForFullRange));
     grid.set (slot, drag.step, cell);
 
     hover = drag;

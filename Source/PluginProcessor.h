@@ -47,7 +47,7 @@ public:
     static constexpr int kMaxVisibleOctaves = 4;
 
     // What dragging a cell edits; kept here so it survives closing the editor.
-    enum class EditMode { Probability, Velocity };
+    enum class EditMode { Probability, Velocity, Ratchet };
     std::atomic<EditMode> editMode { EditMode::Probability };
     std::atomic<int> bottomNote { -1 }; // the grid's lowest note in view; -1 until first shown
 

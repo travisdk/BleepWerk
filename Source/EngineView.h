@@ -5,6 +5,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
+#include "Controls.h"
 
 // The sound section below the grid. Left: the engine (Bleep or Foley), Mono or Poly, Glide and
 // Output. Right: the controls of the selected engine, which swap when the engine changes.
@@ -18,40 +19,6 @@ public:
     void resized() override;
 
 private:
-    // A rotary control for one parameter: name above, value below; double-click resets it.
-    struct Knob : juce::Component
-    {
-        Knob (juce::AudioProcessorValueTreeState&, const juce::String& parameterId, const juce::String& name, bool bipolar = false);
-        void resized() override;
-
-        juce::Slider slider { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
-        juce::Label label;
-        juce::AudioProcessorValueTreeState::SliderAttachment attachment;
-    };
-
-    // A choice parameter shown as a drop-down with its name above.
-    struct Choice : juce::Component
-    {
-        Choice (juce::AudioProcessorValueTreeState&, const juce::String& parameterId, const juce::String& name);
-        void resized() override;
-
-        juce::ComboBox box;
-        juce::Label label;
-        juce::AudioProcessorValueTreeState::ComboBoxAttachment attachment;
-    };
-
-    // Two buttons side by side for a two-way choice parameter.
-    struct Toggle : juce::Component
-    {
-        Toggle (juce::AudioProcessorValueTreeState&, const juce::String& parameterId, const juce::String& name);
-        void resized() override;
-        void update(); // follows the parameter
-
-        juce::RangedAudioParameter& parameter;
-        juce::Label label;
-        juce::TextButton left, right;
-    };
-
     void timerCallback() override;
     void showEngine (bool foley);
 

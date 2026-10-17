@@ -16,6 +16,7 @@ inline const juce::Colour text { 0xffd8dce4 };
 inline const juce::Colour dimText { 0xff7a8190 };
 inline const juce::Colour accent { 0xff4fe0b0 };
 inline const juce::Colour velocity { 0xffffb547 }; // the grid in Velocity mode
+inline const juce::Colour ratchet { 0xffc38bff };  // the grid in Ratchet mode
 
 class LookAndFeel : public juce::LookAndFeel_V4
 {
@@ -41,6 +42,9 @@ public:
         setColour (juce::TextButton::textColourOnId, text);
         setColour (juce::Label::textColourId, dimText);
         setColour (juce::Slider::textBoxHighlightColourId, accent.withAlpha (0.3f));
+        setColour (juce::Slider::trackColourId, accent);
+        setColour (juce::Slider::backgroundColourId, outline);
+        setColour (juce::Slider::thumbColourId, text);
     }
 
     // A ring with the value as an arc (from the middle for bipolar controls, from the start
