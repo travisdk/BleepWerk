@@ -80,10 +80,11 @@ private:
     //   1: 0.1.0
     static constexpr int kStateVersion = 1;
 
-    // Both engines render every block, so switching lets the old one ring out; notes go to
+    // Every engine renders every block, so switching lets the old one ring out; notes go to
     // the selected one.
     bleepforge::BleepSynth bleep;
     bleepforge::FoleySynth foley;
+    bleepforge::MachineSynth machine;
     bleepforge::Patch patch; // this block's sound parameters
     SoundPresets soundPresets { apvts };
     bleepforge::Effects effects;

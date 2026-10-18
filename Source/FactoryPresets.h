@@ -33,9 +33,11 @@ inline constexpr float Sine = 0, Triangle = 1, Pulse = 2, FM = 3;
 inline constexpr float Noise = 0, Mallet = 1, Crackle = 2;
 inline constexpr float LP = 1, BP = 2, HP = 3;
 inline constexpr float D32 = 0, D16T = 1, D16 = 2, D8T = 3, D16D = 4, D8 = 5, D4T = 6, D8D = 7, D4 = 8;
+inline constexpr float Hit = 0, Hiss = 1, Hum = 2, Grind = 3;
 inline constexpr float Mono = 0;
 
 inline constexpr PresetValue Foley { "engine", 1 };
+inline constexpr PresetValue Machine { "engine", 2 };
 } // namespace preset
 
 inline const std::vector<FactoryPreset>& factoryPresets()
@@ -238,6 +240,54 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Metal Chaos", "Metal", { Foley, { "foleyLength", 0.2f }, { "foleyMaterial", 0.5f }, { "foleySize", 0.3f }, { "foleyDamping", 0.4f },
                                     { "foleyBrightness", 0.75f }, { "chaosAmount", 0.9f }, { "chaosPitch", 0.6f }, { "chaosDecay", 0.8f },
                                     { "chaosPan", 0.9f } } },
+        { "Steel Beam", "Metal", { Foley, { "foleyLength", 2 }, { "foleyMaterial", 0.47f }, { "foleySize", 0.95f }, { "foleyDamping", 0.35f },
+                                   { "foleyBrightness", 0.55f }, { "roomSize", 0.7f }, { "roomMix", 0.25f } } },
+        { "Air Valve", "Metal", { Foley, { "foleyExciter", Noise }, { "foleyLength", 4 }, { "foleyMaterial", 0.5f }, { "foleySize", 0.15f },
+                                  { "foleyDamping", 0.85f }, { "foleyBrightness", 1 }, { "filterType", HP }, { "filterCutoff", 1500 } } },
+        { "Rivet Gun", "Metal", { Foley, { "foleyExciter", Crackle }, { "foleyLength", 25 }, { "foleyMaterial", 0.5f }, { "foleySize", 0.35f },
+                                  { "foleyDamping", 0.6f }, { "foleyBrightness", 0.85f }, { "crushBits", 8 } } },
+        { "Press Stamp", "Metal", { Foley, { "foleyExciter", Noise }, { "foleyLength", 1.5f }, { "foleyMaterial", 0.45f }, { "foleySize", 0.8f },
+                                    { "foleyDamping", 0.7f }, { "foleyBrightness", 0.4f }, { "foleySweep", -5 } } },
+
+        // ---- Machine: struck parts, steam, motors and grinders, tuned to the note
+        { "Press Clonk", "Machine", { Machine, { "machineType", Hit }, { "machineLength", 900 }, { "machineTone", 0.45f },
+                                      { "machineFocus", 0.4f }, { "machineMetal", 0.75f }, { "chaosAmount", 0.5f }, { "chaosPitch", 0.6f },
+                                      { "roomMix", 0.2f } } },
+        { "Heavy Hit", "Machine", { Machine, { "machineType", Hit }, { "machineLength", 1500 }, { "machineTone", 0.3f },
+                                    { "machineFocus", 0.1f }, { "machineMetal", 0.6f }, { "chaosAmount", 0.4f } } },
+        { "Rattling Plate", "Machine", { Machine, { "machineType", Hit }, { "machineLength", 700 }, { "machineTone", 0.65f },
+                                         { "machineFocus", 0.7f }, { "machineMotion", 0.55f }, { "machineMetal", 0.9f },
+                                         { "chaosAmount", 0.6f }, { "chaosPitch", 0.7f } } },
+        { "Steam Valve", "Machine", { Machine, { "machineType", Hiss }, { "machineLength", 300 }, { "machineTone", 0.75f },
+                                      { "machineFocus", 0.2f }, { "machineMetal", 0.15f } } },
+        { "Pressure Leak", "Machine", { Machine, { "machineType", Hiss }, { "machineLength", 1200 }, { "machineTone", 0.85f },
+                                        { "machineFocus", 0.1f }, { "machineMotion", 0.35f }, { "machineMetal", 0.25f },
+                                        { "roomMix", 0.2f } } },
+        { "Whistle Pipe", "Machine", { Machine, { "machineType", Hiss }, { "machineLength", 600 }, { "machineTone", 0.25f },
+                                       { "machineFocus", 0.95f }, { "machineMetal", 0.4f } } },
+        { "Air Brake", "Machine", { Machine, { "machineType", Hiss }, { "machineLength", 180 }, { "machineTone", 0.9f },
+                                    { "machineFocus", 0.35f }, { "machineMetal", 0.1f }, { "chaosAmount", 0.4f }, { "chaosTone", 0.6f } } },
+        { "Transformer", "Machine", { Machine, { "machineType", Hum }, { "machineLength", 3000 }, { "machineTone", 0.4f },
+                                      { "machineFocus", 0.9f }, { "machineMetal", 0.3f } } },
+        { "Motor Pulse", "Machine", { Machine, { "machineType", Hum }, { "machineLength", 2000 }, { "machineTone", 0.6f },
+                                      { "machineFocus", 0.7f }, { "machineMotion", 0.45f }, { "machineMetal", 0.4f } } },
+        { "Generator", "Machine", { Machine, { "machineType", Hum }, { "machineLength", 4000 }, { "machineTone", 0.8f },
+                                    { "machineFocus", 0.4f }, { "machineMotion", 0.6f }, { "machineMetal", 0.45f }, { "filterType", LP },
+                                    { "filterCutoff", 1500 } } },
+        { "Sub Thrum", "Machine", { Machine, { "machineType", Hum }, { "machineLength", 800 }, { "machineTone", 0.2f },
+                                    { "machineFocus", 1 }, { "machineMotion", 0.75f }, { "machineMetal", 0.1f } } },
+        { "Factory Floor", "Machine", { Machine, { "machineType", Hum }, { "machineLength", 2000 }, { "machineTone", 0.5f },
+                                        { "machineFocus", 0.1f }, { "machineMotion", 0.3f }, { "machineMetal", 0.6f }, { "roomSize", 0.8f },
+                                        { "roomMix", 0.35f } } },
+        { "Grinder", "Machine", { Machine, { "machineType", Grind }, { "machineLength", 900 }, { "machineTone", 0.7f },
+                                  { "machineFocus", 0.8f }, { "machineMotion", 0.4f }, { "machineMetal", 0.7f } } },
+        { "Lathe", "Machine", { Machine, { "machineType", Grind }, { "machineLength", 2500 }, { "machineTone", 0.5f },
+                                { "machineFocus", 0.9f }, { "machineMotion", 0.2f }, { "machineMetal", 0.8f }, { "roomMix", 0.2f } } },
+        { "Sander", "Machine", { Machine, { "machineType", Grind }, { "machineLength", 400 }, { "machineTone", 0.9f },
+                                 { "machineFocus", 0.4f }, { "machineMotion", 0.7f }, { "machineMetal", 0.3f } } },
+        { "Conveyor", "Machine", { Machine, { "machineType", Grind }, { "machineLength", 1500 }, { "machineTone", 0.35f },
+                                   { "machineFocus", 0.6f }, { "machineMotion", 0.55f }, { "machineMetal", 0.55f }, { "delayTime", D8D },
+                                   { "delayFeedback", 0.4f }, { "delayMix", 0.2f } } },
 
         // ---- Glass and ceramic
         { "Glass Ping", "Glass", { Foley, { "foleyLength", 0.1f }, { "foleyMaterial", 1 }, { "foleySize", 0.4f }, { "foleyDamping", 0.2f },

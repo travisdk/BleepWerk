@@ -13,12 +13,12 @@
 
 using namespace bleepforge;
 
-static Patch patchFor (const std::vector<PresetValue>& values, bool foley)
+static Patch patchFor (const std::vector<PresetValue>& values, Engine engine)
 {
     return readPatch ([&] (const char* id)
                       {
                           if (std::strcmp (id, "engine") == 0)
-                              return foley ? 1.0f : 0.0f;
+                              return (float) engine;
                           float value = soundDefault (id);
                           for (const auto& v : values)
                               if (std::strcmp (v.id, id) == 0)
@@ -29,21 +29,26 @@ static Patch patchFor (const std::vector<PresetValue>& values, bool foley)
 
 static void testSounds()
 {
-    for (bool foley : { false, true })
+    // each engine's parameters start with its name in lower case
+    constexpr const char* prefixes[] = { "bleep", "foley", "machine" };
+    static_assert (std::size (prefixes) == kNumEngines);
+    for (int e = 0; e < kNumEngines; ++e)
         for (uint64_t seed = 1; seed <= 60; ++seed)
         {
+            const auto engine = (Engine) e;
             DiceRng rng (seed);
-            const auto values = randomMatchedSound (foley, rng, soundDefault);
+            const auto values = randomMatchedSound (engine, rng, soundDefault);
             for (const auto& v : values)
             {
                 const auto* param = findSoundParam (v.id);
                 CHECK (param != nullptr);
                 CHECK (param == nullptr || (v.value >= param->min && v.value <= param->max));
                 CHECK (std::strcmp (v.id, "engine") != 0);
-                CHECK (std::strncmp (v.id, foley ? "bleep" : "foley", 5) != 0); // the other engine is left alone
+                for (int other = 0; other < kNumEngines; ++other) // the other engines are left alone
+                    CHECK (other == e || std::strncmp (v.id, prefixes[other], std::strlen (prefixes[other])) != 0);
             }
 
-            const auto patch = patchFor (values, foley);
+            const auto patch = patchFor (values, engine);
             const float gain = std::pow (10.0f, patch.outputDb / 20.0f);
             const auto level = measurePatch (patch);
             const auto [left, right] = renderPatch (patch, 48000.0, 8.0);
@@ -61,7 +66,7 @@ static void testSounds()
             const bool ok = finite && loudEnough && level.peak * gain <= kMaxPeak + 1.0e-3f && tail < 1.0e-3f;
             if (! ok)
             {
-                std::printf ("FAIL %s seed %d: loudness %5.3f  peak %5.3f  tail %.5f\n", foley ? "foley" : "bleep", (int) seed,
+                std::printf ("FAIL %s seed %d: loudness %5.3f  peak %5.3f  tail %.5f\n", kEngineNames[e], (int) seed,
                              level.loudest * gain, level.peak * gain, tail);
                 ++testFailures();
             }
