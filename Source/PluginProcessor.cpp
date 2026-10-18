@@ -391,9 +391,15 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
             juce::ignoreUnused (version); // migrations from older versions go here
             if (! grid.fromString (state.getProperty ("grid").toString().toStdString()))
                 grid.clear();
-            state.removeProperty ("grid", nullptr);
             soundPresets.readState (state);
+            // Only the parameters stay in the tree: getStateInformation adds the rest again, so
+            // a reloaded state saves byte for byte the same.
+            for (auto id : { "stateVersion", "grid", "presetName", "presetIndex" })
+                state.removeProperty (id, nullptr);
             apvts.replaceState (state);
+            // Tells the host every parameter may have changed, so it reads them all again
+            // (CLAP: params rescan of the values, which the wrapper sends for a program change).
+            updateHostDisplay (ChangeDetails().withProgramChanged (true));
         }
     }
 }
