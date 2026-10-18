@@ -3,7 +3,8 @@
 
 // The effects: at their defaults the chain passes the signal through untouched, the filter
 // types cut where they should, Bits and Rate crush, the delay repeats on the beat and its
-// repeats fade, and the room rings out and falls silent. Nothing ever goes non-finite.
+// repeats fade, and the plate reverb rings for its decay time,
+// darkens with Tone, ducks under a playing input and falls silent. Nothing ever goes non-finite.
 #include "Effects.h"
 #include "TestUtils.h"
 
@@ -149,24 +150,73 @@ static void testDelay()
     CHECK (std::abs (slow[(size_t) echo * 2]) > 0.3f || std::abs (slow[(size_t) echo * 2 + 1]) > 0.3f);
 }
 
-static void testRoom()
+static void testReverb()
 {
     EffectParams p;
     p.roomMix = 1.0f;
     for (float size : { 0.0f, 0.5f, 1.0f })
+        for (float tone : { 0.0f, 1.0f })
+        {
+            p.roomSize = size;
+            p.roomTone = tone;
+            p.roomDecay = 1.2f;
+            const int n = (int) (3.0 * fs);
+            const auto out = run (p, impulse (n));
+            CHECK (allFinite (out));
+            CHECK (rms (out, 0, (int) (0.1 * fs)) > 1.0e-3); // it rings
+            CHECK (rms (out, n - (int) (0.2 * fs), n) < 1.0e-5); // and falls silent within its decay time
+        }
+
+    // Decay sets how long it rings, separately from Size
+    p.roomSize = 0.5f;
+    p.roomTone = 0.5f;
+    auto tailAt = [&p] (float decay)
     {
-        p.roomSize = size;
-        const int n = (int) (3.0 * fs);
+        p.roomDecay = decay;
+        const auto out = run (p, impulse ((int) (2.0 * fs)));
+        return rms (out, (int) (1.0 * fs), (int) (1.2 * fs));
+    };
+    CHECK (tailAt (4.0f) > 30.0 * tailAt (0.5f));
+
+    // the longest setting still dies away, and nothing blows up at the extremes
+    p.roomSize = 1.0f;
+    p.roomTone = 1.0f;
+    p.roomDecay = 6.0f;
+    {
+        const int n = (int) (12.0 * fs);
         const auto out = run (p, impulse (n));
         CHECK (allFinite (out));
-        CHECK (rms (out, 0, (int) (0.1 * fs)) > 1.0e-3); // it rings
-        CHECK (rms (out, n - (int) (0.2 * fs), n) < 1.0e-5); // and falls silent within its decay time
+        CHECK (rms (out, n - (int) (0.5 * fs), n) < 1.0e-5);
     }
+
+    // Tone: a dark plate keeps less of the top end than a bright one
+    p.roomSize = 0.5f;
+    p.roomDecay = 1.2f;
+    auto highs = [&p] (float tone)
+    {
+        p.roomTone = tone;
+        const auto out = run (p, impulse ((int) (0.5 * fs)));
+        double sum = 0.0;
+        for (size_t i = 1; i < out.size(); ++i)
+            sum += std::abs (out[i] - out[i - 1]); // a first difference stands in for a high-pass
+        return sum;
+    };
+    CHECK (highs (0.0f) < 0.5 * highs (1.0f));
+
+    // Duck: while a tone plays the wet signal is held back
+    auto wetWhilePlaying = [&p] (float duck)
+    {
+        p.roomTone = 0.5f;
+        p.roomDuck = duck;
+        const auto out = run (p, sine (440.0, (int) fs, 0.4f));
+        return rms (out, (int) (0.5 * fs), (int) fs);
+    };
+    CHECK (wetWhilePlaying (1.0f) < 0.4 * wetWhilePlaying (0.0f));
+    p.roomDuck = 0.0f;
 
     // stereo: the two sides differ, so a centred source gets width
     Effects fx;
     fx.prepare (fs);
-    p.roomSize = 0.5f;
     fx.setParams (p, 120.0);
     std::vector<float> left = impulse (4800), right = impulse (4800);
     fx.process (left.data(), right.data(), 4800);
@@ -182,6 +232,6 @@ int main()
     testFilter();
     testCrusher();
     testDelay();
-    testRoom();
+    testReverb();
     return finish ("effects");
 }

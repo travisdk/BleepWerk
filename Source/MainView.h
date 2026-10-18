@@ -19,7 +19,7 @@
 class MainView : public juce::Component, private juce::Timer
 {
 public:
-    static constexpr int kWidth = 960, kHeight = 760;
+    static constexpr int kWidth = 1110, kHeight = 760; // wide enough for the five reverb knobs
 
     explicit MainView (BleepForgeProcessor&);
     ~MainView() override;

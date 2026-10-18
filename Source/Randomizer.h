@@ -141,7 +141,10 @@ inline std::vector<PresetValue> randomSound (Engine engine, DiceRng& rng)
 
     const bool room = rng.chance (0.6f);
     set ("roomSize", round (rng.between (0.2f, 0.8f), 0.01f));
+    set ("roomDecay", round (rng.logBetween (0.5f, 3.0f), 0.1f));
+    set ("roomTone", round (rng.between (0.25f, 0.8f), 0.01f));
     set ("roomMix", room ? round (rng.between (0.1f, 0.35f), 0.01f) : 0.0f);
+    set ("roomDuck", room && rng.chance (0.4f) ? round (rng.between (0.3f, 0.8f), 0.01f) : 0.0f);
     return v;
 }
 
