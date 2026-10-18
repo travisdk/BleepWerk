@@ -2,7 +2,9 @@
 
 ## 1. Concept
 
-BleepForge is a melodic instrument plugin for minimal techno. It produces short, percussive, organic sounds: classic bleeps and blips plus foley-like tones (drips, metallic tinks, wooden knocks, crackles). It has a built-in probability grid sequencer inspired by the UX of Stochas, so patterns vary subtly on every pass.
+BleepForge is a melodic instrument plugin for hypnotic and minimal techno. It produces short, percussive, organic sounds: classic bleeps and blips plus foley-like tones (drips, metallic tinks, wooden knocks, crackles). It has a built-in probability grid sequencer inspired by the UX of Stochas, so patterns vary subtly on every pass, or lock into a phrase that repeats.
+
+Hypnotic techno (target since 2026-10-18) leans on long loops that drift out of phase, slow change over many bars, rolling polyrhythms and space (dub delay, room). Features are weighed against that.
 
 Everything is synthesized. No samples, no third-party audio content.
 
@@ -60,10 +62,10 @@ Each note is rendered by one of two engines, selectable per preset (later perhap
 
 UX inspired by Stochas, own implementation.
 
-- **Rows = notes**: follow the selected scale within one octave, Stochas style (rows show the scale degrees, not all 12 chromatic notes)
-- **Scale selector**: e.g. chromatic, minor, major, Phrygian, Dorian, minor pentatonic
-- **Root note** selector and **octave shift**
-- **Columns = steps**: 16 by default, selectable length (e.g. 1 to 32 steps) to allow polymeter against the DAW
+- **Rows = notes**: every MIDI note in the selected scale and key, Stochas style (rows show the scale degrees, not all 12 chromatic notes); the grid shows 1 to 4 octaves at a time and scrolls
+- **Scale selector**: 43 scales (from SeqVerse), grouped in the menu: basic, modes, five-, six- and eight-note, exotic (Phrygian dominant, double harmonic, Hirajoshi, In Sen, ...), jazz
+- **Root note** selector
+- **Columns = steps**: 16 by default, selectable length (1 to 32 steps) to allow polymeter against the DAW
 - **Step rate**: 1/8, 1/16, 1/32, triplets
 - **Per cell**:
   - On/off
@@ -71,6 +73,8 @@ UX inspired by Stochas, own implementation.
   - Velocity
   - Ratchet (1 to 4 repeats within the step)
 - Global swing
+- **Cycle** (Off, 1, 2, 4, 8, 16 bars) and **Seed** (1 to 999): with a cycle, the pattern restarts every cycle and each cell's chance and velocity variation come from the seed and its place in the cycle, so a probabilistic pattern becomes a phrase that repeats exactly; another seed gives another phrase, and Seed can be automated. Off: every pass is drawn afresh (from SeqVerse)
+- **Dice**: one rolls a random sound for the selected engine (curated ranges, output gain matched), one replaces the pattern with a random one in the rows in view (each row on a rotated Euclidean rhythm, led by a root row). Each has a back arrow that undoes its last roll
 - No MIDI input: the plugin plays its own sequencer only (decided 2026-10-17)
 
 ### 5.1 MIDI output (optional mode)
@@ -121,3 +125,5 @@ UX inspired by Stochas, own implementation.
 - A separate MIDI-effect build of the sequencer (for hosts that prefer MIDI effects over instruments with MIDI out)
 - Pattern slots / pattern switching
 - Final product name
+- Hypnotic techno, considered 2026-10-18: a loop length per row (polymeter inside one instance; for now several instances with different Steps do it), slow built-in drift (LFOs over 4 to 64 bars on cutoff, FM amount, brightness), wetter and longer sounds from the dice and a "Hypnotic" preset category, patterns longer than 32 steps
+- Richer ratchets, see [IDEAS.md](../IDEAS.md)
