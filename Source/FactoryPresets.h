@@ -295,6 +295,11 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Wine Glass", "Glass", { Foley, { "foleyLength", 0.4f }, { "foleyMaterial", 0.95f }, { "foleySize", 0.6f }, { "foleyDamping", 0.1f },
                                    { "roomMix", 0.2f } } },
         { "Bottle Tap", "Glass", { Foley, { "foleyLength", 0.2f }, { "foleyMaterial", 0.85f }, { "foleyDamping", 0.35f }, { "foleyBrightness", 0.6f } } },
+        // a bottle struck with a key: the metal/glass blend gives the slightly off-key clink
+        { "Bottle Clink", "Glass", { Foley, { "foleyLength", 0.07f }, { "foleyMaterial", 0.8f }, { "foleySize", 0.35f }, { "foleyDamping", 0.4f },
+                                     { "foleyBrightness", 0.85f }, { "filterType", HP }, { "filterCutoff", 450 }, { "filterResonance", 0.1f },
+                                     { "delayTime", D8D }, { "delayFeedback", 0.35f }, { "delayMix", 0.18f }, { "roomSize", 0.3f },
+                                     { "roomMix", 0.15f }, { "chaosAmount", 0.35f }, { "chaosPitch", 0.12f }, { "chaosTone", 0.45f } } },
         { "Ice Clink", "Glass", { Foley, { "foleyLength", 0.05f }, { "foleyMaterial", 1 }, { "foleySize", 0.05f }, { "foleyDamping", 0.4f },
                                   { "foleyBrightness", 1 }, { "chaosAmount", 0.5f }, { "chaosPitch", 0.5f } } },
         { "Crystal", "Glass", { Foley, { "foleyLength", 0.2f }, { "foleyMaterial", 0.9f }, { "foleySize", 0.3f }, { "foleyDamping", 0.1f },
