@@ -28,7 +28,7 @@ Everything is synthesized. No samples, no third-party audio content.
 
 ### 4.1 Voice types
 
-Each note is rendered by one of two engines, selectable per preset (later perhaps per row):
+Each note is rendered by one of three engines, selectable per preset (later perhaps per row):
 
 **Bleep engine**
 - Oscillator: sine, triangle, square/pulse (PWM), simple 2-operator FM
@@ -41,6 +41,13 @@ Each note is rendered by one of two engines, selectable per preset (later perhap
 - Modal resonator bank (a small number of tuned resonators)
 - High-level controls: Material (wood ↔ metal ↔ glass), Size, Damping, Brightness
 - Goal: drips, tinks, knocks, crackles by turning a few knobs
+
+**Machine engine** (added 2026-10-18)
+- Industrial sounds that last, tuned to the note: Hiss (noise through a bandpass, steam),
+  Hum (a driven sine with a rasp, motors and transformers), Grind (noise into a comb filter)
+- Four controls shared by all three types: Length (ends by itself, up to 6 s), Tone, Motion
+  (0 still, then a slow wave to a fast rattle), Focus (airy noise to a clear tone)
+- Metallic hits stay in the Foley engine (Material at metal): no separate Metal type
 
 ### 4.2 Voice mode
 
@@ -89,7 +96,7 @@ UX inspired by Stochas, own implementation.
 ## 6. UI
 
 - Top: grid (main focus, clearly readable probability per cell, e.g. fill level or opacity)
-- Bottom: engine section (Bleep / Foley), Chaos, effects
+- Bottom: engine section (Bleep / Foley / Machine), Chaos, effects
 - Simple cell editing: click to toggle, drag or modifier+drag to set probability/velocity
 - Resizable window
 - Own visual identity, not imitating any other plugin
@@ -97,7 +104,7 @@ UX inspired by Stochas, own implementation.
 ## 7. Presets
 
 - Factory presets defined in code or as bundled parameter files (no audio content)
-- A large factory set (over 100), grouped by category: bleeps, pulses, FM, noise, lo-fi, dub, wood, metal, glass, drips, textures
+- A large factory set (over 100), grouped by category: bleeps, pulses, FM, noise, lo-fi, dub, wood, metal, machine, glass, drips, textures
 - Sound presets never change the pattern or the sequencer settings
 
 ## 8. Quality and testing
