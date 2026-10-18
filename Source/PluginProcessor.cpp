@@ -35,7 +35,9 @@ std::unique_ptr<juce::AudioParameterFloat> floatParam (const char* id, const cha
     {
         if (isPercent)
             return juce::String (juce::roundToInt (value * 100.0f)) + " %";
-        const auto number = std::abs (value) < 10.0f ? juce::String (value, 1) : juce::String (juce::roundToInt (value));
+        // decided on the rounded value, so 9.97 shows as "10" like 10 does and the text reads back the same
+        const float tenths = std::round (value * 10.0f) / 10.0f;
+        const auto number = std::abs (tenths) < 10.0f ? juce::String (tenths, 1) : juce::String (juce::roundToInt (value));
         return number + " " + unitText;
     };
     auto fromText = [isPercent] (const juce::String& text)
