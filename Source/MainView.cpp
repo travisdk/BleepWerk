@@ -8,7 +8,7 @@
 
 namespace
 {
-constexpr int kMargin = 16, kHeaderHeight = 40, kBarHeight = 28, kStatusHeight = 22, kEngineHeight = 150, kBottomHeight = 120,
+constexpr int kMargin = 16, kHeaderHeight = 40, kBarHeight = 28, kStatusHeight = 26, kEngineHeight = 150, kBottomHeight = 120,
               kGap = 10, kChaosWidth = 350;
 
 using EditMode = BleepForgeProcessor::EditMode;
@@ -69,8 +69,14 @@ MainView::MainView (BleepForgeProcessor& p)
         addAndMakeVisible (*button);
 
     // sequencer bar
-    for (const auto& scale : kScales)
-        scaleBox.addItem (scale.name, scaleBox.getNumItems() + 1);
+    // grouped under headings; the item IDs stay the parameter's order
+    for (auto* group : kScaleGroups)
+    {
+        scaleBox.addSectionHeading (group);
+        for (int i = 0; i < kNumScales; ++i)
+            if (std::strcmp (kScales[i].group, group) == 0)
+                scaleBox.addItem (kScales[i].name, i + 1);
+    }
     for (auto* name : kRootNames)
         rootBox.addItem (name, rootBox.getNumItems() + 1);
     for (auto* name : kSeqRateNames)
@@ -105,6 +111,21 @@ MainView::MainView (BleepForgeProcessor& p)
     patternBack.onClick = [this] { undoPatternRoll(); };
     patternBack.setEnabled (false);
 
+    for (auto* name : kCycleNames)
+        cycleBox.addItem (name, cycleBox.getNumItems() + 1);
+    cycleBox.setTooltip ("Repeat the pattern's chances as a phrase of this length");
+    cycleAttachment = std::make_unique<ComboAttachment> (processor.apvts, "seqCycle", cycleBox);
+    seedSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 40, 22);
+    seedSlider.setTooltip ("Which phrase the cycle repeats");
+    seedAttachment = std::make_unique<SliderAttachment> (processor.apvts, "seqSeed", seedSlider);
+    for (auto* label : { &cycleLabel, &seedLabel })
+    {
+        styleBarLabel (*label);
+        addAndMakeVisible (*label);
+    }
+    addAndMakeVisible (cycleBox);
+    addAndMakeVisible (seedSlider);
+
     // grid, status line and sound
     status.setFont (juce::FontOptions (12.0f));
     status.setColour (juce::Label::textColourId, theme::dimText);
@@ -126,11 +147,16 @@ MainView::~MainView()
 }
 
 // The grid's length isn't a parameter, so a loaded project doesn't tell the slider; the
-// preset can change from the host (programs) or a loaded project.
+// preset can change from the host (programs) or a loaded project; Seed follows Cycle.
 void MainView::timerCallback()
 {
     if (processor.getSoundPresets().version() != shownPresetVersion)
         refreshPreset();
+
+    // the seed only matters with a cycle
+    const bool cycling = processor.apvts.getRawParameterValue ("seqCycle")->load() >= 0.5f;
+    seedSlider.setEnabled (cycling);
+    seedLabel.setEnabled (cycling);
 
     const int length = processor.getGrid().getLength();
     if ((int) stepsSlider.getValue() != length && ! stepsSlider.isMouseButtonDown())
@@ -431,6 +457,15 @@ void MainView::resized()
     area.removeFromBottom (kGap);
 
     area.removeFromTop (8);
-    status.setBounds (area.removeFromBottom (kStatusHeight).withTrimmedLeft ((int) GridView::kLabelWidth - 4));
+    auto footer = area.removeFromBottom (kStatusHeight);
+    footer.removeFromRight ((int) (GridView::kOverviewWidth + GridView::kOverviewGap));
+    seedSlider.setBounds (footer.removeFromRight (92).withSizeKeepingCentre (92, 22));
+    footer.removeFromRight (6);
+    seedLabel.setBounds (footer.removeFromRight (34));
+    footer.removeFromRight (16);
+    cycleBox.setBounds (footer.removeFromRight (84).withSizeKeepingCentre (84, 22));
+    footer.removeFromRight (6);
+    cycleLabel.setBounds (footer.removeFromRight (40));
+    status.setBounds (footer.withTrimmedLeft ((int) GridView::kLabelWidth - 4));
     gridView.setBounds (area);
 }

@@ -5,6 +5,7 @@
 
 #include "FactoryPresets.h"
 #include "Sequencer.h"
+#include "Euclid.h"
 
 #include <cstdint>
 #include <cstring>
@@ -165,7 +166,7 @@ std::vector<PresetValue> randomMatchedSound (bool foley, DiceRng& rng, Get&& cur
 
 // Replaces the whole pattern with a random one in rows firstRow .. firstRow + numRows - 1
 // (the rows in view), keeping the grid's length. A few rows carry the pattern, led by a root
-// note; downbeats are hit more often and harder, and are more often certain.
+// note, each on a rotated Euclidean rhythm; hits on downbeats are harder and more often certain.
 // The new pattern is built aside and copied in, so the audio thread never plays a half-cleared
 // grid or the default length.
 inline void randomPattern (Grid& target, int scale, int firstRow, int numRows, DiceRng& rng)
@@ -203,27 +204,33 @@ inline void randomPattern (Grid& target, int scale, int firstRow, int numRows, D
         ++i;
     }
 
-    const float density = rng.between (0.25f, 0.55f);
+    // Each row plays its own Euclidean rhythm, rotated against the others, so the hits roll
+    // round each other. The lead row is busier and usually starts on the first step.
+    std::vector<bool> taken ((size_t) length, false);
     int placed = 0;
-    for (int step = 0; step < length; ++step)
+    for (size_t lane = 0; lane < lanes.size(); ++lane)
     {
-        const bool downbeat = step % 4 == 0, eighth = step % 2 == 0;
-        const float weight = downbeat ? 1.6f : eighth ? 1.0f : 0.8f;
-        if (! rng.chance (std::min (1.0f, density * weight)) && ! (step == 0 && rng.chance (0.7f)))
-            continue;
+        const bool lead = lane == 0;
+        const int pulses = std::max (1, (int) std::lround ((float) length * (lead ? rng.between (0.2f, 0.45f) : rng.between (0.1f, 0.35f))));
+        const int rotation = lead && rng.chance (0.7f) ? 0 : rng.below (length);
+        const EuclidPattern rhythm (length, pulses, rotation);
 
-        // now and then two notes at once
-        const int notes = rng.chance (0.1f) ? 2 : 1;
-        for (int n = 0; n < notes; ++n)
+        for (int step = 0; step < length; ++step)
         {
-            const int lane = rng.chance (0.5f) ? 0 : rng.below ((int) lanes.size());
+            // where another row already plays, mostly leave the step to it
+            if (! rhythm.isOnset (step) || (taken[(size_t) step] && rng.chance (0.7f)))
+                continue;
+
+            const bool downbeat = step % 4 == 0;
             Cell c;
             c.on = true;
-            c.probability = (downbeat && rng.chance (0.7f)) || rng.chance (0.5f) ? 1.0f : std::round (rng.between (0.25f, 0.9f) * 20.0f) / 20.0f;
+            const float certain = lead ? 0.8f : downbeat ? 0.6f : 0.45f;
+            c.probability = rng.chance (certain) ? 1.0f : std::round (rng.between (0.25f, 0.9f) * 20.0f) / 20.0f;
             c.velocity = downbeat ? rng.between (0.75f, 1.0f) : rng.between (0.45f, 0.9f);
             constexpr float ratchets[] = { 83, 10, 4, 3 };
             c.ratchet = 1 + rng.pick (ratchets);
-            grid.set (rowSlot (lanes[(size_t) lane], scale), step, c);
+            grid.set (rowSlot (lanes[lane], scale), step, c);
+            taken[(size_t) step] = true;
             ++placed;
         }
     }

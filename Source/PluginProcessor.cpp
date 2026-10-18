@@ -139,6 +139,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
         AudioParameterFloatAttributes()
             .withStringFromValueFunction ([] (float v, int) { return String (roundToInt (v * 100.0f)) + " %"; })
             .withValueFromStringFunction ([] (const String& t) { return t.retainCharacters ("0123456789.").getFloatValue() / 100.0f; })));
+    // Cycle locks the pattern's chances into a phrase that repeats; Seed picks the phrase, and
+    // automating it changes the phrase on cue.
+    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqCycle", 1 }, "Cycle", namesOf (bleepforge::kCycleNames), 0));
+    params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqSeed", 1 }, "Seed", 1, bleepforge::kMaxSeed, 1));
 
     // Chaos: Amount scales every target's depth
     sound ("chaosAmount", "Chaos", linear ("chaosAmount"));
@@ -328,6 +332,8 @@ bleepforge::SequencerSettings BleepForgeProcessor::sequencerSettings() const
     settings.root = (int) get ("seqRoot");
     settings.stepBeats = bleepforge::kSeqRateBeats[(size_t) juce::jlimit (0, bleepforge::kNumSeqRates - 1, (int) get ("seqRate"))];
     settings.swing = get ("seqSwing");
+    settings.cycleSteps = bleepforge::cycleSteps ((int) get ("seqCycle"), settings.stepBeats);
+    settings.seed = (int) get ("seqSeed");
     settings.velocityChaos = get ("chaosAmount") * get ("chaosVelocity");
     return settings;
 }

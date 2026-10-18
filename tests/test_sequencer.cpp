@@ -3,10 +3,14 @@
 
 // Sequencer: step timing independent of the host block size, scale mapping, probability
 // distribution, velocity, no stuck notes after stopping or jumping, silent pre-roll, and the
-// grid surviving a save and load.
+// grid surviving a save and load, cycles repeating their phrase, the scale table and Euclidean
+// rhythms.
 #include "Sequencer.h"
+#include "Euclid.h"
 #include "TestUtils.h"
 
+#include <cstring>
+#include <string>
 #include <vector>
 
 using namespace bleepforge;
@@ -458,6 +462,133 @@ static void velocityChaosVariesEachHit()
     CHECK (highest > 0.7f && highest <= 0.5f * 1.6f + 0.01f);
 }
 
+// Onsets of the note-ons in a run as (step, note, velocity), from step `from` to `to`.
+static std::vector<Event> onsBetween (const std::vector<Event>& events, long from, long to)
+{
+    std::vector<Event> ons;
+    for (const auto& e : events)
+        if (e.on && e.sample >= from * samplesPerStep && e.sample < to * samplesPerStep)
+            ons.push_back ({ e.sample - from * samplesPerStep, true, e.note, e.velocity });
+    return ons;
+}
+
+static void cyclesRepeatTheirPhrase()
+{
+    CHECK (cycleSteps (0, 0.25) == 0);
+    CHECK (cycleSteps (1, 0.25) == 16);
+    CHECK (cycleSteps (3, 0.25) == 64);
+    CHECK (cycleSteps (1, 1.0 / 6.0) == 24); // 1/16T
+    CHECK (cycleSteps (1, 1.0 / 3.0) == 12); // 1/8T
+
+    Grid grid;
+    for (int step = 0; step < kDefaultSteps; ++step)
+        for (int slot : { 60, 62, 64 })
+            grid.set (slot, step, hit (0.5f, 0.7f));
+    SequencerSettings settings;
+    settings.cycleSteps = 32;
+    settings.velocityChaos = 0.5f;
+
+    // the same phrase every cycle, also velocities, and whatever the seed of the free generator
+    const auto events = run (grid, 512, 32 * 4, settings, 0.0, -1, 7);
+    const auto first = onsBetween (events, 0, 32);
+    CHECK (! first.empty() && first.size() < 3 * 32);
+    for (long cycle = 1; cycle < 4; ++cycle)
+    {
+        const auto again = onsBetween (events, cycle * 32, cycle * 32 + 32);
+        CHECK (again.size() == first.size());
+        for (size_t i = 0; i < std::min (again.size(), first.size()); ++i)
+            CHECK (again[i] == first[i] && again[i].velocity == first[i].velocity);
+    }
+    CHECK (onsBetween (run (grid, 333, 32, settings, 0.0, -1, 99), 0, 32) == first);
+
+    // the second half of a cycle isn't the first again: the chances follow the cycle, not the grid
+    CHECK (! (onsBetween (events, 16, 32) == onsBetween (events, 0, 16)));
+
+    // another seed, another phrase
+    settings.seed = 2;
+    CHECK (! (onsBetween (run (grid, 512, 32, settings), 0, 32) == first));
+
+    // without a cycle, the passes differ
+    settings.cycleSteps = 0;
+    const auto free = run (grid, 512, 64, settings);
+    CHECK (! (onsBetween (free, 0, 32) == onsBetween (free, 32, 64)));
+
+    // editing one cell leaves what the others play alone
+    settings.cycleSteps = 32;
+    settings.seed = 1;
+    Grid edited;
+    edited.copyFrom (grid);
+    for (int step = 0; step < kDefaultSteps; ++step)
+        edited.set (64, step, Cell());
+    auto noteOfSlot = [] (int slot) { return 12 * (slot / 12) + scaleAt (kDefaultScale).degrees[(size_t) (slot % 12)]; };
+    std::vector<Event> expected;
+    for (const auto& e : first)
+        if (e.note != noteOfSlot (64))
+            expected.push_back (e);
+    CHECK (onsBetween (run (edited, 512, 32, settings), 0, 32) == expected);
+}
+
+// With a cycle the pattern starts over at each cycle: a 7-step grid in a 16-step cycle plays
+// steps 0-6, 0-6, 0-1, then 0 again.
+static void cyclesRestartThePattern()
+{
+    Grid grid;
+    grid.setLength (7);
+    grid.set (0, 0, hit());
+    SequencerSettings settings;
+    settings.cycleSteps = 16;
+    std::vector<long> steps;
+    for (const auto& e : run (grid, 512, 32, settings))
+        if (e.on)
+            steps.push_back (e.sample / samplesPerStep);
+    CHECK ((steps == std::vector<long> { 0, 7, 14, 16, 23, 30 }));
+
+    settings.cycleSteps = 0; // free: it drifts on
+    steps.clear();
+    for (const auto& e : run (grid, 512, 32, settings))
+        if (e.on)
+            steps.push_back (e.sample / samplesPerStep);
+    CHECK ((steps == std::vector<long> { 0, 7, 14, 21, 28 }));
+}
+
+static void scaleTable()
+{
+    for (const auto& scale : kScales)
+    {
+        CHECK (scale.size >= 5 && scale.size <= 12);
+        CHECK (scale.degrees[0] == 0);
+        for (int i = 1; i < scale.size; ++i)
+            CHECK (scale.degrees[(size_t) i] > scale.degrees[(size_t) i - 1] && scale.degrees[(size_t) i] < 12);
+        bool grouped = false;
+        for (auto* group : kScaleGroups)
+            grouped = grouped || std::strcmp (group, scale.group) == 0;
+        CHECK (grouped);
+    }
+    // the first eight keep their places, which projects store
+    CHECK (std::strcmp (kScales[1].name, "Minor") == 0 && std::strcmp (kScales[7].name, "Major Pentatonic") == 0);
+}
+
+static std::string euclid (int steps, int pulses, int rotation = 0)
+{
+    const EuclidPattern p (steps, pulses, rotation);
+    std::string out;
+    for (int i = 0; i < p.steps; ++i)
+        out += p.isOnset (i) ? 'x' : '.';
+    return out;
+}
+
+static void euclideanRhythms()
+{
+    CHECK (euclid (8, 3) == "x..x..x.");
+    CHECK (euclid (8, 5) == "x.xx.xx.");
+    CHECK (euclid (16, 4) == "x...x...x...x...");
+    CHECK (euclid (8, 3, 1) == ".x..x..x");
+    CHECK (euclid (8, 3, -1) == "..x..x.x");
+    CHECK (euclid (5, 0) == ".....");
+    CHECK (euclid (4, 9) == "xxxx");
+    CHECK (euclid (100, 1).size() == (size_t) kMaxEuclidSteps);
+}
+
 int main()
 {
     scaleMapping();
@@ -479,5 +610,9 @@ int main()
     ratchetsAreOneChance();
     stoppingInsideARatchetForgetsTheRest();
     velocityChaosVariesEachHit();
+    cyclesRepeatTheirPhrase();
+    cyclesRestartThePattern();
+    scaleTable();
+    euclideanRhythms();
     return finish ("sequencer");
 }

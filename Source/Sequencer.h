@@ -33,18 +33,58 @@ struct Scale
     const char* name;
     int size;
     std::array<int, 12> degrees; // semitones above the root
+    const char* group;           // the heading it sits under in the Scale menu
 };
 
+// A project stores the index, so new scales go at the end; the menu groups them instead. The
+// scales after the first eight come from SeqVerse (same author and licence).
 inline constexpr Scale kScales[] = {
-    { "Chromatic", 12, { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 } },
-    { "Minor", 7, { 0, 2, 3, 5, 7, 8, 10 } },
-    { "Major", 7, { 0, 2, 4, 5, 7, 9, 11 } },
-    { "Dorian", 7, { 0, 2, 3, 5, 7, 9, 10 } },
-    { "Phrygian", 7, { 0, 1, 3, 5, 7, 8, 10 } },
-    { "Harmonic Minor", 7, { 0, 2, 3, 5, 7, 8, 11 } },
-    { "Minor Pentatonic", 5, { 0, 3, 5, 7, 10 } },
-    { "Major Pentatonic", 5, { 0, 2, 4, 7, 9 } },
+    { "Chromatic", 12, { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }, "Basic" },
+    { "Minor", 7, { 0, 2, 3, 5, 7, 8, 10 }, "Basic" },
+    { "Major", 7, { 0, 2, 4, 5, 7, 9, 11 }, "Basic" },
+    { "Dorian", 7, { 0, 2, 3, 5, 7, 9, 10 }, "Modes" },
+    { "Phrygian", 7, { 0, 1, 3, 5, 7, 8, 10 }, "Modes" },
+    { "Harmonic Minor", 7, { 0, 2, 3, 5, 7, 8, 11 }, "Basic" },
+    { "Minor Pentatonic", 5, { 0, 3, 5, 7, 10 }, "Five notes" },
+    { "Major Pentatonic", 5, { 0, 2, 4, 7, 9 }, "Five notes" },
+
+    { "Melodic Minor", 7, { 0, 2, 3, 5, 7, 9, 11 }, "Basic" },
+    { "Lydian", 7, { 0, 2, 4, 6, 7, 9, 11 }, "Modes" },
+    { "Mixolydian", 7, { 0, 2, 4, 5, 7, 9, 10 }, "Modes" },
+    { "Locrian", 7, { 0, 1, 3, 5, 6, 8, 10 }, "Modes" },
+    { "Blues Minor", 6, { 0, 3, 5, 6, 7, 10 }, "Six notes" },
+    { "Blues Major", 6, { 0, 2, 3, 4, 7, 9 }, "Six notes" },
+    { "Whole Tone", 6, { 0, 2, 4, 6, 8, 10 }, "Six notes" },
+    { "Diminished W-H", 8, { 0, 2, 3, 5, 6, 8, 9, 11 }, "Eight notes" },
+    { "Diminished H-W", 8, { 0, 1, 3, 4, 6, 7, 9, 10 }, "Eight notes" },
+    { "Augmented", 6, { 0, 3, 4, 7, 8, 11 }, "Six notes" },
+    { "Harmonic Major", 7, { 0, 2, 4, 5, 7, 8, 11 }, "Exotic" },
+    { "Phrygian Dominant", 7, { 0, 1, 4, 5, 7, 8, 10 }, "Exotic" },
+    { "Double Harmonic", 7, { 0, 1, 4, 5, 7, 8, 11 }, "Exotic" },
+    { "Hungarian Minor", 7, { 0, 2, 3, 6, 7, 8, 11 }, "Exotic" },
+    { "Hungarian Major", 7, { 0, 3, 4, 6, 7, 9, 10 }, "Exotic" },
+    { "Neapolitan Minor", 7, { 0, 1, 3, 5, 7, 8, 11 }, "Exotic" },
+    { "Neapolitan Major", 7, { 0, 1, 3, 5, 7, 9, 11 }, "Exotic" },
+    { "Lydian Dominant", 7, { 0, 2, 4, 6, 7, 9, 10 }, "Jazz" },
+    { "Lydian Augmented", 7, { 0, 2, 4, 6, 8, 9, 11 }, "Jazz" },
+    { "Locrian Natural 2", 7, { 0, 2, 3, 5, 6, 8, 10 }, "Jazz" },
+    { "Altered", 7, { 0, 1, 3, 4, 6, 8, 10 }, "Jazz" },
+    { "Mixolydian b6", 7, { 0, 2, 4, 5, 7, 8, 10 }, "Jazz" },
+    { "Dorian b2", 7, { 0, 1, 3, 5, 7, 9, 10 }, "Jazz" },
+    { "Ukrainian Dorian", 7, { 0, 2, 3, 6, 7, 9, 10 }, "Exotic" },
+    { "Persian", 7, { 0, 1, 4, 5, 6, 8, 11 }, "Exotic" },
+    { "Enigmatic", 7, { 0, 1, 4, 6, 8, 10, 11 }, "Exotic" },
+    { "Prometheus", 6, { 0, 2, 4, 6, 9, 10 }, "Six notes" },
+    { "Tritone", 6, { 0, 1, 4, 6, 7, 10 }, "Six notes" },
+    { "Bebop Dominant", 8, { 0, 2, 4, 5, 7, 9, 10, 11 }, "Eight notes" },
+    { "Bebop Major", 8, { 0, 2, 4, 5, 7, 8, 9, 11 }, "Eight notes" },
+    { "Hirajoshi", 5, { 0, 2, 3, 7, 8 }, "Five notes" },
+    { "Kumoi", 5, { 0, 2, 3, 7, 9 }, "Five notes" },
+    { "In Sen", 5, { 0, 1, 5, 7, 10 }, "Five notes" },
+    { "Iwato", 5, { 0, 1, 5, 6, 10 }, "Five notes" },
+    { "Egyptian", 5, { 0, 2, 5, 7, 10 }, "Five notes" },
 };
+inline constexpr const char* kScaleGroups[] = { "Basic", "Modes", "Five notes", "Six notes", "Eight notes", "Exotic", "Jazz" };
 inline constexpr int kNumScales = (int) std::size (kScales);
 inline constexpr int kDefaultScale = 1; // Minor
 
@@ -241,6 +281,47 @@ struct SequencerSettings
     double stepBeats = 0.25;    // 1/16
     double swing = 0.5;         // 0.5 straight .. 0.75 heavy shuffle; delays every second step
     float velocityChaos = 0.0f; // 0..1: how far each hit's velocity may stray
+    int cycleSteps = 0;         // 0: off; else the pattern restarts and its chances repeat every this many steps
+    int seed = 1;               // which phrase a cycle locks in
+};
+
+// Cycle lengths in bars of four beats; 0 is off.
+inline constexpr int kCycleBars[] = { 0, 1, 2, 4, 8, 16 };
+inline constexpr const char* kCycleNames[] = { "Off", "1 bar", "2 bars", "4 bars", "8 bars", "16 bars" };
+inline constexpr int kNumCycles = (int) std::size (kCycleBars);
+inline constexpr int kMaxSeed = 999;
+
+// Steps in a cycle at a step rate; every rate divides a bar into whole steps.
+inline int cycleSteps (int cycleIndex, double stepBeats)
+{
+    const int bars = kCycleBars[(size_t) std::clamp (cycleIndex, 0, kNumCycles - 1)];
+    return bars > 0 ? (int) std::lround (4.0 * bars / stepBeats) : 0;
+}
+
+// A random number generator (splitmix64) cheap enough to make one per cell and step, so a
+// cell's chances depend only on the seed and where it is in the cycle: the same in every
+// cycle and after every restart. (From SeqVerse, same author and licence.)
+struct StepRandom
+{
+    uint64_t state;
+
+    static constexpr uint64_t golden = 0x9e3779b97f4a7c15ull;
+
+    static constexpr StepRandom forCell (int seed, int64_t cycleStep, int slot)
+    {
+        return { (uint64_t) seed * golden ^ ((uint64_t) cycleStep * kNumSlots + (uint64_t) slot) * 0xd1342543de82ef95ull };
+    }
+
+    constexpr uint64_t next()
+    {
+        state += golden;
+        uint64_t z = state;
+        z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ull;
+        z = (z ^ (z >> 27)) * 0x94d049bb133111ebull;
+        return z ^ (z >> 31);
+    }
+
+    float uniform() { return (float) (next() >> 40) * (1.0f / 16777216.0f); } // 0..1, below 1
 };
 
 // Start of step k in beats from the timeline's zero; swing delays every second step. (The
@@ -256,6 +337,10 @@ inline double stepStartBeats (int64_t k, double beats, double swing)
 // depend on the block size. A played cell is scheduled when its step starts: one hit, or its
 // ratchet's hits spread evenly over the step, each ending after kGate of its share. Hits are
 // queued, so the later ones of a ratchet can fall in later blocks.
+// With a cycle, the pattern starts over at every cycle (cycles start on multiples of their
+// length on the timeline) and each cell's chance and velocity variation come from the seed
+// and its place in the cycle, so every cycle plays the same phrase. Without one, they are
+// drawn afresh every time.
 class SequencerEngine
 {
 public:
@@ -307,7 +392,9 @@ public:
                 continue;
 
             flush (sample - 1, numSamples, sampleFor, emit); // everything before this step
-            scheduleStep ((int) (j % length), start, stepStartBeats (j + 1, beats, swing) - start, settings, grid);
+            const int64_t inCycle = settings.cycleSteps > 0 ? j % settings.cycleSteps : -1;
+            scheduleStep ((int) ((inCycle >= 0 ? inCycle : j) % length), inCycle, start, stepStartBeats (j + 1, beats, swing) - start,
+                          settings, grid);
         }
         flush (numSamples - 1, numSamples, sampleFor, emit);
     }
@@ -384,7 +471,8 @@ private:
         }
     }
 
-    void scheduleStep (int step, double start, double duration, const SequencerSettings& settings, const Grid& grid)
+    // inCycle: the step's place in the cycle, or -1 without one
+    void scheduleStep (int step, int64_t inCycle, double start, double duration, const SequencerSettings& settings, const Grid& grid)
     {
         currentStep.store (step);
         const int rows = numRows (settings.scale, settings.root);
@@ -392,12 +480,20 @@ private:
         {
             const int slot = rowSlot (row, settings.scale);
             const auto cell = grid.get (slot, step);
-            if (! cell.on || (cell.probability < 1.0f && nextRandom() >= cell.probability))
+            if (! cell.on)
+                continue;
+
+            // both numbers are drawn for every cell that is on, so in a cycle editing one
+            // cell never changes what another plays
+            auto cellRandom = StepRandom::forCell (settings.seed, inCycle, slot);
+            auto draw = [&] { return inCycle >= 0 ? cellRandom.uniform() : nextRandom(); };
+            const float chance = draw(), variation = draw();
+            if (cell.probability < 1.0f && chance >= cell.probability)
                 continue;
 
             float velocity = cell.velocity;
             if (settings.velocityChaos > 0.0f)
-                velocity = std::clamp (velocity * (1.0f + settings.velocityChaos * 0.6f * (2.0f * nextRandom() - 1.0f)), 1.0f / 127.0f, 1.0f);
+                velocity = std::clamp (velocity * (1.0f + settings.velocityChaos * 0.6f * (2.0f * variation - 1.0f)), 1.0f / 127.0f, 1.0f);
 
             const int note = rowNote (row, settings.scale, settings.root);
             const double share = duration / cell.ratchet;
