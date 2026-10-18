@@ -18,6 +18,32 @@ using namespace bleepforge;
 constexpr double sampleRate = 48000.0, bpm = 120.0;
 constexpr long samplesPerStep = 6000; // 1/16 at 120 BPM
 
+// A small, varied pattern to test with (the plugin itself starts empty): in the default
+// scale, rows counted from C4.
+static void loadTestPattern (Grid& grid)
+{
+    grid.clear();
+    auto put = [&grid] (int row, int step, float probability, float velocity, int ratchet = 1)
+    {
+        Cell c;
+        c.on = true;
+        c.probability = probability;
+        c.velocity = velocity;
+        c.ratchet = ratchet;
+        const int fromC4 = 5 * scaleAt (kDefaultScale).size + row;
+        grid.set (rowSlot (fromC4, kDefaultScale), step, c);
+    };
+    put (0, 0, 1.0f, 0.95f);
+    put (0, 6, 1.0f, 0.8f);
+    put (0, 10, 0.85f, 0.85f);
+    put (7, 3, 0.6f, 0.7f);
+    put (7, 11, 0.4f, 0.6f);
+    put (4, 8, 1.0f, 0.75f, 2);
+    put (4, 14, 0.5f, 0.6f);
+    put (2, 13, 0.3f, 0.65f);
+    put (6, 15, 0.25f, 0.5f);
+}
+
 struct Event
 {
     long sample;
@@ -141,7 +167,7 @@ static void stepsLandOnTheirSample()
 static void blockSizeDoesNotMatter()
 {
     Grid grid;
-    loadStarterPattern (grid);
+    loadTestPattern (grid);
     for (int step = 0; step < kDefaultSteps; ++step)
         for (int slot = 0; slot < kNumSlots; ++slot)
             if (auto c = grid.get (slot, step); c.on)
@@ -323,7 +349,7 @@ static void cellsPack()
 static void gridSavesAndLoads()
 {
     Grid grid;
-    loadStarterPattern (grid);
+    loadTestPattern (grid);
     grid.setLength (23);
     Cell offButShaped;
     offButShaped.probability = 0.42f;

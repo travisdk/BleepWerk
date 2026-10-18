@@ -241,32 +241,6 @@ private:
     std::atomic<int> length { kDefaultSteps };
 };
 
-// A pattern for a fresh instance, so the sequencer plays something before it is edited:
-// in the default scale, rows counted from C4.
-inline void loadStarterPattern (Grid& grid)
-{
-    grid.clear();
-    auto put = [&grid] (int row, int step, float probability, float velocity, int ratchet = 1)
-    {
-        Cell c;
-        c.on = true;
-        c.probability = probability;
-        c.velocity = velocity;
-        c.ratchet = ratchet;
-        const int fromC4 = 5 * scaleAt (kDefaultScale).size + row;
-        grid.set (rowSlot (fromC4, kDefaultScale), step, c);
-    };
-    put (0, 0, 1.0f, 0.95f);
-    put (0, 6, 1.0f, 0.8f);
-    put (0, 10, 0.85f, 0.85f);
-    put (7, 3, 0.6f, 0.7f);
-    put (7, 11, 0.4f, 0.6f);
-    put (4, 8, 1.0f, 0.75f, 2);
-    put (4, 14, 0.5f, 0.6f);
-    put (2, 13, 0.3f, 0.65f);
-    put (6, 15, 0.25f, 0.5f);
-}
-
 // Step rates, in quarter-note beats per step.
 inline constexpr double kSeqRateBeats[] = { 0.5, 0.25, 0.125, 1.0 / 3.0, 1.0 / 6.0 };
 inline constexpr const char* kSeqRateNames[] = { "1/8", "1/16", "1/32", "1/8T", "1/16T" };

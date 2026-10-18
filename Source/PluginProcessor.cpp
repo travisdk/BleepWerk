@@ -71,7 +71,7 @@ BleepForgeProcessor::BleepForgeProcessor()
       apvts (*this, nullptr, "PARAMS", createParameterLayout()),
       userSettings (settingsOptions())
 {
-    bleepforge::loadStarterPattern (grid);
+    // the grid starts empty: notes come from the user or the pattern dice
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createParameterLayout()
@@ -387,7 +387,7 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
             const int version = state.getProperty ("stateVersion", kStateVersion);
             juce::ignoreUnused (version); // migrations from older versions go here
             if (! grid.fromString (state.getProperty ("grid").toString().toStdString()))
-                bleepforge::loadStarterPattern (grid);
+                grid.clear();
             state.removeProperty ("grid", nullptr);
             soundPresets.readState (state);
             apvts.replaceState (state);
