@@ -13,6 +13,16 @@ juce::NormalisableRange<float> skewedRange (float lo, float hi, float centre)
     return range;
 }
 
+// The same range run backwards: the knob's left end is the range's top. For controls whose
+// "off" sits at the top of their values (the crusher's bits and rate), so off is fully left.
+juce::NormalisableRange<float> reversedRange (const juce::NormalisableRange<float>& range)
+{
+    return { range.start, range.end,
+             [range] (float, float, float proportion) { return range.convertFrom0to1 (1.0f - proportion); },
+             [range] (float, float, float value) { return 1.0f - range.convertTo0to1 (value); },
+             [range] (float, float, float value) { return range.snapToLegalValue (value); } };
+}
+
 // Parameters without a unit are 0..1 amounts and display as percent. (From SubForge.)
 std::unique_ptr<juce::AudioParameterFloat> floatParam (const char* id, const char* name,
                                                        juce::NormalisableRange<float> range,
@@ -146,12 +156,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     choice ("voiceMode", "Voice Mode", { "Mono", "Poly" });
     sound ("glide", "Glide", skewed ("glide", 60.0f), "ms");
 
-    // Effects, in signal order. Bits and Rate read "Off" at the top, where they do nothing.
+    // Effects, in signal order. Bits and Rate read "Off" at the top of their values, where they
+    // do nothing; their knobs run backwards so that is fully left.
     choice ("filterType", "Filter", namesOf (bleepforge::kFilterTypeNames));
     sound ("filterCutoff", "Cutoff", skewed ("filterCutoff", 1000.0f), "Hz");
     sound ("filterResonance", "Resonance", linear ("filterResonance"));
     params.push_back (std::make_unique<AudioParameterFloat> (
-        ParameterID { "crushBits", 1 }, "Bits", linear ("crushBits"), soundDefault ("crushBits"),
+        ParameterID { "crushBits", 1 }, "Bits", reversedRange (linear ("crushBits")), soundDefault ("crushBits"),
         AudioParameterFloatAttributes()
             .withStringFromValueFunction ([] (float v, int) { return v >= bleepforge::kCrushBitsOff - 0.01f ? String ("Off") : String (v, 1) + " bit"; })
             .withValueFromStringFunction ([] (const String& t)
@@ -160,7 +171,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
                                                                                       : t.retainCharacters ("0123456789.").getFloatValue();
                                           })));
     params.push_back (std::make_unique<AudioParameterFloat> (
-        ParameterID { "crushRate", 1 }, "Crush Rate", skewed ("crushRate", 6000.0f), soundDefault ("crushRate"),
+        ParameterID { "crushRate", 1 }, "Crush Rate", reversedRange (skewed ("crushRate", 6000.0f)), soundDefault ("crushRate"),
         AudioParameterFloatAttributes()
             .withStringFromValueFunction ([] (float v, int)
                                           {
