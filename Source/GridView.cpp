@@ -227,10 +227,9 @@ void GridView::paint (juce::Graphics& g)
             const int slot = slotOf (row);
             const auto cell = grid.get (slot, step);
             const auto r = cellBounds (row, step).reduced (2.0f, gap);
-            const float corner = juce::jmin (3.0f, r.getHeight() * 0.3f);
 
             g.setColour ((step / 4) % 2 == 1 ? theme::panelAlt : theme::panel);
-            g.fillRoundedRectangle (r, corner);
+            g.fillRect (r);
 
             if (cell.on && mode == EditMode::Ratchet)
             {
@@ -239,18 +238,18 @@ void GridView::paint (juce::Graphics& g)
                 const float barWidth = (r.getWidth() - barGap * (float) (cell.ratchet - 1)) / (float) cell.ratchet;
                 g.setColour (colour.withAlpha (0.8f));
                 for (int i = 0; i < cell.ratchet; ++i)
-                    g.fillRoundedRectangle (r.withX (r.getX() + (float) i * (barWidth + barGap)).withWidth (barWidth), corner);
+                    g.fillRect (r.withX (r.getX() + (float) i * (barWidth + barGap)).withWidth (barWidth));
                 g.setColour (colour);
-                g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.2f);
+                g.drawRect (r, 1.2f);
             }
             else if (cell.on)
             {
                 // the mode's value as the fill height, its number while below the maximum
                 const float value = valueOf (cell, mode);
                 g.setColour (colour.withAlpha (0.8f));
-                g.fillRoundedRectangle (r.withTop (r.getBottom() - r.getHeight() * value), corner);
+                g.fillRect (r.withTop (r.getBottom() - r.getHeight() * value));
                 g.setColour (colour);
-                g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.2f);
+                g.drawRect (r, 1.2f);
 
                 if (value < 1.0f && r.getWidth() >= 24.0f && r.getHeight() >= 14.0f)
                 {
@@ -273,13 +272,13 @@ void GridView::paint (juce::Graphics& g)
             else if (hover.row == row && hover.step == step)
             {
                 g.setColour (colour.withAlpha (0.35f));
-                g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.0f);
+                g.drawRect (r, 1.0f);
             }
 
             if (const float f = flash[(size_t) (slot * kMaxSteps + step)]; f > 0.01f)
             {
                 g.setColour (juce::Colours::white.withAlpha (0.55f * f));
-                g.fillRoundedRectangle (r, corner);
+                g.fillRect (r);
             }
         }
 
@@ -292,7 +291,7 @@ void GridView::paint (juce::Graphics& g)
         auto rowRect = [&] (int row) { return juce::Rectangle<float> (strip.getX(), strip.getBottom() - (float) (row + 1) * rowH, strip.getWidth(), rowH); };
 
         g.setColour (theme::panel);
-        g.fillRoundedRectangle (strip, 3.0f);
+        g.fillRect (strip);
         for (int row = 0; row < total; ++row)
         {
             if (row % scaleSize == 0)
@@ -311,9 +310,9 @@ void GridView::paint (juce::Graphics& g)
         }
         const auto window = rowRect (last).withBottom (rowRect (first).getBottom());
         g.setColour (theme::text.withAlpha (0.12f));
-        g.fillRoundedRectangle (window, 3.0f);
+        g.fillRect (window);
         g.setColour (theme::text.withAlpha (0.6f));
-        g.drawRoundedRectangle (window.reduced (0.5f), 3.0f, 1.0f);
+        g.drawRect (window, 1.0f);
     }
 
     // footer: beat numbers and the playhead
@@ -327,7 +326,7 @@ void GridView::paint (juce::Graphics& g)
         if (step == playing)
         {
             g.setColour (theme::primary());
-            g.fillRoundedRectangle (r.reduced (3.0f, 7.0f), 1.5f);
+            g.fillRect (r.reduced (3.0f, 7.0f));
         }
         else if (step % 4 == 0)
         {
