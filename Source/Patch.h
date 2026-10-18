@@ -47,7 +47,7 @@ inline constexpr SoundParam kSoundParams[] = {
     { "foleyBrightness", 0, 1, 0.5f },
     { "foleySweep", -24, 24, 0 },
 
-    { "chaosAmount", 0, 1, 0.25f },
+    { "chaosAmount", 0, 1, 0.0f }, // off until asked for: presets and new instances play the same every hit
     { "chaosPitch", 0, 1, 0.2f },
     { "chaosDecay", 0, 1, 0.5f },
     { "chaosTone", 0, 1, 0.5f },
