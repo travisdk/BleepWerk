@@ -11,7 +11,8 @@
 #include "EffectsView.h"
 
 // Everything in the editor, laid out at a fixed design size; the editor scales it as a whole.
-// Top: title, edit mode and a settings menu (visible range). Below it the sequencer bar:
+// Top: title, edit mode, the sound preset browser and a settings menu (visible range, preset
+// files). Below it the sequencer bar:
 // Scale, Root, Steps, Rate and Swing. Middle: the grid and a status line. Bottom: the sound:
 // the engine panel, then Chaos and the effects.
 class MainView : public juce::Component, private juce::Timer
@@ -34,6 +35,12 @@ private:
     void showStatus (const juce::String&);
     void setEditMode (BleepForgeProcessor::EditMode);
     void showSettingsMenu();
+    void showPresetMenu();
+    void stepPreset (int delta);
+    void refreshPreset();
+    void savePreset (const juce::String& name);
+    void showNameDialog (const juce::String& suggestion, std::function<void (const juce::String&)> onName);
+    void confirm (const juce::String& title, const juce::String& message, const juce::String& okText, std::function<void()> onOk);
 
     // A gear icon, drawn so it needs no font or image.
     struct GearButton : juce::Button
@@ -51,6 +58,8 @@ private:
     juce::Label editLabel { {}, "Edit" };
     juce::TextButton probabilityButton { "Probability" }, velocityButton { "Velocity" }, ratchetButton { "Ratchet" };
     GearButton settingsButton;
+    juce::TextButton presetPrev { "<" }, presetButton, presetNext { ">" }, saveButton { "Save" };
+    int shownPresetVersion = -1;
 
     // the sequencer bar
     juce::Label scaleLabel { {}, "Scale" }, rootLabel { {}, "Root" }, stepsLabel { {}, "Steps" },

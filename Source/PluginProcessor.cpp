@@ -51,37 +51,51 @@ BleepForgeProcessor::BleepForgeProcessor()
 juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createParameterLayout()
 {
     using namespace juce;
+    using bleepforge::soundDefault;
     std::vector<std::unique_ptr<RangedAudioParameter>> params;
 
-    StringArray waves;
-    for (auto* name : bleepforge::kBleepWaveNames)
-        waves.add (name);
+    // Sound parameters take their range and default from bleepforge::kSoundParams, which the
+    // factory presets are checked against; only the skew or step is set here.
+    auto info = [] (const char* id)
+    {
+        const auto* p = bleepforge::findSoundParam (id);
+        jassert (p != nullptr);
+        return *p;
+    };
+    auto linear = [info] (const char* id, float step = 0.0f) { return NormalisableRange<float> (info (id).min, info (id).max, step); };
+    auto skewed = [info] (const char* id, float centre) { return skewedRange (info (id).min, info (id).max, centre); };
+    auto sound = [&params, info] (const char* id, const char* name, NormalisableRange<float> range, const char* unit = "")
+    { params.push_back (floatParam (id, name, range, info (id).defaultValue, unit)); };
+    auto choice = [&params] (const char* id, const char* name, const StringArray& names)
+    { params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { id, 1 }, name, names, (int) soundDefault (id))); };
+    auto namesOf = [] (const auto& list)
+    {
+        StringArray names;
+        for (auto* name : list)
+            names.add (name);
+        return names;
+    };
 
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "engine", 1 }, "Engine",
-                                                              StringArray { "Bleep", "Foley" }, 0));
+    choice ("engine", "Engine", { "Bleep", "Foley" });
 
     // Bleep engine
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "bleepWave", 1 }, "Wave", waves, 0));
-    params.push_back (floatParam ("bleepPulseWidth", "Pulse Width", { 0.05f, 0.95f }, 0.5f));
-    params.push_back (floatParam ("bleepFmRatio", "FM Ratio", { 0.5f, 8.0f, 0.5f }, 2.0f, "x"));
-    params.push_back (floatParam ("bleepFmAmount", "FM Amount", { 0.0f, 1.0f }, 0.3f));
-    params.push_back (floatParam ("bleepPitchAmount", "Pitch Env", { -24.0f, 48.0f, 0.1f }, 12.0f, "st"));
-    params.push_back (floatParam ("bleepPitchDecay", "Pitch Decay", skewedRange (1.0f, 500.0f, 40.0f), 25.0f, "ms"));
-    params.push_back (floatParam ("bleepAttack", "Attack", skewedRange (0.0f, 50.0f, 5.0f), 0.5f, "ms"));
-    params.push_back (floatParam ("bleepDecay", "Decay", skewedRange (5.0f, 2000.0f, 200.0f), 180.0f, "ms"));
-    params.push_back (floatParam ("bleepRelease", "Release", skewedRange (1.0f, 500.0f, 50.0f), 30.0f, "ms"));
-    params.push_back (floatParam ("bleepNoise", "Noise", { 0.0f, 1.0f }, 0.0f));
+    choice ("bleepWave", "Wave", namesOf (bleepforge::kBleepWaveNames));
+    sound ("bleepPulseWidth", "Pulse Width", linear ("bleepPulseWidth"));
+    sound ("bleepFmRatio", "FM Ratio", linear ("bleepFmRatio", 0.5f), "x");
+    sound ("bleepFmAmount", "FM Amount", linear ("bleepFmAmount"));
+    sound ("bleepPitchAmount", "Pitch Env", linear ("bleepPitchAmount", 0.1f), "st");
+    sound ("bleepPitchDecay", "Pitch Decay", skewed ("bleepPitchDecay", 40.0f), "ms");
+    sound ("bleepAttack", "Attack", skewed ("bleepAttack", 5.0f), "ms");
+    sound ("bleepDecay", "Decay", skewed ("bleepDecay", 200.0f), "ms");
+    sound ("bleepRelease", "Release", skewed ("bleepRelease", 50.0f), "ms");
+    sound ("bleepNoise", "Noise", linear ("bleepNoise"));
 
     // Foley engine
-    StringArray exciters;
-    for (auto* name : bleepforge::kFoleyExciterNames)
-        exciters.add (name);
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "foleyExciter", 1 }, "Exciter", exciters,
-                                                              (int) bleepforge::FoleyExciter::Mallet));
-    params.push_back (floatParam ("foleyLength", "Exciter Length", skewedRange (0.05f, 200.0f, 5.0f), 0.3f, "ms"));
+    choice ("foleyExciter", "Exciter", namesOf (bleepforge::kFoleyExciterNames));
+    sound ("foleyLength", "Exciter Length", skewed ("foleyLength", 5.0f), "ms");
     // Material shows the material it sounds like rather than a percentage
     params.push_back (std::make_unique<AudioParameterFloat> (
-        ParameterID { "foleyMaterial", 1 }, "Material", NormalisableRange<float> (0.0f, 1.0f), 0.0f,
+        ParameterID { "foleyMaterial", 1 }, "Material", linear ("foleyMaterial"), soundDefault ("foleyMaterial"),
         AudioParameterFloatAttributes()
             .withStringFromValueFunction ([] (float v, int)
                                           {
@@ -96,24 +110,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
                                               if (t == "glass") return 1.0f;
                                               return t.retainCharacters ("0123456789.").getFloatValue() / 100.0f;
                                           })));
-    params.push_back (floatParam ("foleySize", "Size", { 0.0f, 1.0f }, 0.5f));
-    params.push_back (floatParam ("foleyDamping", "Damping", { 0.0f, 1.0f }, 0.5f));
-    params.push_back (floatParam ("foleyBrightness", "Brightness", { 0.0f, 1.0f }, 0.5f));
-    params.push_back (floatParam ("foleySweep", "Sweep", { -24.0f, 24.0f, 0.1f }, 0.0f, "st"));
+    sound ("foleySize", "Size", linear ("foleySize"));
+    sound ("foleyDamping", "Damping", linear ("foleyDamping"));
+    sound ("foleyBrightness", "Brightness", linear ("foleyBrightness"));
+    sound ("foleySweep", "Sweep", linear ("foleySweep", 0.1f), "st");
 
     // Sequencer
-    StringArray scales, roots;
+    StringArray scales;
     for (const auto& scale : bleepforge::kScales)
         scales.add (scale.name);
-    for (auto* name : bleepforge::kRootNames)
-        roots.add (name);
     params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqScale", 1 }, "Scale", scales,
                                                               bleepforge::kDefaultScale));
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqRoot", 1 }, "Root", roots, 0));
-    StringArray rates;
-    for (auto* name : bleepforge::kSeqRateNames)
-        rates.add (name);
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqRate", 1 }, "Rate", rates, bleepforge::kDefaultSeqRate));
+    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqRoot", 1 }, "Root", namesOf (bleepforge::kRootNames), 0));
+    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqRate", 1 }, "Rate", namesOf (bleepforge::kSeqRateNames),
+                                                              bleepforge::kDefaultSeqRate));
     params.push_back (std::make_unique<AudioParameterFloat> (
         ParameterID { "seqSwing", 1 }, "Swing", NormalisableRange<float> (0.5f, 0.75f, 0.005f), 0.5f,
         AudioParameterFloatAttributes()
@@ -121,33 +131,27 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
             .withValueFromStringFunction ([] (const String& t) { return t.retainCharacters ("0123456789.").getFloatValue() / 100.0f; })));
 
     // Chaos: Amount scales every target's depth
-    params.push_back (floatParam ("chaosAmount", "Chaos", { 0.0f, 1.0f }, 0.25f));
-    params.push_back (floatParam ("chaosPitch", "Chaos Pitch", { 0.0f, 1.0f }, 0.2f));
-    params.push_back (floatParam ("chaosDecay", "Chaos Decay", { 0.0f, 1.0f }, 0.5f));
-    params.push_back (floatParam ("chaosTone", "Chaos Tone", { 0.0f, 1.0f }, 0.5f));
-    params.push_back (floatParam ("chaosPan", "Chaos Pan", { 0.0f, 1.0f }, 0.5f));
-    params.push_back (floatParam ("chaosVelocity", "Chaos Velocity", { 0.0f, 1.0f }, 0.3f));
+    sound ("chaosAmount", "Chaos", linear ("chaosAmount"));
+    sound ("chaosPitch", "Chaos Pitch", linear ("chaosPitch"));
+    sound ("chaosDecay", "Chaos Decay", linear ("chaosDecay"));
+    sound ("chaosTone", "Chaos Tone", linear ("chaosTone"));
+    sound ("chaosPan", "Chaos Pan", linear ("chaosPan"));
+    sound ("chaosVelocity", "Chaos Velocity", linear ("chaosVelocity"));
 
     // how many octaves the grid shows at a time: a view setting, saved with the project
     params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqRange", 1 }, "Visible Range", 1, kMaxVisibleOctaves,
                                                            2, AudioParameterIntAttributes().withAutomatable (false)));
 
     // Voices
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "voiceMode", 1 }, "Voice Mode",
-                                                              StringArray { "Mono", "Poly" }, 1));
-    params.push_back (floatParam ("glide", "Glide", skewedRange (0.0f, 500.0f, 60.0f), 0.0f, "ms"));
+    choice ("voiceMode", "Voice Mode", { "Mono", "Poly" });
+    sound ("glide", "Glide", skewed ("glide", 60.0f), "ms");
 
     // Effects, in signal order. Bits and Rate read "Off" at the top, where they do nothing.
-    StringArray filterTypes, delayTimes;
-    for (auto* name : bleepforge::kFilterTypeNames)
-        filterTypes.add (name);
-    for (auto* name : bleepforge::kDelayTimeNames)
-        delayTimes.add (name);
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "filterType", 1 }, "Filter", filterTypes, 0));
-    params.push_back (floatParam ("filterCutoff", "Cutoff", skewedRange (20.0f, 20000.0f, 1000.0f), 2000.0f, "Hz"));
-    params.push_back (floatParam ("filterResonance", "Resonance", { 0.0f, 1.0f }, 0.2f));
+    choice ("filterType", "Filter", namesOf (bleepforge::kFilterTypeNames));
+    sound ("filterCutoff", "Cutoff", skewed ("filterCutoff", 1000.0f), "Hz");
+    sound ("filterResonance", "Resonance", linear ("filterResonance"));
     params.push_back (std::make_unique<AudioParameterFloat> (
-        ParameterID { "crushBits", 1 }, "Bits", NormalisableRange<float> (1.0f, bleepforge::kCrushBitsOff), bleepforge::kCrushBitsOff,
+        ParameterID { "crushBits", 1 }, "Bits", linear ("crushBits"), soundDefault ("crushBits"),
         AudioParameterFloatAttributes()
             .withStringFromValueFunction ([] (float v, int) { return v >= bleepforge::kCrushBitsOff - 0.01f ? String ("Off") : String (v, 1) + " bit"; })
             .withValueFromStringFunction ([] (const String& t)
@@ -156,7 +160,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
                                                                                       : t.retainCharacters ("0123456789.").getFloatValue();
                                           })));
     params.push_back (std::make_unique<AudioParameterFloat> (
-        ParameterID { "crushRate", 1 }, "Crush Rate", skewedRange (200.0f, bleepforge::kCrushRateOff, 6000.0f), bleepforge::kCrushRateOff,
+        ParameterID { "crushRate", 1 }, "Crush Rate", skewed ("crushRate", 6000.0f), soundDefault ("crushRate"),
         AudioParameterFloatAttributes()
             .withStringFromValueFunction ([] (float v, int)
                                           {
@@ -172,14 +176,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
                                               const float value = text.retainCharacters ("0123456789.").getFloatValue();
                                               return text.contains ("k") ? value * 1000.0f : value;
                                           })));
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "delayTime", 1 }, "Delay Time", delayTimes,
-                                                              bleepforge::kDefaultDelayTime));
-    params.push_back (floatParam ("delayFeedback", "Delay Feedback", { 0.0f, 0.95f }, 0.35f));
-    params.push_back (floatParam ("delayMix", "Delay Mix", { 0.0f, 1.0f }, 0.0f));
-    params.push_back (floatParam ("roomSize", "Room Size", { 0.0f, 1.0f }, 0.4f));
-    params.push_back (floatParam ("roomMix", "Room Mix", { 0.0f, 1.0f }, 0.0f));
+    choice ("delayTime", "Delay Time", namesOf (bleepforge::kDelayTimeNames));
+    sound ("delayFeedback", "Delay Feedback", linear ("delayFeedback"));
+    sound ("delayMix", "Delay Mix", linear ("delayMix"));
+    sound ("roomSize", "Room Size", linear ("roomSize"));
+    sound ("roomMix", "Room Mix", linear ("roomMix"));
 
-    params.push_back (floatParam ("outputGain", "Output Gain", { -48.0f, 6.0f, 0.1f }, 0.0f, "dB"));
+    sound ("outputGain", "Output Gain", linear ("outputGain", 0.1f), "dB");
 
     return { params.begin(), params.end() };
 }
@@ -191,7 +194,7 @@ void BleepForgeProcessor::prepareToPlay (double sampleRate, int)
     foley.prepare (sampleRate);
     effects.prepare (sampleRate);
     readParams();
-    readEffectParams();
+    effects.setParams (patch.effects, hostBpm);
     outputGain.reset (sampleRate, 0.02);
     outputGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("outputGain")->load()));
 }
@@ -204,63 +207,16 @@ bool BleepForgeProcessor::isBusesLayoutSupported (const BusesLayout& layouts) co
 
 void BleepForgeProcessor::readParams()
 {
-    auto get = [this] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
+    patch = bleepforge::readPatch ([this] (const char* id) { return apvts.getRawParameterValue (id)->load(); });
 
-    bleepforge::BleepParams p;
-    p.wave = (bleepforge::BleepWave) juce::jlimit (0, bleepforge::kNumBleepWaves - 1, (int) get ("bleepWave"));
-    p.pulseWidth = get ("bleepPulseWidth");
-    p.fmRatio = get ("bleepFmRatio");
-    p.fmAmount = get ("bleepFmAmount");
-    p.pitchEnvSemis = get ("bleepPitchAmount");
-    p.pitchEnvDecayMs = get ("bleepPitchDecay");
-    p.attackMs = get ("bleepAttack");
-    p.decayMs = get ("bleepDecay");
-    p.releaseMs = get ("bleepRelease");
-    p.noise = get ("bleepNoise");
-    bleep.setParams (p);
-
-    bleepforge::FoleyParams f;
-    f.exciter = (bleepforge::FoleyExciter) juce::jlimit (0, bleepforge::kNumFoleyExciters - 1, (int) get ("foleyExciter"));
-    f.exciterMs = get ("foleyLength");
-    f.material = get ("foleyMaterial");
-    f.size = get ("foleySize");
-    f.damping = get ("foleyDamping");
-    f.brightness = get ("foleyBrightness");
-    f.sweepSemis = get ("foleySweep");
-    foley.setParams (f);
-
-    const bool monoMode = (int) get ("voiceMode") == 0;
-    bleep.setMode (monoMode ? bleepforge::BleepSynth::Mode::Mono : bleepforge::BleepSynth::Mode::Poly);
-    foley.setMode (monoMode ? bleepforge::FoleySynth::Mode::Mono : bleepforge::FoleySynth::Mode::Poly);
-    bleep.setGlideMs (get ("glide"));
-    foley.setGlideMs (get ("glide"));
-
-    const float amount = get ("chaosAmount");
-    bleepforge::ChaosDepths chaos;
-    chaos.pitch = amount * get ("chaosPitch");
-    chaos.decay = amount * get ("chaosDecay");
-    chaos.tone = amount * get ("chaosTone");
-    chaos.pan = amount * get ("chaosPan");
-    bleep.setChaos (chaos);
-    foley.setChaos (chaos);
-    foleySelected = (int) get ("engine") == 1;
-}
-
-void BleepForgeProcessor::readEffectParams()
-{
-    auto get = [this] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
-    bleepforge::EffectParams e;
-    e.filterType = (bleepforge::FilterType) juce::jlimit (0, bleepforge::kNumFilterTypes - 1, (int) get ("filterType"));
-    e.cutoffHz = get ("filterCutoff");
-    e.resonance = get ("filterResonance");
-    e.crushBits = get ("crushBits");
-    e.crushRateHz = get ("crushRate");
-    e.delayTime = (int) get ("delayTime");
-    e.delayFeedback = get ("delayFeedback");
-    e.delayMix = get ("delayMix");
-    e.roomSize = get ("roomSize");
-    e.roomMix = get ("roomMix");
-    effects.setParams (e, hostBpm);
+    bleep.setParams (patch.bleep);
+    foley.setParams (patch.foleyParams);
+    bleep.setMode (patch.mono ? bleepforge::BleepSynth::Mode::Mono : bleepforge::BleepSynth::Mode::Poly);
+    foley.setMode (patch.mono ? bleepforge::FoleySynth::Mode::Mono : bleepforge::FoleySynth::Mode::Poly);
+    bleep.setGlideMs (patch.glideMs);
+    foley.setGlideMs (patch.glideMs);
+    bleep.setChaos (patch.chaos);
+    foley.setChaos (patch.chaos);
 }
 
 void BleepForgeProcessor::handleNote (const juce::MidiMessage& message)
@@ -268,7 +224,7 @@ void BleepForgeProcessor::handleNote (const juce::MidiMessage& message)
     // note-offs go to both, so a note that started before an engine switch still ends
     if (message.isNoteOn())
     {
-        if (foleySelected)
+        if (patch.foley)
             foley.noteOn (message.getNoteNumber(), message.getFloatVelocity());
         else
             bleep.noteOn (message.getNoteNumber(), message.getFloatVelocity());
@@ -312,7 +268,7 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     renderRange (position, numSamples);
 
     // after runSequencer, which has read this block's tempo
-    readEffectParams();
+    effects.setParams (patch.effects, hostBpm);
     effects.process (left, right, numSamples);
 
     // BleepForge plays only its sequencer. With producesMidi() whatever is left in this buffer
@@ -382,6 +338,7 @@ void BleepForgeProcessor::getStateInformation (juce::MemoryBlock& destData)
     auto state = apvts.copyState();
     state.setProperty ("stateVersion", kStateVersion, nullptr);
     state.setProperty ("grid", juce::String (grid.toString()), nullptr);
+    soundPresets.writeState (state);
 
     if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
@@ -399,6 +356,7 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
             if (! grid.fromString (state.getProperty ("grid").toString().toStdString()))
                 bleepforge::loadStarterPattern (grid);
             state.removeProperty ("grid", nullptr);
+            soundPresets.readState (state);
             apvts.replaceState (state);
         }
     }

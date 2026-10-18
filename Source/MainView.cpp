@@ -50,6 +50,23 @@ MainView::MainView (BleepForgeProcessor& p)
     settingsButton.onClick = [this] { showSettingsMenu(); };
     addAndMakeVisible (settingsButton);
 
+    // the sound preset browser
+    presetPrev.setConnectedEdges (juce::Button::ConnectedOnRight);
+    presetButton.setConnectedEdges (juce::Button::ConnectedOnLeft | juce::Button::ConnectedOnRight);
+    presetNext.setConnectedEdges (juce::Button::ConnectedOnLeft);
+    presetButton.setColour (juce::TextButton::textColourOffId, theme::text);
+    presetPrev.onClick = [this] { stepPreset (-1); };
+    presetNext.onClick = [this] { stepPreset (1); };
+    presetButton.onClick = [this] { showPresetMenu(); };
+    saveButton.onClick = [this]
+    {
+        auto& presets = processor.getSoundPresets();
+        const auto suggestion = presets.isUser (presets.current()) ? presets.name() : "My " + presets.name();
+        showNameDialog (suggestion, [this] (const juce::String& name) { savePreset (name); });
+    };
+    for (auto* button : { &presetPrev, &presetButton, &presetNext, &saveButton })
+        addAndMakeVisible (*button);
+
     // sequencer bar
     for (const auto& scale : kScales)
         scaleBox.addItem (scale.name, scaleBox.getNumItems() + 1);
@@ -94,6 +111,7 @@ MainView::MainView (BleepForgeProcessor& p)
     addAndMakeVisible (effectsView);
 
     setEditMode (processor.editMode.load());
+    refreshPreset();
     startTimerHz (10);
 }
 
@@ -102,9 +120,13 @@ MainView::~MainView()
     stopTimer();
 }
 
-// The grid's length isn't a parameter, so a loaded project doesn't tell the slider.
+// The grid's length isn't a parameter, so a loaded project doesn't tell the slider; the
+// preset can change from the host (programs) or a loaded project.
 void MainView::timerCallback()
 {
+    if (processor.getSoundPresets().version() != shownPresetVersion)
+        refreshPreset();
+
     const int length = processor.getGrid().getLength();
     if ((int) stepsSlider.getValue() != length && ! stepsSlider.isMouseButtonDown())
         stepsSlider.setValue (length, juce::dontSendNotification);
@@ -147,7 +169,135 @@ void MainView::showSettingsMenu()
     juce::PopupMenu menu;
     menu.addSectionHeader ("Grid");
     menu.addSubMenu ("Visible range: " + juce::String (current) + (current == 1 ? " octave" : " octaves"), rangeMenu);
-    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (settingsButton));
+
+    auto& presets = processor.getSoundPresets();
+    const int entry = presets.current();
+    const bool onUserPreset = presets.isUser (entry);
+    menu.addSectionHeader ("Presets");
+    menu.addItem ("Open preset folder", []
+                  {
+                      auto folder = SoundPresets::folder();
+                      folder.createDirectory();
+                      folder.startAsProcess();
+                  });
+    menu.addItem ("Rescan presets", [&presets] { presets.rescan(); });
+    menu.addItem ("Delete \"" + (onUserPreset ? presets.entryName (entry) : juce::String ("user preset")) + "\"", onUserPreset, false,
+                  [this, entry]
+                  {
+                      auto& p = processor.getSoundPresets();
+                      confirm ("Delete preset?", "\"" + p.entryName (entry) + "\" will be moved to the trash.", "Delete",
+                               [&p, entry] { p.remove (entry); });
+                  });
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (settingsButton).withDeletionCheck (*this));
+}
+
+// One submenu per category, in the factory order, and the user's presets last.
+void MainView::showPresetMenu()
+{
+    auto& presets = processor.getSoundPresets();
+    juce::PopupMenu menu;
+    juce::PopupMenu category;
+    juce::String categoryName;
+    bool categoryHasCurrent = false;
+
+    auto flush = [&]
+    {
+        if (categoryName.isNotEmpty())
+            menu.addSubMenu (categoryName, category, true, nullptr, categoryHasCurrent);
+        category = {};
+        categoryHasCurrent = false;
+    };
+    for (int i = 0; i < presets.numEntries(); ++i)
+    {
+        if (presets.entryCategory (i) != categoryName)
+        {
+            flush();
+            categoryName = presets.entryCategory (i);
+        }
+        const bool isCurrent = i == presets.current();
+        categoryHasCurrent = categoryHasCurrent || isCurrent;
+        category.addItem (presets.entryName (i), true, isCurrent, [&presets, i] { presets.load (i); });
+    }
+    flush();
+    if (presets.numEntries() == presets.numFactory())
+        menu.addItem ("No user presets yet: Save stores one", false, false, {});
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (presetButton).withMinimumWidth (presetButton.getWidth())
+                            .withDeletionCheck (*this));
+}
+
+void MainView::stepPreset (int delta)
+{
+    auto& presets = processor.getSoundPresets();
+    const int n = presets.numEntries();
+    presets.load ((presets.current() + delta + n) % n);
+}
+
+void MainView::refreshPreset()
+{
+    auto& presets = processor.getSoundPresets();
+    shownPresetVersion = presets.version();
+    presetButton.setButtonText (presets.name());
+    presetButton.setTooltip (presets.entryCategory (presets.current()) + ": " + presets.name());
+}
+
+void MainView::savePreset (const juce::String& name)
+{
+    auto save = [this, name]
+    {
+        if (! processor.getSoundPresets().save (name))
+            confirm ("Could not save", "Writing to " + SoundPresets::folder().getFullPathName() + " failed.", "OK", {});
+    };
+
+    if (processor.getSoundPresets().exists (name))
+        confirm ("Overwrite preset?", "\"" + name + "\" already exists.", "Overwrite", save);
+    else
+        save();
+}
+
+// Shown inside the view rather than as a separate desktop window, which some hosts bury.
+// (From SubForge.)
+void MainView::showNameDialog (const juce::String& suggestion, std::function<void (const juce::String&)> onName)
+{
+    auto* window = new juce::AlertWindow ("Save preset", "Saved to " + SoundPresets::folder().getFullPathName(),
+                                          juce::MessageBoxIconType::NoIcon);
+    window->addTextEditor ("name", suggestion, "Name:");
+    window->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    window->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    addAndMakeVisible (window);
+    window->setCentrePosition (getLocalBounds().getCentre());
+    window->enterModalState (true, juce::ModalCallbackFunction::create (
+        [safeThis = juce::Component::SafePointer<MainView> (this), window, onName] (int result)
+        {
+            const auto name = window->getTextEditorContents ("name").trim();
+            if (safeThis != nullptr && result == 1 && name.isNotEmpty())
+                onName (name);
+        }), true);
+
+    if (auto* nameEditor = window->getTextEditor ("name"))
+    {
+        nameEditor->grabKeyboardFocus();
+        nameEditor->selectAll();
+    }
+}
+
+// A two-button message (one, without onOk) shown inside the view.
+void MainView::confirm (const juce::String& title, const juce::String& message, const juce::String& okText, std::function<void()> onOk)
+{
+    auto* window = new juce::AlertWindow (title, message, juce::MessageBoxIconType::NoIcon);
+    window->addButton (okText, 1, juce::KeyPress (juce::KeyPress::returnKey));
+    if (onOk)
+        window->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    addAndMakeVisible (window);
+    window->setCentrePosition (getLocalBounds().getCentre());
+    window->enterModalState (true, juce::ModalCallbackFunction::create (
+        [safeThis = juce::Component::SafePointer<MainView> (this), onOk] (int result)
+        {
+            if (safeThis != nullptr && result == 1 && onOk)
+                onOk();
+        }), true);
 }
 
 void MainView::GearButton::paintButton (juce::Graphics& g, bool highlighted, bool down)
@@ -208,6 +358,11 @@ void MainView::resized()
     // header: edit mode after the title, settings on the right
     auto header = area.removeFromTop (kHeaderHeight);
     settingsButton.setBounds (header.removeFromRight (26).withSizeKeepingCentre (26, 26));
+    header.removeFromRight (14);
+    saveButton.setBounds (header.removeFromRight (52).withSizeKeepingCentre (52, 26));
+    header.removeFromRight (8);
+    for (auto [button, width] : { std::pair { &presetNext, 26 }, { &presetButton, 200 }, { &presetPrev, 26 } })
+        button->setBounds (header.removeFromRight (width).withSizeKeepingCentre (width, 26));
     header.removeFromLeft (176);
     editLabel.setBounds (header.removeFromLeft (36).withSizeKeepingCentre (36, 26));
     header.removeFromLeft (6);

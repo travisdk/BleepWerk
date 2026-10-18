@@ -4,10 +4,9 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
-#include "BleepSynth.h"
-#include "Effects.h"
-#include "FoleySynth.h"
+#include "Patch.h"
 #include "Sequencer.h"
+#include "SoundPresets.h"
 
 class BleepForgeProcessor : public juce::AudioProcessor
 {
@@ -30,10 +29,11 @@ public:
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 6.0; } // a big, undamped metal object
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
+    // Host programs are the factory sound presets only.
+    int getNumPrograms() override { return soundPresets.numFactory(); }
+    int getCurrentProgram() override { return soundPresets.isUser (soundPresets.current()) ? 0 : soundPresets.current(); }
+    void setCurrentProgram (int index) override { soundPresets.load (index); }
+    const juce::String getProgramName (int index) override { return soundPresets.entryName (index); }
     void changeProgramName (int, const juce::String&) override {}
 
     void getStateInformation (juce::MemoryBlock& destData) override;
@@ -57,11 +57,13 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    // Never touches the sequencer: a sound can be changed under a pattern.
+    SoundPresets& getSoundPresets() { return soundPresets; }
+
 private:
     void handleNote (const juce::MidiMessage& message);
     void readParams();
     void runSequencer (int numSamples);
-    void readEffectParams();
 
     // Saved with the plug-in state so later versions can migrate older projects.
     //   1: 0.1.0
@@ -71,7 +73,8 @@ private:
     // the selected one.
     bleepforge::BleepSynth bleep;
     bleepforge::FoleySynth foley;
-    bool foleySelected = false;
+    bleepforge::Patch patch; // this block's sound parameters
+    SoundPresets soundPresets { apvts };
     bleepforge::Effects effects;
     double hostBpm = 120.0; // for the delay's synced time, also while the host is stopped
     bleepforge::Grid grid;

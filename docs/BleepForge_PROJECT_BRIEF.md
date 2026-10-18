@@ -93,7 +93,8 @@ UX inspired by Stochas, own implementation.
 ## 7. Presets
 
 - Factory presets defined in code or as bundled parameter files (no audio content)
-- Aim for a starter set of around 10 to 15 presets: bleep lines, drips, metal tinks, wood knocks, crackle textures
+- A large factory set (over 100), grouped by category: bleeps, pulses, FM, noise, lo-fi, dub, wood, metal, glass, drips, textures
+- Sound presets never change the pattern or the sequencer settings
 
 ## 8. Quality and testing
 
@@ -110,12 +111,12 @@ UX inspired by Stochas, own implementation.
 5. **Foley engine**
 6. **Ratchets, Chaos, swing, step length/rate**
 7. **Effects**
-7b. **MIDI output mode** (Audio / Audio + MIDI / MIDI only, channel)
 8. **Presets, state save/restore, polish**
 9. **Testing and release** (README, license, build artifacts)
 
 ## 10. Open for later
 
+- MIDI output mode (Audio / Audio + MIDI / MIDI only, channel), see 5.1; skipped from the milestones on 2026-10-18
 - Engine selection per row instead of per preset
 - A separate MIDI-effect build of the sequencer (for hosts that prefer MIDI effects over instruments with MIDI out)
 - Pattern slots / pattern switching
