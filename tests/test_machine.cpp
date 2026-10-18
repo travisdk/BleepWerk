@@ -1,9 +1,10 @@
 // Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// The Machine engine: every type is tuned to the note, Length sets how long a sound lasts
-// and every voice ends by itself (note-offs or not), Motion moves the sound and 0 keeps it
-// still, and every type and setting gives finite output at a sensible level.
+// The Machine engine: every type is tuned to the note, with or without the resonator, Length
+// sets how long a sound lasts and every voice ends by itself (note-offs or not), Motion moves
+// the sound and 0 keeps it still, Chaos makes every hit ring a little differently, and every
+// type and setting gives finite output at a sensible level.
 #include "MachineSynth.h"
 #include "TestUtils.h"
 
@@ -34,9 +35,11 @@ static std::vector<float> play (const MachineParams& p, int note, double millise
     return render (synth, ms (milliseconds));
 }
 
-static MachineParams params (MachineType type, float tone, float focus, float motion = 0.0f, float lengthMs = 1000.0f)
+static MachineParams params (MachineType type, float tone, float focus, float motion = 0.0f, float lengthMs = 1000.0f,
+                             float metal = 0.0f)
 {
     MachineParams p;
+    p.metal = metal;
     p.type = type;
     p.tone = tone;
     p.focus = focus;
@@ -76,6 +79,30 @@ static double zeroCrossingHz (const std::vector<float>& v, int from, int to)
             ++crossings;
         }
     return crossings < 2 ? 0.0 : (crossings - 1) * fs / (last - first);
+}
+
+// The frequency between lo and hi (Hz) with the most energy, in 1 Hz steps.
+static double strongestHz (const std::vector<float>& v, int from, int to, double lo, double hi)
+{
+    double best = lo, bestPower = -1.0;
+    for (double f = lo; f <= hi; f += 1.0)
+    {
+        const double c = 2.0 * std::cos (2.0 * 3.14159265358979 * f / fs);
+        double s1 = 0.0, s2 = 0.0;
+        for (int i = from; i < to; ++i)
+        {
+            const double s0 = v[(size_t) i] + c * s1 - s2;
+            s2 = s1;
+            s1 = s0;
+        }
+        const double power = s1 * s1 + s2 * s2 - c * s1 * s2;
+        if (power > bestPower)
+        {
+            bestPower = power;
+            best = f;
+        }
+    }
+    return best;
 }
 
 // The lag (in samples) between minLag and maxLag where the signal best matches itself.
@@ -120,18 +147,27 @@ static void everyTypeFollowsTheNote()
         const int lag = bestLag (grind, ms (100), ms (300), (int) (period * 0.7), (int) (period * 1.3));
         CHECK (std::abs (lag / period - 1.0) < 0.03);
         std::printf ("note %d: hum %.1f hiss %.1f grind %.1f Hz (note %.1f)\n", note, humHz, hissHz, fs / lag, hz);
+
+        // the ringing resonator's lowest, loudest mode is the note: a struck hit, and a hum
+        // through it still sits on its note
+        const auto hit = play (params (MachineType::Hit, 0.3f, 1.0f, 0.0f, 1000.0f, 1.0f), note, 600);
+        const double hitHz = strongestHz (hit, ms (20), ms (400), hz * 0.85, hz * 1.15);
+        CHECK (std::abs (hitHz / hz - 1.0) < 0.01);
+        const auto ringingHum = play (params (MachineType::Hum, 0.0f, 1.0f, 0.0f, 1000.0f, 1.0f), note, 600);
+        CHECK (std::abs (zeroCrossingHz (ringingHum, ms (200), ms (500)) / hz - 1.0) < 0.01);
     }
 }
 
 static void lengthSetsHowLongItLasts()
 {
-    for (auto type : { MachineType::Hiss, MachineType::Hum, MachineType::Grind })
+    // a hit dies away by itself before its Length; the rest hold until their fade
+    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Hum, MachineType::Grind })
         for (float lengthMs : { 100.0f, 1500.0f })
         {
-            const auto out = play (params (type, 0.5f, 0.5f, 0.0f, lengthMs), 48, lengthMs + 300.0);
+            const auto out = play (params (type, 0.5f, 0.5f, 0.0f, lengthMs, 0.5f), 48, lengthMs + 300.0);
             const double during = rms (out, ms (lengthMs * 0.2), ms (lengthMs * 0.45));
             const double after = rms (out, ms (lengthMs + 50.0), ms (lengthMs + 300.0));
-            CHECK (during > 0.02);
+            CHECK (type == MachineType::Hit || during > 0.02);
             CHECK (after < 1.0e-4);
         }
 }
@@ -184,13 +220,14 @@ static void motionMovesTheSound()
 static void everySettingIsSane()
 {
     float loudest = 0.0f, quietest = 1.0e9f;
-    for (auto type : { MachineType::Hiss, MachineType::Hum, MachineType::Grind })
+    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Hum, MachineType::Grind })
         for (float tone : { 0.0f, 0.5f, 1.0f })
             for (float focus : { 0.0f, 0.5f, 1.0f })
                 for (float motion : { 0.0f, 1.0f })
+                    for (float metal : { 0.0f, 0.5f, 1.0f })
                     for (int note : { 24, 48, 72, 96 })
                     {
-                        const auto out = play (params (type, tone, focus, motion, 300.0f), note, 400);
+                        const auto out = play (params (type, tone, focus, motion, 300.0f, metal), note, 400);
                         bool finite = true;
                         for (float x : out)
                             finite = finite && std::isfinite (x);
@@ -199,19 +236,56 @@ static void everySettingIsSane()
                         loudest = std::max (loudest, pk);
                         quietest = std::min (quietest, pk);
                         if (pk > 1.5f || pk < 0.02f)
-                            std::printf ("FAIL %s tone %.1f focus %.1f motion %.1f note %d: peak %.3f\n",
-                                         kMachineTypeNames[(int) type], tone, focus, motion, note, pk);
+                            std::printf ("FAIL %s tone %.1f focus %.1f motion %.1f metal %.1f note %d: peak %.3f\n",
+                                         kMachineTypeNames[(int) type], tone, focus, motion, metal, note, pk);
                     }
     std::printf ("machine peaks: %.3f .. %.3f\n", quietest, loudest);
     CHECK (loudest < 1.5f);
     CHECK (quietest > 0.02f);
 }
 
+// The saturation rounds off the loudest hits, so four times the velocity is a little less
+// than four times as loud.
 static void velocityScalesTheLevel()
 {
     const auto soft = play (params (MachineType::Hum, 0.0f, 1.0f), 48, 300, 0.25f);
     const auto hard = play (params (MachineType::Hum, 0.0f, 1.0f), 48, 300, 1.0f);
-    CHECK (std::abs (peak (hard) / peak (soft) - 4.0f) < 0.2f);
+    const float ratio = peak (hard) / peak (soft);
+    CHECK (ratio > 3.0f && ratio < 4.05f);
+}
+
+// With Chaos on pitch, the resonator's modes move a little on every note, so the second mode
+// rings at a slightly different pitch on each hit; without Chaos it stays put.
+static void chaosVariesTheResonator()
+{
+    auto spreadOfSecondMode = [] (float chaosPitch)
+    {
+        MachineSynth synth;
+        synth.prepare (fs);
+        auto p = params (MachineType::Hit, 0.5f, 1.0f, 0.0f, 1000.0f, 1.0f);
+        synth.setParams (p);
+        ChaosDepths chaos;
+        chaos.pitch = chaosPitch;
+        synth.setChaos (chaos);
+        // chaos pitch also moves the whole note; measuring the second mode against the first
+        // leaves only the spread between the modes
+        double lo = 1.0e9, hi = 0.0;
+        for (int hit = 0; hit < 6; ++hit)
+        {
+            synth.noteOn (72, 1.0f);
+            const auto out = render (synth, ms (1100));
+            const double base = noteHz (72);
+            const double first = strongestHz (out, ms (10), ms (700), base * 0.85, base * 1.15);
+            const double second = strongestHz (out, ms (10), ms (700), first * 1.40, first * 1.62);
+            lo = std::min (lo, second / first);
+            hi = std::max (hi, second / first);
+        }
+        return hi / lo - 1.0;
+    };
+    const double without = spreadOfSecondMode (0.0f), with = spreadOfSecondMode (1.0f);
+    std::printf ("second mode spread: chaos off %.4f, on %.4f\n", without, with);
+    CHECK (without < 0.004);
+    CHECK (with > 0.006);
 }
 
 int main()
@@ -222,5 +296,6 @@ int main()
     motionMovesTheSound();
     everySettingIsSane();
     velocityScalesTheLevel();
+    chaosVariesTheResonator();
     return finish ("machine");
 }

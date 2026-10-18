@@ -36,7 +36,7 @@ private:
     Choice foleyExciter;
     Knob foleyLength, material, size, damping, brightness, sweep;
     Choice machineType;
-    Knob machineLength, machineTone, motion, focus;
+    Knob machineLength, machineTone, motion, focus, metal;
 
     // the dice: a random sound for the engine in view, and back to the sound before it
     IconButton dice { IconButton::Icon::Dice, "Random sound for this engine" },

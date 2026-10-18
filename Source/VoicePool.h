@@ -25,6 +25,7 @@ struct Variation
     float pitchSemis = 0.0f;
     float decayScale = 1.0f;
     float tone = 0.0f; // -1 darker .. 1 brighter
+    float modeSpread = 0.0f; // 0..1: how far a resonator may detune its modes (Machine)
 };
 
 // How far Chaos may move each note, 0..1 per target (the amount already applied).
@@ -174,6 +175,7 @@ private:
         variation.pitchSemis = signedRandom() * kChaosMaxPitchSemis * chaos.pitch * chaos.pitch;
         variation.decayScale = std::exp2 (signedRandom() * kChaosMaxDecayOctaves * chaos.decay);
         variation.tone = signedRandom() * chaos.tone;
+        variation.modeSpread = chaos.pitch; // the voice draws each mode's own detune from it
         const float pan = signedRandom() * chaos.pan;
 
         if (! voices[index].isActive())

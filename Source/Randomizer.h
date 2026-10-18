@@ -109,6 +109,7 @@ inline std::vector<PresetValue> randomSound (Engine engine, DiceRng& rng)
         set ("machineTone", round (rng.between (0.1f, 0.9f), 0.01f));
         set ("machineMotion", rng.chance (0.4f) ? 0.0f : round (rng.between (0.05f, 0.7f), 0.01f));
         set ("machineFocus", round (rng.between (0.1f, 1.0f), 0.01f));
+        set ("machineMetal", round (rng.between (0.2f, 1.0f), 0.01f));
     }
 
     const bool mono = rng.chance (0.2f);

@@ -153,6 +153,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     sound ("machineTone", "Machine Tone", linear ("machineTone"));
     sound ("machineMotion", "Motion", linear ("machineMotion"));
     sound ("machineFocus", "Focus", linear ("machineFocus"));
+    sound ("machineMetal", "Metal", linear ("machineMetal"));
 
     // Sequencer
     StringArray scales;

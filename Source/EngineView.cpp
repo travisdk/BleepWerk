@@ -38,7 +38,8 @@ EngineView::EngineView (BleepForgeProcessor& p)
       machineLength (p.apvts, "machineLength", "Length"),
       machineTone (p.apvts, "machineTone", "Tone"),
       motion (p.apvts, "machineMotion", "Motion"),
-      focus (p.apvts, "machineFocus", "Focus")
+      focus (p.apvts, "machineFocus", "Focus"),
+      metal (p.apvts, "machineMetal", "Metal")
 {
     for (auto* c : std::initializer_list<juce::Component*> { &engine, &voices, &glide, &output, &dice, &back })
         addAndMakeVisible (c);
@@ -48,7 +49,7 @@ EngineView::EngineView (BleepForgeProcessor& p)
 
     bleepControls = { &bleepWave, &pulseWidth, &fmRatio, &fmAmount, &pitchAmount, &pitchDecay, &attack, &decay, &release, &noise };
     foleyControls = { &foleyExciter, &foleyLength, &material, &size, &damping, &brightness, &sweep };
-    machineControls = { &machineType, &machineLength, &machineTone, &motion, &focus };
+    machineControls = { &machineType, &machineLength, &machineTone, &motion, &focus, &metal };
     for (auto* list : { &bleepControls, &foleyControls, &machineControls })
         for (auto* c : *list)
             addChildComponent (c);

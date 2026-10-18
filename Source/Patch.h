@@ -52,11 +52,12 @@ inline constexpr SoundParam kSoundParams[] = {
     { "foleyBrightness", 0, 1, 0.5f },
     { "foleySweep", -24, 24, 0 },
 
-    { "machineType", 0, kNumMachineTypes - 1, (float) MachineType::Hum },
+    { "machineType", 0, kNumMachineTypes - 1, (float) MachineType::Hit },
     { "machineLength", 10, 6000, 400 },
     { "machineTone", 0, 1, 0.5f },
     { "machineMotion", 0, 1, 0 },
     { "machineFocus", 0, 1, 0.5f },
+    { "machineMetal", 0, 1, 0.5f },
 
     { "chaosAmount", 0, 1, 0.0f }, // off until asked for: presets and new instances play the same every hit
     { "chaosPitch", 0, 1, 0.2f },
@@ -146,6 +147,7 @@ Patch readPatch (Get&& get)
     m.tone = get ("machineTone");
     m.motion = get ("machineMotion");
     m.focus = get ("machineFocus");
+    m.metal = get ("machineMetal");
 
     // Amount scales every target's depth
     const float amount = get ("chaosAmount");

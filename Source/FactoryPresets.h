@@ -33,7 +33,7 @@ inline constexpr float Sine = 0, Triangle = 1, Pulse = 2, FM = 3;
 inline constexpr float Noise = 0, Mallet = 1, Crackle = 2;
 inline constexpr float LP = 1, BP = 2, HP = 3;
 inline constexpr float D32 = 0, D16T = 1, D16 = 2, D8T = 3, D16D = 4, D8 = 5, D4T = 6, D8D = 7, D4 = 8;
-inline constexpr float Hiss = 0, Hum = 1, Grind = 2;
+inline constexpr float Hit = 0, Hiss = 1, Hum = 2, Grind = 3;
 inline constexpr float Mono = 0;
 
 inline constexpr PresetValue Foley { "engine", 1 };
@@ -249,7 +249,15 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Press Stamp", "Metal", { Foley, { "foleyExciter", Noise }, { "foleyLength", 1.5f }, { "foleyMaterial", 0.45f }, { "foleySize", 0.8f },
                                     { "foleyDamping", 0.7f }, { "foleyBrightness", 0.4f }, { "foleySweep", -5 } } },
 
-        // ---- Machine: steam, motors and grinders that last, tuned to the note
+        // ---- Machine: struck parts, steam, motors and grinders, tuned to the note
+        { "Press Clonk", "Machine", { Machine, { "machineType", Hit }, { "machineLength", 900 }, { "machineTone", 0.45f },
+                                      { "machineFocus", 0.4f }, { "machineMetal", 0.75f }, { "chaosAmount", 0.5f }, { "chaosPitch", 0.6f },
+                                      { "roomMix", 0.2f } } },
+        { "Heavy Hit", "Machine", { Machine, { "machineType", Hit }, { "machineLength", 1500 }, { "machineTone", 0.3f },
+                                    { "machineFocus", 0.1f }, { "machineMetal", 0.6f }, { "chaosAmount", 0.4f } } },
+        { "Rattling Plate", "Machine", { Machine, { "machineType", Hit }, { "machineLength", 700 }, { "machineTone", 0.65f },
+                                         { "machineFocus", 0.7f }, { "machineMotion", 0.55f }, { "machineMetal", 0.9f },
+                                         { "chaosAmount", 0.6f }, { "chaosPitch", 0.7f } } },
         { "Steam Valve", "Machine", { Machine, { "machineType", Hiss }, { "machineLength", 300 }, { "machineTone", 0.75f },
                                       { "machineFocus", 0.2f } } },
         { "Pressure Leak", "Machine", { Machine, { "machineType", Hiss }, { "machineLength", 1200 }, { "machineTone", 0.85f },
