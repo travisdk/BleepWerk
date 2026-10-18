@@ -415,7 +415,9 @@ void GridView::mouseDown (const juce::MouseEvent& e)
     dragged = false;
     if (! drag.valid())
         return;
-    dragStartValue = valueOf (grid.get (slotOf (drag.row), drag.step), processor.editMode.load());
+    const auto cell = grid.get (slotOf (drag.row), drag.step);
+    dragStartValue = valueOf (cell, processor.editMode.load());
+    dragStartedOn = cell.on;
 }
 
 void GridView::mouseDrag (const juce::MouseEvent& e)
@@ -457,12 +459,26 @@ void GridView::mouseUp (const juce::MouseEvent&)
         auto cell = grid.get (slot, drag.step);
         cell.on = ! cell.on;
         grid.set (slot, drag.step, cell);
+        if (cell.on)
+            preview (drag);
+    }
+    // Probability and ratchet don't change how a note sounds, so dragging them stays quiet
+    // unless it switched the cell on. Velocity plays once, on release, not on every move.
+    else if (! dragStartedOn || processor.editMode.load() == EditMode::Velocity)
+    {
+        preview (drag);
     }
     processor.gridEdited();
     repaint();
     if (onStatus)
         onStatus (describe (drag));
     drag = {};
+}
+
+void GridView::preview (CellPos pos)
+{
+    const auto s = settings();
+    processor.previewNote (rowNote (pos.row, s.scale, s.root), grid.get (slotOf (pos.row), pos.step).velocity);
 }
 
 void GridView::mouseDoubleClick (const juce::MouseEvent& e)
@@ -476,6 +492,8 @@ void GridView::mouseDoubleClick (const juce::MouseEvent& e)
     cell.on = true;
     setValue (cell, mode, valueOf (kDefaultCell, mode));
     grid.set (slot, pos.step, cell);
+    if (mode == EditMode::Velocity)
+        preview (pos);
     processor.gridEdited();
     repaint();
     if (onStatus)

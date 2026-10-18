@@ -55,6 +55,13 @@ public:
     // Tells the host the project changed after a grid edit (the grid isn't a parameter).
     void gridEdited();
 
+    // Plays a note briefly so a grid edit can be heard, also while the host is stopped. Only
+    // the built-in sound plays it, never the MIDI output. Callable from the GUI thread; a newer
+    // request replaces one the audio thread hasn't picked up yet.
+    void previewNote (int note, float velocity);
+    bool previewEnabled() const { return previewOn.load(); }
+    void setPreviewEnabled (bool on); // a per-user preference
+
     juce::AudioProcessorValueTreeState apvts;
     juce::PropertiesFile& getSettings() { return userSettings; } // per-user preferences
 
@@ -65,6 +72,7 @@ private:
     void handleNote (const juce::MidiMessage& message);
     void readParams();
     void runSequencer (int numSamples);
+    void runPreview (int numSamples);
 
     juce::PropertiesFile userSettings;
 
@@ -84,6 +92,13 @@ private:
     bleepforge::SequencerEngine sequencer;
     juce::MidiBuffer seqMidi; // the sequencer's notes for one block
     juce::LinearSmoothedValue<float> outputGain { 1.0f };
+
+    // A preview request packed into one word so the GUI can hand it over without a lock:
+    // bit 16 set means pending, bits 8-15 the velocity (1-127), bits 0-7 the note.
+    std::atomic<uint32_t> previewRequest { 0 };
+    std::atomic<bool> previewOn { true };
+    int previewPlaying = -1; // the preview note that is sounding, owned by the audio thread
+    int previewSamplesLeft = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BleepForgeProcessor)
 };

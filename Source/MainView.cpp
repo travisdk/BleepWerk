@@ -221,6 +221,8 @@ void MainView::showSettingsMenu()
     juce::PopupMenu menu;
     menu.addSectionHeader ("Grid");
     menu.addSubMenu ("Visible range: " + juce::String (current) + (current == 1 ? " octave" : " octaves"), rangeMenu);
+    menu.addItem ("Preview notes", true, processor.previewEnabled(),
+                  [this] { processor.setPreviewEnabled (! processor.previewEnabled()); });
 
     // each theme in its bright shade
     menu.addSectionHeader ("Colour");
