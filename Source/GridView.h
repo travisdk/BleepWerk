@@ -15,6 +15,7 @@
 // the other modes a ratchet shows as dots. Cells flash when they actually play, and the
 // playing step is highlighted.
 //   click: on/off   drag up/down: the mode's value   double-click: reset the mode's value
+// A cell that is switched on, or whose velocity is set, plays a short preview of its note.
 class GridView : public juce::Component, private juce::Timer
 {
 public:
@@ -63,12 +64,13 @@ private:
     CellPos cellAt (juce::Point<float>) const;
     juce::String describe (CellPos) const;
     void setHover (CellPos);
+    void preview (CellPos);
 
     BleepForgeProcessor& processor;
     bleepforge::Grid& grid;
 
     CellPos hover, drag;
-    bool dragged = false, browsing = false;
+    bool dragged = false, browsing = false, dragStartedOn = false;
     float dragStartValue = 0.0f, wheelAccumulator = 0.0f;
 
     // what was drawn, so the timer repaints only when something changed

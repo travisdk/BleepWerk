@@ -74,6 +74,7 @@ BleepForgeProcessor::BleepForgeProcessor()
       userSettings (settingsOptions())
 {
     // the grid starts empty: notes come from the user or the pattern dice
+    previewOn = userSettings.getBoolValue ("previewNotes", true);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createParameterLayout()
@@ -233,6 +234,7 @@ void BleepForgeProcessor::prepareToPlay (double sampleRate, int)
     effects.setParams (patch.effects, hostBpm);
     outputGain.reset (sampleRate, 0.02);
     outputGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("outputGain")->load()));
+    previewPlaying = -1; // prepare() has silenced the voices
 }
 
 bool BleepForgeProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -279,6 +281,7 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
     const int numSamples = buffer.getNumSamples();
     buffer.clear();
+    runPreview (numSamples);
     runSequencer (numSamples);
 
     // Render between the sequencer's notes so they start on their exact sample. Chaos pans
@@ -362,6 +365,47 @@ bleepforge::SequencerSettings BleepForgeProcessor::sequencerSettings() const
 void BleepForgeProcessor::gridEdited()
 {
     updateHostDisplay (ChangeDetails().withNonParameterStateChanged (true));
+}
+
+void BleepForgeProcessor::previewNote (int note, float velocity)
+{
+    if (! previewOn.load() || note < 0 || note > 127)
+        return;
+    const auto vel = (uint32_t) juce::jlimit (1, 127, juce::roundToInt (velocity * 127.0f));
+    previewRequest = (1u << 16) | (vel << 8) | (uint32_t) note;
+}
+
+void BleepForgeProcessor::setPreviewEnabled (bool on)
+{
+    previewOn = on;
+    userSettings.setValue ("previewNotes", on);
+    userSettings.saveIfNeeded();
+}
+
+// Preview notes start and end on a block boundary: they don't follow the steps, so the few
+// milliseconds don't matter. A preview is short, about a 16th at 100 bpm, so it shows the pitch
+// and velocity without smearing into the pattern.
+void BleepForgeProcessor::runPreview (int numSamples)
+{
+    constexpr double kPreviewSeconds = 0.15;
+    if (previewPlaying >= 0)
+    {
+        previewSamplesLeft -= numSamples;
+        if (previewSamplesLeft <= 0)
+        {
+            handleNote (juce::MidiMessage::noteOff (1, previewPlaying));
+            previewPlaying = -1;
+        }
+    }
+
+    const auto request = previewRequest.exchange (0);
+    if ((request & (1u << 16)) == 0)
+        return;
+    if (previewPlaying >= 0)
+        handleNote (juce::MidiMessage::noteOff (1, previewPlaying)); // one preview at a time
+    previewPlaying = (int) (request & 0x7fu);
+    previewSamplesLeft = (int) (kPreviewSeconds * getSampleRate());
+    handleNote (juce::MidiMessage::noteOn (1, previewPlaying, (juce::uint8) ((request >> 8) & 0x7fu)));
 }
 
 juce::AudioProcessorEditor* BleepForgeProcessor::createEditor()
