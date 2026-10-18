@@ -3,7 +3,7 @@
 
 # JUCE-free unit tests for the DSP and sequencer. Run with ctest.
 # Add a name here for each tests/test_<name>.cpp.
-set(BLEEPFORGE_TESTS bleep sequencer foley effects presets)
+set(BLEEPFORGE_TESTS bleep sequencer foley effects presets randomizer)
 foreach (name ${BLEEPFORGE_TESTS})
     add_executable (test_${name} test_${name}.cpp)
     target_include_directories (test_${name} PRIVATE ${PROJECT_SOURCE_DIR}/Source)

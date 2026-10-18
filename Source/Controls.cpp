@@ -102,3 +102,41 @@ void Toggle::resized()
     right.setBounds (area);
 }
 
+
+IconButton::IconButton (Icon i, const juce::String& tooltip)
+    : juce::Button (tooltip), icon (i)
+{
+    setTooltip (tooltip);
+}
+
+void IconButton::paintButton (juce::Graphics& g, bool highlighted, bool down)
+{
+    using namespace bleepforge;
+    const auto colour = ! isEnabled() ? theme::outline : down ? theme::accent : highlighted ? theme::text : theme::dimText;
+    g.setColour (colour);
+    const auto bounds = getLocalBounds().toFloat();
+    const float side = juce::jmin (bounds.getWidth(), bounds.getHeight()) - 4.0f;
+    const auto area = juce::Rectangle<float> (side, side).withCentre (bounds.getCentre());
+
+    if (icon == Icon::Dice)
+    {
+        // the five face: an outlined square with five pips
+        g.drawRoundedRectangle (area.reduced (0.75f), side * 0.18f, 1.5f);
+        const float pip = side * 0.16f, inset = side * 0.28f;
+        const auto inner = area.reduced (inset);
+        for (auto centre : { inner.getTopLeft(), inner.getTopRight(), inner.getCentre(), inner.getBottomLeft(), inner.getBottomRight() })
+            g.fillEllipse (juce::Rectangle<float> (pip, pip).withCentre (centre));
+        return;
+    }
+
+    // a counter-clockwise arc ending in an arrowhead at its top left
+    const auto centre = area.getCentre();
+    const float radius = side * 0.36f;
+    juce::Path arc;
+    arc.addCentredArc (centre.x, centre.y, radius, radius, 0.0f, -1.6f, 1.9f, true);
+    g.strokePath (arc, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    const auto tip = centre.getPointOnCircumference (radius, -1.6f);
+    juce::Path head;
+    head.addTriangle (tip.translated (-side * 0.2f, 0.0f), tip.translated (side * 0.08f, -side * 0.18f), tip.translated (side * 0.08f, side * 0.18f));
+    g.fillPath (head);
+}

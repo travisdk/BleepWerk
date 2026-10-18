@@ -24,6 +24,7 @@ private:
     BleepForgeProcessor& processor;
     bleepforge::theme::LookAndFeel lookAndFeel;
     MainView view;
+    juce::TooltipWindow tooltips { this, 600 }; // the buttons' tooltips
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BleepForgeEditor)
 };

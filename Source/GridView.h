@@ -35,6 +35,10 @@ public:
     // A description of the cell under the mouse, or empty when there is none.
     std::function<void (const juce::String&)> onStatus;
 
+    // the rows in view, from the bottom one up (the pattern dice fill these)
+    int visibleRows() const;
+    int firstRow() const;
+
     static constexpr float kLabelWidth = 44.0f, kFooterHeight = 18.0f, kOverviewWidth = 12.0f, kOverviewGap = 8.0f;
 
 private:
@@ -49,8 +53,6 @@ private:
     bleepforge::SequencerSettings settings() const { return processor.sequencerSettings(); }
     int rows() const;
     int steps() const;
-    int visibleRows() const;
-    int firstRow() const; // the bottom row in view
     int slotOf (int row) const;
     void scrollTo (int bottomRow);
     void scrollToOverview (float y);

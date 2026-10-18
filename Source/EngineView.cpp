@@ -3,6 +3,8 @@
 
 #include "EngineView.h"
 #include "Theme.h"
+#include "PresetFiles.h"
+#include "Randomizer.h"
 
 namespace
 {
@@ -33,8 +35,11 @@ EngineView::EngineView (BleepForgeProcessor& p)
       brightness (p.apvts, "foleyBrightness", "Bright"),
       sweep (p.apvts, "foleySweep", "Sweep", true)
 {
-    for (auto* c : std::initializer_list<juce::Component*> { &engine, &voices, &glide, &output })
+    for (auto* c : std::initializer_list<juce::Component*> { &engine, &voices, &glide, &output, &dice, &back })
         addAndMakeVisible (c);
+    dice.onClick = [this] { rollSound(); };
+    back.onClick = [this] { undoRoll(); };
+    back.setEnabled (false);
 
     bleepControls = { &bleepWave, &pulseWidth, &fmRatio, &fmAmount, &pitchAmount, &pitchDecay, &attack, &decay, &release, &noise };
     foleyControls = { &foleyExciter, &foleyLength, &material, &size, &damping, &brightness, &sweep };
@@ -74,6 +79,44 @@ void EngineView::showEngine (bool foley)
     repaint();
 }
 
+// Keeps the engine and the other engine's settings; the output gain is matched like a factory
+// preset's. The sound then shows as "Random Bleep" or "Random Foley", ready to save.
+void EngineView::rollSound()
+{
+    using namespace bleepforge;
+    auto& apvts = processor.apvts;
+    auto& presets = processor.getSoundPresets();
+    auto value = [&apvts] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
+
+    SoundBefore before { presets.current(), presets.name(), {} };
+    for (const auto& p : kSoundParams)
+        before.values.push_back (value (p.id));
+
+    const bool foley = value ("engine") >= 0.5f;
+    DiceRng rng ((uint64_t) juce::Random::getSystemRandom().nextInt64());
+    for (const auto& v : randomMatchedSound (foley, rng, value))
+        if (auto* param = apvts.getParameter (v.id))
+            files::setParameterValue (*param, v.value);
+    presets.setCurrent (-1, foley ? "Random Foley" : "Random Bleep");
+
+    beforeRoll = std::move (before);
+    back.setEnabled (true);
+}
+
+// One step back only: the arrow is spent once used.
+void EngineView::undoRoll()
+{
+    using namespace bleepforge;
+    if (! beforeRoll.has_value())
+        return;
+    for (size_t i = 0; i < std::size (kSoundParams); ++i)
+        if (auto* param = processor.apvts.getParameter (kSoundParams[i].id))
+            files::setParameterValue (*param, beforeRoll->values[i]);
+    processor.getSoundPresets().setCurrent (beforeRoll->entry, beforeRoll->name);
+    beforeRoll.reset();
+    back.setEnabled (false);
+}
+
 void EngineView::paint (juce::Graphics& g)
 {
     using namespace bleepforge;
@@ -107,7 +150,12 @@ void EngineView::resized()
 
     // the engine's own: its choice first, then the knobs
     area.removeFromLeft (kPadding * 2);
-    area.removeFromTop (12); // the engine's name
+    // the engine's name, with the dice and back arrow at the right
+    auto nameRow = juce::Rectangle<int> (area.getX(), 2, area.getWidth(), 18);
+    area.removeFromTop (12);
+    dice.setBounds (nameRow.removeFromRight (18));
+    nameRow.removeFromRight (4);
+    back.setBounds (nameRow.removeFromRight (18));
     auto lay = [area] (const std::vector<juce::Component*>& controls) mutable
     {
         auto row = area;

@@ -31,7 +31,7 @@ public:
 
     // Host programs are the factory sound presets only.
     int getNumPrograms() override { return soundPresets.numFactory(); }
-    int getCurrentProgram() override { return soundPresets.isUser (soundPresets.current()) ? 0 : soundPresets.current(); }
+    int getCurrentProgram() override { return soundPresets.isUser (soundPresets.current()) ? 0 : juce::jmax (0, soundPresets.current()); }
     void setCurrentProgram (int index) override { soundPresets.load (index); }
     const juce::String getProgramName (int index) override { return soundPresets.entryName (index); }
     void changeProgramName (int, const juce::String&) override {}

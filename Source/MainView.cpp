@@ -4,6 +4,7 @@
 #include "MainView.h"
 #include "Theme.h"
 #include "BleepForgeVersion.h"
+#include "Randomizer.h"
 
 namespace
 {
@@ -97,8 +98,12 @@ MainView::MainView (BleepForgeProcessor& p)
         styleBarLabel (*label);
         addAndMakeVisible (*label);
     }
-    for (auto* c : std::initializer_list<juce::Component*> { &scaleBox, &rootBox, &stepsSlider, &rateBox, &swingSlider })
+    for (auto* c : std::initializer_list<juce::Component*> { &scaleBox, &rootBox, &stepsSlider, &rateBox, &swingSlider,
+                                                             &patternBack, &patternDice })
         addAndMakeVisible (c);
+    patternDice.onClick = [this] { rollPattern(); };
+    patternBack.onClick = [this] { undoPatternRoll(); };
+    patternBack.setEnabled (false);
 
     // grid, status line and sound
     status.setFont (juce::FontOptions (12.0f));
@@ -230,7 +235,10 @@ void MainView::stepPreset (int delta)
 {
     auto& presets = processor.getSoundPresets();
     const int n = presets.numEntries();
-    presets.load ((presets.current() + delta + n) % n);
+    if (presets.current() < 0) // a rolled sound: on to the first or back to the last
+        presets.load (delta > 0 ? 0 : n - 1);
+    else
+        presets.load ((presets.current() + delta + n) % n);
 }
 
 void MainView::refreshPreset()
@@ -238,7 +246,32 @@ void MainView::refreshPreset()
     auto& presets = processor.getSoundPresets();
     shownPresetVersion = presets.version();
     presetButton.setButtonText (presets.name());
-    presetButton.setTooltip (presets.entryCategory (presets.current()) + ": " + presets.name());
+    const auto category = presets.entryCategory (presets.current());
+    presetButton.setTooltip (category.isEmpty() ? presets.name() : category + ": " + presets.name());
+}
+
+// Replaces the whole pattern; scale, key, steps and rate stay as they are.
+void MainView::rollPattern()
+{
+    auto& grid = processor.getGrid();
+    patternBeforeRoll = std::make_unique<bleepforge::Grid>();
+    patternBeforeRoll->copyFrom (grid);
+
+    bleepforge::DiceRng rng ((uint64_t) juce::Random::getSystemRandom().nextInt64());
+    bleepforge::randomPattern (grid, processor.sequencerSettings().scale, gridView.firstRow(), gridView.visibleRows(), rng);
+    processor.gridEdited();
+    patternBack.setEnabled (true);
+}
+
+// One step back only, like the sound dice.
+void MainView::undoPatternRoll()
+{
+    if (patternBeforeRoll == nullptr)
+        return;
+    processor.getGrid().copyFrom (*patternBeforeRoll);
+    processor.gridEdited();
+    patternBeforeRoll.reset();
+    patternBack.setEnabled (false);
 }
 
 void MainView::savePreset (const juce::String& name)
@@ -383,7 +416,10 @@ void MainView::resized()
     place (rootLabel, 36, rootBox, 64);
     place (stepsLabel, 44, stepsSlider, 96);
     place (rateLabel, 36, rateBox, 78);
-    place (swingLabel, 44, swingSlider, 180);
+    place (swingLabel, 44, swingSlider, 130);
+    patternDice.setBounds (bar.removeFromRight (22).withSizeKeepingCentre (22, 22));
+    bar.removeFromRight (4);
+    patternBack.setBounds (bar.removeFromRight (22).withSizeKeepingCentre (22, 22));
 
     // sound at the bottom: the engine, then Chaos and the effects side by side
     auto bottom = area.removeFromBottom (kBottomHeight);

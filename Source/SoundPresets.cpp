@@ -152,6 +152,13 @@ void SoundPresets::load (int index)
     changed();
 }
 
+void SoundPresets::setCurrent (int entry, const juce::String& newName)
+{
+    currentEntry = juce::jlimit (-1, numEntries() - 1, entry);
+    currentName = newName;
+    changed();
+}
+
 void SoundPresets::writeState (juce::ValueTree& tree) const
 {
     tree.setProperty ("presetName", currentName, nullptr);
@@ -161,7 +168,7 @@ void SoundPresets::writeState (juce::ValueTree& tree) const
 void SoundPresets::readState (const juce::ValueTree& tree)
 {
     currentName = tree.getProperty ("presetName", "Init").toString();
-    currentEntry = juce::jlimit (0, numFactory() - 1, (int) tree.getProperty ("presetIndex", 0));
+    currentEntry = juce::jlimit (-1, numFactory() - 1, (int) tree.getProperty ("presetIndex", 0)); // -1: a rolled sound
     for (int i = numFactory(); i < numEntries(); ++i)
         if (entryName (i) == currentName)
             currentEntry = i; // a user preset of that name is the better match

@@ -31,6 +31,10 @@ public:
     juce::String name() const { return currentName; }
 
     void load (int index);
+
+    // A sound that is no entry (the dice) shows as entry -1 under a name; restoring what came
+    // before a roll sets the entry and name back.
+    void setCurrent (int entry, const juce::String& newName);
     void rescan();
     bool exists (const juce::String& presetName) const;
     bool save (const juce::String& presetName);

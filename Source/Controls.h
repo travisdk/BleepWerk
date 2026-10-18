@@ -40,3 +40,14 @@ struct Toggle : juce::Component
     juce::Label label;
     juce::TextButton left, right;
 };
+
+// A small icon button drawn without fonts or images: a die (roll random values) or a back
+// arrow (undo the last roll). Dimmed while disabled.
+struct IconButton : juce::Button
+{
+    enum class Icon { Dice, Back };
+    IconButton (Icon, const juce::String& tooltip);
+    void paintButton (juce::Graphics&, bool highlighted, bool down) override;
+
+    Icon icon;
+};

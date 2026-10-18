@@ -13,7 +13,7 @@
 // Everything in the editor, laid out at a fixed design size; the editor scales it as a whole.
 // Top: title, edit mode, the sound preset browser and a settings menu (visible range, preset
 // files). Below it the sequencer bar:
-// Scale, Root, Steps, Rate and Swing. Middle: the grid and a status line. Bottom: the sound:
+// Scale, Root, Steps, Rate, Swing and the pattern dice. Middle: the grid and a status line. Bottom: the sound:
 // the engine panel, then Chaos and the effects.
 class MainView : public juce::Component, private juce::Timer
 {
@@ -38,6 +38,8 @@ private:
     void showPresetMenu();
     void stepPreset (int delta);
     void refreshPreset();
+    void rollPattern();
+    void undoPatternRoll();
     void savePreset (const juce::String& name);
     void showNameDialog (const juce::String& suggestion, std::function<void (const juce::String&)> onName);
     void confirm (const juce::String& title, const juce::String& message, const juce::String& okText, std::function<void()> onOk);
@@ -69,6 +71,9 @@ private:
     juce::Slider swingSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
     std::unique_ptr<ComboAttachment> scaleAttachment, rootAttachment, rateAttachment;
     std::unique_ptr<SliderAttachment> swingAttachment;
+    IconButton patternDice { IconButton::Icon::Dice, "Random pattern in the rows in view" },
+        patternBack { IconButton::Icon::Back, "Back to the pattern before the last roll" };
+    std::unique_ptr<bleepforge::Grid> patternBeforeRoll;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainView)
 };
