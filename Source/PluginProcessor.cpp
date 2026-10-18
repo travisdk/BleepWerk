@@ -131,8 +131,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
             .withValueFromStringFunction ([] (const String& text)
                                           {
                                               const auto t = text.trim().toLowerCase();
+                                              // each name reads back inside its own band, so text round-trips
                                               if (t == "wood") return 0.0f;
+                                              if (t == "wood/metal") return 0.275f;
                                               if (t == "metal") return 0.5f;
+                                              if (t == "metal/glass") return 0.725f;
                                               if (t == "glass") return 1.0f;
                                               return t.retainCharacters ("0123456789.").getFloatValue() / 100.0f;
                                           })));
