@@ -4,19 +4,39 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
+#include "Themes.h"
 
-// BleepForge's colours and the look of the standard JUCE controls it uses.
+// BleepForge's colours and the look of the standard JUCE controls it uses. The two theme
+// shades come from the chosen colour theme (Themes.h), a per-user setting shared by every
+// instance; the rest is fixed.
 namespace bleepforge::theme
 {
-inline const juce::Colour background { 0xff111317 };
-inline const juce::Colour panel { 0xff1a1d23 };
-inline const juce::Colour panelAlt { 0xff20242c }; // every second beat in the grid
+inline const juce::Colour background { 0xff000000 | kBackgroundRgb };
+inline const juce::Colour panel { 0xff000000 | kPanelRgb };
+inline const juce::Colour panelAlt { 0xff000000 | kPanelAltRgb }; // every second beat in the grid
 inline const juce::Colour outline { 0xff2b3039 };
 inline const juce::Colour text { 0xffd8dce4 };
 inline const juce::Colour dimText { 0xff7a8190 };
-inline const juce::Colour accent { 0xff4fe0b0 };
-inline const juce::Colour velocity { 0xffffb547 }; // the grid in Velocity mode
-inline const juce::Colour ratchet { 0xffc38bff };  // the grid in Ratchet mode
+
+inline int& currentIndex()
+{
+    static int index = 0;
+    return index;
+}
+inline const ThemeChoice& current() { return kThemes[(size_t) juce::jlimit (0, kNumThemes - 1, currentIndex())]; }
+
+// The bright shade: knobs, titles, probability, root rows, active buttons.
+inline juce::Colour primary() { return juce::Colour (0xff000000 | current().primary); }
+// The deeper shade: velocity and ratchets.
+inline juce::Colour secondary() { return juce::Colour (0xff000000 | current().secondary); }
+
+inline int indexOf (const juce::String& name)
+{
+    for (int i = 0; i < kNumThemes; ++i)
+        if (name == kThemes[i].name)
+            return i;
+    return 0;
+}
 
 class LookAndFeel : public juce::LookAndFeel_V4
 {
@@ -28,10 +48,8 @@ public:
         setColour (juce::ComboBox::outlineColourId, outline);
         setColour (juce::ComboBox::textColourId, text);
         setColour (juce::ComboBox::arrowColourId, dimText);
-        setColour (juce::ComboBox::focusedOutlineColourId, accent);
         setColour (juce::PopupMenu::backgroundColourId, panel);
         setColour (juce::PopupMenu::textColourId, text);
-        setColour (juce::PopupMenu::highlightedBackgroundColourId, accent.withAlpha (0.25f));
         setColour (juce::PopupMenu::highlightedTextColourId, text);
         setColour (juce::Slider::textBoxTextColourId, text);
         setColour (juce::Slider::textBoxBackgroundColourId, panel);
@@ -41,10 +59,22 @@ public:
         setColour (juce::TextButton::buttonOnColourId, outline);
         setColour (juce::TextButton::textColourOnId, text);
         setColour (juce::Label::textColourId, dimText);
-        setColour (juce::Slider::textBoxHighlightColourId, accent.withAlpha (0.3f));
-        setColour (juce::Slider::trackColourId, accent);
         setColour (juce::Slider::backgroundColourId, outline);
         setColour (juce::Slider::thumbColourId, text);
+        setColour (juce::TooltipWindow::backgroundColourId, panelAlt);
+        setColour (juce::TooltipWindow::textColourId, text);
+        setColour (juce::TooltipWindow::outlineColourId, outline);
+        applyTheme();
+    }
+
+    // Takes on the current theme; the editor then sends a look-and-feel change so every
+    // component repaints and re-reads its colours.
+    void applyTheme()
+    {
+        setColour (juce::ComboBox::focusedOutlineColourId, primary());
+        setColour (juce::PopupMenu::highlightedBackgroundColourId, primary().withAlpha (0.25f));
+        setColour (juce::Slider::textBoxHighlightColourId, primary().withAlpha (0.3f));
+        setColour (juce::Slider::trackColourId, primary());
     }
 
     // A ring with the value as an arc (from the middle for bipolar controls, from the start
@@ -67,7 +97,7 @@ public:
         const juce::PathStrokeType stroke (thickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
         g.setColour (outline);
         g.strokePath (track, stroke);
-        g.setColour (slider.isEnabled() ? accent : dimText);
+        g.setColour (slider.isEnabled() ? primary() : dimText);
         g.strokePath (value, stroke);
 
         const float body = radius - thickness * 2.4f;

@@ -34,7 +34,7 @@ void ChaosView::paint (juce::Graphics& g)
     const float divider = (float) (kPadding + kKnobWidth + 8);
     g.fillRect (juce::Rectangle<float> (divider, (float) kPadding + kTitleHeight, 1.0f, area.getHeight() - 2.0f * kPadding - kTitleHeight));
 
-    g.setColour (theme::accent.withAlpha (0.8f));
+    g.setColour (theme::primary().withAlpha (0.8f));
     g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
     g.drawText ("CHAOS", juce::Rectangle<float> ((float) kPadding, 4.0f, 120.0f, 14.0f), juce::Justification::centredLeft);
 }

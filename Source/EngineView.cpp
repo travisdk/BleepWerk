@@ -129,7 +129,7 @@ void EngineView::paint (juce::Graphics& g)
     // divider between the shared controls and the engine's own
     g.fillRect (juce::Rectangle<float> ((float) kLeftWidth, (float) kPadding, 1.0f, area.getHeight() - 2.0f * kPadding));
 
-    g.setColour (theme::accent.withAlpha (0.8f));
+    g.setColour (theme::primary().withAlpha (0.8f));
     g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
     g.drawText (shownEngine == 1 ? "FOLEY" : "BLEEP",
                 juce::Rectangle<float> ((float) kLeftWidth + kPadding, 4.0f, 120.0f, 14.0f), juce::Justification::centredLeft);

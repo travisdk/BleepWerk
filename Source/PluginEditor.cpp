@@ -11,6 +11,10 @@ constexpr float kMinScale = 0.75f, kMaxScale = 2.0f;
 BleepForgeEditor::BleepForgeEditor (BleepForgeProcessor& p)
     : AudioProcessorEditor (&p), processor (p), view (p)
 {
+    // the saved theme, before the look is set: setting it tells every component to re-read
+    // its colours
+    bleepforge::theme::currentIndex() = bleepforge::theme::indexOf (p.getSettings().getValue ("theme"));
+    lookAndFeel.applyTheme();
     setLookAndFeel (&lookAndFeel);
     addAndMakeVisible (view);
 

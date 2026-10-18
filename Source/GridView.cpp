@@ -42,11 +42,11 @@ juce::Colour modeColour (EditMode mode)
 {
     switch (mode)
     {
-        case EditMode::Velocity: return theme::velocity;
-        case EditMode::Ratchet: return theme::ratchet;
+        case EditMode::Velocity: return theme::secondary();
+        case EditMode::Ratchet: return theme::secondary();
         case EditMode::Probability: break;
     }
-    return theme::accent;
+    return theme::primary();
 }
 
 juce::String valueText (const Cell& cell, EditMode mode)
@@ -207,7 +207,7 @@ void GridView::paint (juce::Graphics& g)
         if (rowHeight < 9.0f && ! isRoot)
             continue;
         const auto r = cellBounds (row, 0).withX (0.0f).withWidth (kLabelWidth - 6.0f);
-        g.setColour (isRoot ? theme::accent : (hover.row == row ? theme::text : theme::dimText));
+        g.setColour (isRoot ? theme::primary() : (hover.row == row ? theme::text : theme::dimText));
         g.setFont (juce::FontOptions (juce::jmax (8.0f, labelFont), isRoot ? juce::Font::bold : juce::Font::plain));
         g.drawText (noteName (rowNote (row, s.scale, s.root)), r.withSizeKeepingCentre (r.getWidth(), juce::jmax (r.getHeight(), 10.0f)),
                     juce::Justification::centredRight);
@@ -266,7 +266,7 @@ void GridView::paint (juce::Graphics& g)
                         const auto dot = juce::Rectangle<float> (r.getX() + 3.0f + (float) i * 7.0f, r.getY() + 3.0f, 6.0f, 6.0f);
                         g.setColour (theme::background);
                         g.fillEllipse (dot);
-                        g.setColour (theme::ratchet);
+                        g.setColour (theme::secondary());
                         g.fillEllipse (dot.reduced (1.2f));
                     }
             }
@@ -326,7 +326,7 @@ void GridView::paint (juce::Graphics& g)
         const auto r = juce::Rectangle<float> (footer.getX() + (float) step * w, footer.getY(), w, footer.getHeight());
         if (step == playing)
         {
-            g.setColour (theme::accent);
+            g.setColour (theme::primary());
             g.fillRoundedRectangle (r.reduced (3.0f, 7.0f), 1.5f);
         }
         else if (step % 4 == 0)

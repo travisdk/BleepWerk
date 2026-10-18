@@ -35,6 +35,7 @@ struct Toggle : juce::Component
     Toggle (juce::AudioProcessorValueTreeState&, const juce::String& parameterId, const juce::String& name);
     void resized() override;
     void update(); // follows the parameter
+    void lookAndFeelChanged() override; // the theme changed
 
     juce::RangedAudioParameter& parameter;
     juce::Label label;

@@ -62,7 +62,7 @@ void EffectsView::paint (juce::Graphics& g)
             const float x = (float) group.area.getX() - (float) kGroupGap * 0.5f;
             g.fillRect (juce::Rectangle<float> (x, (float) kPadding + kTitleHeight, 1.0f, area.getHeight() - 2.0f * kPadding - kTitleHeight));
         }
-        g.setColour (theme::accent.withAlpha (0.8f));
+        g.setColour (theme::primary().withAlpha (0.8f));
         g.drawText (group.name, juce::Rectangle<float> ((float) group.area.getX(), 4.0f, 100.0f, 14.0f), juce::Justification::centredLeft);
     }
 }

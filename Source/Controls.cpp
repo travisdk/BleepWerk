@@ -70,10 +70,8 @@ Toggle::Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& p
     left.setConnectedEdges (juce::Button::ConnectedOnRight);
     right.setConnectedEdges (juce::Button::ConnectedOnLeft);
     for (auto* button : { &left, &right })
-    {
-        button->setColour (juce::TextButton::textColourOnId, bleepforge::theme::accent);
         addAndMakeVisible (*button);
-    }
+    lookAndFeelChanged();
     auto choose = [this] (float value)
     {
         parameter.beginChangeGesture();
@@ -84,6 +82,12 @@ Toggle::Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& p
     left.onClick = [choose] { choose (0.0f); };
     right.onClick = [choose] { choose (1.0f); };
     update();
+}
+
+void Toggle::lookAndFeelChanged()
+{
+    for (auto* button : { &left, &right })
+        button->setColour (juce::TextButton::textColourOnId, bleepforge::theme::primary());
 }
 
 void Toggle::update()
@@ -112,7 +116,7 @@ IconButton::IconButton (Icon i, const juce::String& tooltip)
 void IconButton::paintButton (juce::Graphics& g, bool highlighted, bool down)
 {
     using namespace bleepforge;
-    const auto colour = ! isEnabled() ? theme::outline : down ? theme::accent : highlighted ? theme::text : theme::dimText;
+    const auto colour = ! isEnabled() ? theme::outline : down ? theme::primary() : highlighted ? theme::text : theme::dimText;
     g.setColour (colour);
     const auto bounds = getLocalBounds().toFloat();
     const float side = juce::jmin (bounds.getWidth(), bounds.getHeight()) - 4.0f;

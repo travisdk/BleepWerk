@@ -56,6 +56,7 @@ public:
     void gridEdited();
 
     juce::AudioProcessorValueTreeState apvts;
+    juce::PropertiesFile& getSettings() { return userSettings; } // per-user preferences
 
     // Never touches the sequencer: a sound can be changed under a pattern.
     SoundPresets& getSoundPresets() { return soundPresets; }
@@ -64,6 +65,8 @@ private:
     void handleNote (const juce::MidiMessage& message);
     void readParams();
     void runSequencer (int numSamples);
+
+    juce::PropertiesFile userSettings;
 
     // Saved with the plug-in state so later versions can migrate older projects.
     //   1: 0.1.0

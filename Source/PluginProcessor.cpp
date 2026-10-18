@@ -49,11 +49,27 @@ std::unique_ptr<juce::AudioParameterFloat> floatParam (const char* id, const cha
                                                             .withStringFromValueFunction (toText)
                                                             .withValueFromStringFunction (fromText));
 }
+// Per-user preferences, not per project (the colour theme): ~/.config/BleepForge/BleepForge.settings
+// on Linux. (From SubForge.)
+juce::PropertiesFile::Options settingsOptions()
+{
+    juce::PropertiesFile::Options options;
+    options.applicationName = "BleepForge";
+   #if JUCE_LINUX
+    options.folderName = ".config/BleepForge"; // JUCE puts Linux settings straight under ~ otherwise
+   #else
+    options.folderName = "BleepForge";
+   #endif
+    options.filenameSuffix = "settings";
+    options.osxLibrarySubFolder = "Application Support";
+    return options;
+}
 } // namespace
 
 BleepForgeProcessor::BleepForgeProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "PARAMS", createParameterLayout())
+      apvts (*this, nullptr, "PARAMS", createParameterLayout()),
+      userSettings (settingsOptions())
 {
     bleepforge::loadStarterPattern (grid);
 }

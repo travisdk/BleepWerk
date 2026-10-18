@@ -175,11 +175,32 @@ void MainView::setEditMode (EditMode mode)
     probabilityButton.setToggleState (mode == EditMode::Probability, juce::dontSendNotification);
     velocityButton.setToggleState (mode == EditMode::Velocity, juce::dontSendNotification);
     ratchetButton.setToggleState (mode == EditMode::Ratchet, juce::dontSendNotification);
-    probabilityButton.setColour (juce::TextButton::textColourOnId, theme::accent);
-    velocityButton.setColour (juce::TextButton::textColourOnId, theme::velocity);
-    ratchetButton.setColour (juce::TextButton::textColourOnId, theme::ratchet);
+    probabilityButton.setColour (juce::TextButton::textColourOnId, theme::primary());
+    velocityButton.setColour (juce::TextButton::textColourOnId, theme::secondary());
+    ratchetButton.setColour (juce::TextButton::textColourOnId, theme::secondary());
     gridView.editModeChanged();
     showStatus ({});
+}
+
+// The edit mode buttons carry the theme's shades.
+void MainView::lookAndFeelChanged()
+{
+    setEditMode (processor.editMode.load());
+}
+
+// For every open BleepForge editor of this process, and saved for the next ones.
+void MainView::chooseTheme (int index)
+{
+    bleepforge::theme::currentIndex() = index;
+    processor.getSettings().setValue ("theme", bleepforge::kThemes[(size_t) index].name);
+    processor.getSettings().saveIfNeeded();
+    if (auto* editor = findParentComponentOfClass<juce::AudioProcessorEditor>())
+    {
+        if (auto* look = dynamic_cast<bleepforge::theme::LookAndFeel*> (&editor->getLookAndFeel()))
+            look->applyTheme();
+        editor->sendLookAndFeelChange();
+        editor->repaint();
+    }
 }
 
 void MainView::showSettingsMenu()
@@ -200,6 +221,17 @@ void MainView::showSettingsMenu()
     juce::PopupMenu menu;
     menu.addSectionHeader ("Grid");
     menu.addSubMenu ("Visible range: " + juce::String (current) + (current == 1 ? " octave" : " octaves"), rangeMenu);
+
+    // each theme in its bright shade
+    menu.addSectionHeader ("Colour");
+    for (int i = 0; i < bleepforge::kNumThemes; ++i)
+    {
+        juce::PopupMenu::Item item (bleepforge::kThemes[i].name);
+        item.colour = juce::Colour (0xff000000 | bleepforge::kThemes[i].primary);
+        item.isTicked = i == bleepforge::theme::currentIndex();
+        item.action = [this, i] { chooseTheme (i); };
+        menu.addItem (item);
+    }
 
     auto& presets = processor.getSoundPresets();
     const int entry = presets.current();
@@ -386,7 +418,7 @@ void MainView::GearButton::paintButton (juce::Graphics& g, bool highlighted, boo
     gear.addEllipse (juce::Rectangle<float> (outer * 0.7f, outer * 0.7f).withCentre (centre));
     gear.setUsingNonZeroWinding (false);
 
-    g.setColour (down ? theme::accent : (highlighted ? theme::text : theme::dimText));
+    g.setColour (down ? theme::primary() : (highlighted ? theme::text : theme::dimText));
     g.fillPath (gear);
 }
 
@@ -401,7 +433,7 @@ void MainView::paint (juce::Graphics& g)
     g.fillAll (theme::background);
 
     auto header = headerArea().toFloat();
-    g.setColour (theme::accent);
+    g.setColour (theme::primary());
     g.setFont (juce::FontOptions (22.0f, juce::Font::bold));
     g.drawText ("BleepForge", header, juce::Justification::centredLeft);
     g.setColour (theme::dimText);

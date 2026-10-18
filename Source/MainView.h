@@ -32,6 +32,8 @@ private:
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
 
     void timerCallback() override;
+    void lookAndFeelChanged() override;
+    void chooseTheme (int index);
     juce::Rectangle<int> headerArea() const;
     void showStatus (const juce::String&);
     void setEditMode (BleepForgeProcessor::EditMode);
