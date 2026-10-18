@@ -318,6 +318,7 @@ void MainView::rollPattern()
     bleepforge::DiceRng rng ((uint64_t) juce::Random::getSystemRandom().nextInt64());
     bleepforge::randomPattern (grid, processor.sequencerSettings().scale, gridView.firstRow(), gridView.visibleRows(), rng);
     processor.gridEdited();
+    gridView.repaint(); // the grid view's timer only redraws for steps and hits
     patternBack.setEnabled (true);
 }
 
@@ -328,6 +329,7 @@ void MainView::undoPatternRoll()
         return;
     processor.getGrid().copyFrom (*patternBeforeRoll);
     processor.gridEdited();
+    gridView.repaint();
     patternBeforeRoll.reset();
     patternBack.setEnabled (false);
 }
