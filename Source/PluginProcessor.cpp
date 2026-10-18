@@ -137,6 +137,48 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
                                                               StringArray { "Mono", "Poly" }, 1));
     params.push_back (floatParam ("glide", "Glide", skewedRange (0.0f, 500.0f, 60.0f), 0.0f, "ms"));
 
+    // Effects, in signal order. Bits and Rate read "Off" at the top, where they do nothing.
+    StringArray filterTypes, delayTimes;
+    for (auto* name : bleepforge::kFilterTypeNames)
+        filterTypes.add (name);
+    for (auto* name : bleepforge::kDelayTimeNames)
+        delayTimes.add (name);
+    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "filterType", 1 }, "Filter", filterTypes, 0));
+    params.push_back (floatParam ("filterCutoff", "Cutoff", skewedRange (20.0f, 20000.0f, 1000.0f), 2000.0f, "Hz"));
+    params.push_back (floatParam ("filterResonance", "Resonance", { 0.0f, 1.0f }, 0.2f));
+    params.push_back (std::make_unique<AudioParameterFloat> (
+        ParameterID { "crushBits", 1 }, "Bits", NormalisableRange<float> (1.0f, bleepforge::kCrushBitsOff), bleepforge::kCrushBitsOff,
+        AudioParameterFloatAttributes()
+            .withStringFromValueFunction ([] (float v, int) { return v >= bleepforge::kCrushBitsOff - 0.01f ? String ("Off") : String (v, 1) + " bit"; })
+            .withValueFromStringFunction ([] (const String& t)
+                                          {
+                                              return t.trim().equalsIgnoreCase ("off") ? bleepforge::kCrushBitsOff
+                                                                                      : t.retainCharacters ("0123456789.").getFloatValue();
+                                          })));
+    params.push_back (std::make_unique<AudioParameterFloat> (
+        ParameterID { "crushRate", 1 }, "Crush Rate", skewedRange (200.0f, bleepforge::kCrushRateOff, 6000.0f), bleepforge::kCrushRateOff,
+        AudioParameterFloatAttributes()
+            .withStringFromValueFunction ([] (float v, int)
+                                          {
+                                              if (v >= bleepforge::kCrushRateOff - 1.0f)
+                                                  return String ("Off");
+                                              return v < 1000.0f ? String (roundToInt (v)) + " Hz" : String (v / 1000.0f, 1) + " kHz";
+                                          })
+            .withValueFromStringFunction ([] (const String& t)
+                                          {
+                                              const auto text = t.trim().toLowerCase();
+                                              if (text == "off")
+                                                  return bleepforge::kCrushRateOff;
+                                              const float value = text.retainCharacters ("0123456789.").getFloatValue();
+                                              return text.contains ("k") ? value * 1000.0f : value;
+                                          })));
+    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "delayTime", 1 }, "Delay Time", delayTimes,
+                                                              bleepforge::kDefaultDelayTime));
+    params.push_back (floatParam ("delayFeedback", "Delay Feedback", { 0.0f, 0.95f }, 0.35f));
+    params.push_back (floatParam ("delayMix", "Delay Mix", { 0.0f, 1.0f }, 0.0f));
+    params.push_back (floatParam ("roomSize", "Room Size", { 0.0f, 1.0f }, 0.4f));
+    params.push_back (floatParam ("roomMix", "Room Mix", { 0.0f, 1.0f }, 0.0f));
+
     params.push_back (floatParam ("outputGain", "Output Gain", { -48.0f, 6.0f, 0.1f }, 0.0f, "dB"));
 
     return { params.begin(), params.end() };
@@ -147,7 +189,9 @@ void BleepForgeProcessor::prepareToPlay (double sampleRate, int)
     seqMidi.ensureSize (4096);
     bleep.prepare (sampleRate);
     foley.prepare (sampleRate);
+    effects.prepare (sampleRate);
     readParams();
+    readEffectParams();
     outputGain.reset (sampleRate, 0.02);
     outputGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("outputGain")->load()));
 }
@@ -202,6 +246,23 @@ void BleepForgeProcessor::readParams()
     foleySelected = (int) get ("engine") == 1;
 }
 
+void BleepForgeProcessor::readEffectParams()
+{
+    auto get = [this] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
+    bleepforge::EffectParams e;
+    e.filterType = (bleepforge::FilterType) juce::jlimit (0, bleepforge::kNumFilterTypes - 1, (int) get ("filterType"));
+    e.cutoffHz = get ("filterCutoff");
+    e.resonance = get ("filterResonance");
+    e.crushBits = get ("crushBits");
+    e.crushRateHz = get ("crushRate");
+    e.delayTime = (int) get ("delayTime");
+    e.delayFeedback = get ("delayFeedback");
+    e.delayMix = get ("delayMix");
+    e.roomSize = get ("roomSize");
+    e.roomMix = get ("roomMix");
+    effects.setParams (e, hostBpm);
+}
+
 void BleepForgeProcessor::handleNote (const juce::MidiMessage& message)
 {
     // note-offs go to both, so a note that started before an engine switch still ends
@@ -250,6 +311,10 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     }
     renderRange (position, numSamples);
 
+    // after runSequencer, which has read this block's tempo
+    readEffectParams();
+    effects.process (left, right, numSamples);
+
     // BleepForge plays only its sequencer. With producesMidi() whatever is left in this buffer
     // goes to the host, so it is cleared; the MIDI output mode will fill it with seqMidi.
     midi.clear();
@@ -267,8 +332,8 @@ void BleepForgeProcessor::runSequencer (int numSamples)
     {
         if (auto position = hostPlayHead->getPosition())
         {
-            if (auto hostBpm = position->getBpm())
-                bpm = *hostBpm;
+            if (auto positionBpm = position->getBpm())
+                bpm = *positionBpm;
             if (auto hostPpq = position->getPpqPosition(); hostPpq && position->getIsPlaying())
             {
                 ppq = *hostPpq;
@@ -277,6 +342,7 @@ void BleepForgeProcessor::runSequencer (int numSamples)
         }
     }
 
+    hostBpm = bpm;
     const auto settings = sequencerSettings();
     seqMidi.clear();
     sequencer.process (playing, ppq, bpm, getSampleRate(), numSamples, settings, grid,

@@ -6,7 +6,7 @@
 
 namespace
 {
-constexpr int kPadding = 10, kTitleHeight = 12, kKnobWidth = 62;
+constexpr int kPadding = 10, kTitleHeight = 12, kKnobWidth = 52;
 } // namespace
 
 ChaosView::ChaosView (BleepForgeProcessor& p)
@@ -46,5 +46,5 @@ void ChaosView::resized()
     amount.setBounds (area.removeFromLeft (kKnobWidth));
     area.removeFromLeft (16);
     for (auto* knob : { &pitch, &decay, &tone, &pan, &velocity })
-        knob->setBounds (area.removeFromLeft (kKnobWidth + 4));
+        knob->setBounds (area.removeFromLeft (kKnobWidth));
 }

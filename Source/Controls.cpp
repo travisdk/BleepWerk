@@ -6,8 +6,6 @@
 
 namespace
 {
-constexpr int kTextBoxWidth = 62;
-
 void styleName (juce::Label& label, const juce::String& name)
 {
     label.setText (name, juce::dontSendNotification);
@@ -23,7 +21,6 @@ Knob::Knob (juce::AudioProcessorValueTreeState& apvts, const juce::String& param
 {
     styleName (label, name);
     addAndMakeVisible (label);
-    slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, kTextBoxWidth, 16);
     slider.getProperties().set ("bipolar", bipolar);
     if (auto* parameter = apvts.getParameter (parameterId))
         slider.setDoubleClickReturnValue (true, parameter->convertFrom0to1 (parameter->getDefaultValue()));
@@ -34,6 +31,8 @@ void Knob::resized()
 {
     auto area = getLocalBounds();
     label.setBounds (area.removeFromTop (16));
+    // the value box takes the knob's full width, so narrow knobs still show their value
+    slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, getWidth(), 16);
     slider.setBounds (area);
 }
 

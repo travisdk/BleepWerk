@@ -5,6 +5,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "BleepSynth.h"
+#include "Effects.h"
 #include "FoleySynth.h"
 #include "Sequencer.h"
 
@@ -60,6 +61,7 @@ private:
     void handleNote (const juce::MidiMessage& message);
     void readParams();
     void runSequencer (int numSamples);
+    void readEffectParams();
 
     // Saved with the plug-in state so later versions can migrate older projects.
     //   1: 0.1.0
@@ -70,6 +72,8 @@ private:
     bleepforge::BleepSynth bleep;
     bleepforge::FoleySynth foley;
     bool foleySelected = false;
+    bleepforge::Effects effects;
+    double hostBpm = 120.0; // for the delay's synced time, also while the host is stopped
     bleepforge::Grid grid;
     bleepforge::SequencerEngine sequencer;
     juce::MidiBuffer seqMidi; // the sequencer's notes for one block

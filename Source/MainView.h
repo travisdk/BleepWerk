@@ -8,11 +8,12 @@
 #include "GridView.h"
 #include "EngineView.h"
 #include "ChaosView.h"
+#include "EffectsView.h"
 
 // Everything in the editor, laid out at a fixed design size; the editor scales it as a whole.
 // Top: title, edit mode and a settings menu (visible range). Below it the sequencer bar:
 // Scale, Root, Steps, Rate and Swing. Middle: the grid and a status line. Bottom: the sound:
-// the engine panel, then Chaos and (later) the effects.
+// the engine panel, then Chaos and the effects.
 class MainView : public juce::Component, private juce::Timer
 {
 public:
@@ -30,7 +31,6 @@ private:
 
     void timerCallback() override;
     juce::Rectangle<int> headerArea() const;
-    juce::Rectangle<int> effectsArea() const;
     void showStatus (const juce::String&);
     void setEditMode (BleepForgeProcessor::EditMode);
     void showSettingsMenu();
@@ -46,6 +46,7 @@ private:
     GridView gridView;
     EngineView engineView;
     ChaosView chaosView;
+    EffectsView effectsView;
     juce::Label status;
     juce::Label editLabel { {}, "Edit" };
     juce::TextButton probabilityButton { "Probability" }, velocityButton { "Velocity" }, ratchetButton { "Ratchet" };

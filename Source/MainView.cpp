@@ -8,7 +8,7 @@
 namespace
 {
 constexpr int kMargin = 16, kHeaderHeight = 40, kBarHeight = 28, kStatusHeight = 22, kEngineHeight = 150, kBottomHeight = 120,
-              kGap = 10, kChaosWidth = 470;
+              kGap = 10, kChaosWidth = 350;
 
 using EditMode = BleepForgeProcessor::EditMode;
 
@@ -26,7 +26,7 @@ void styleBarLabel (juce::Label& label)
 } // namespace
 
 MainView::MainView (BleepForgeProcessor& p)
-    : processor (p), gridView (p), engineView (p), chaosView (p)
+    : processor (p), gridView (p), engineView (p), chaosView (p), effectsView (p)
 {
     setSize (kWidth, kHeight);
     using namespace bleepforge;
@@ -91,6 +91,7 @@ MainView::MainView (BleepForgeProcessor& p)
     addAndMakeVisible (gridView);
     addAndMakeVisible (engineView);
     addAndMakeVisible (chaosView);
+    addAndMakeVisible (effectsView);
 
     setEditMode (processor.editMode.load());
     startTimerHz (10);
@@ -185,11 +186,6 @@ juce::Rectangle<int> MainView::headerArea() const
     return getLocalBounds().reduced (kMargin).removeFromTop (kHeaderHeight);
 }
 
-juce::Rectangle<int> MainView::effectsArea() const
-{
-    return getLocalBounds().reduced (kMargin).removeFromBottom (kBottomHeight).withTrimmedLeft (kChaosWidth + kGap);
-}
-
 void MainView::paint (juce::Graphics& g)
 {
     using namespace bleepforge;
@@ -203,19 +199,6 @@ void MainView::paint (juce::Graphics& g)
     g.setFont (juce::FontOptions (11.0f));
     g.drawText (BLEEPFORGE_VERSION_STRING, header.withTrimmedLeft (128.0f).withTrimmedTop (6.0f),
                 juce::Justification::centredLeft);
-
-    // effects arrive in milestone 7
-    const auto effects = effectsArea().toFloat();
-    g.setColour (theme::panel);
-    g.fillRoundedRectangle (effects, 6.0f);
-    g.setColour (theme::outline);
-    g.drawRoundedRectangle (effects.reduced (0.5f), 6.0f, 1.0f);
-    g.setColour (theme::accent.withAlpha (0.8f));
-    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-    g.drawText ("EFFECTS", effects.reduced (10.0f, 4.0f).removeFromTop (14.0f), juce::Justification::centredLeft);
-    g.setColour (theme::dimText);
-    g.setFont (juce::FontOptions (12.0f));
-    g.drawText ("Filter, bitcrush, delay and room come next", effects, juce::Justification::centred);
 }
 
 void MainView::resized()
@@ -250,6 +233,8 @@ void MainView::resized()
     // sound at the bottom: the engine, then Chaos and the effects side by side
     auto bottom = area.removeFromBottom (kBottomHeight);
     chaosView.setBounds (bottom.removeFromLeft (kChaosWidth));
+    bottom.removeFromLeft (kGap);
+    effectsView.setBounds (bottom);
     area.removeFromBottom (kGap);
     engineView.setBounds (area.removeFromBottom (kEngineHeight));
     area.removeFromBottom (kGap);

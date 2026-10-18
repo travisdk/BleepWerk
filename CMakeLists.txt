@@ -71,7 +71,8 @@ target_sources(BleepForge PRIVATE
     Source/GridView.cpp
     Source/EngineView.cpp
     Source/Controls.cpp
-    Source/ChaosView.cpp)
+    Source/ChaosView.cpp
+    Source/EffectsView.cpp)
 
 # BLEEPFORGE_VERSION_STRING in BleepForgeVersion.h: "git describe --tags --dirty", refreshed at
 # every build so it always names the exact commit; project VERSION when git is unavailable.
