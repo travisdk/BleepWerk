@@ -108,6 +108,38 @@ public:
                                        centre.getPointOnCircumference (body * 0.9f, angle)), 2.0f);
     }
 
+    // Buttons and selectors with square corners like the panels; JUCE's own are rounded.
+    void drawButtonBackground (juce::Graphics& g, juce::Button& button, const juce::Colour& backgroundColour,
+                               bool highlighted, bool down) override
+    {
+        const auto bounds = button.getLocalBounds().toFloat();
+        auto base = backgroundColour.withMultipliedAlpha (button.isEnabled() ? 1.0f : 0.5f);
+        if (down || highlighted)
+            base = base.contrasting (down ? 0.2f : 0.05f);
+        g.setColour (base);
+        g.fillRect (bounds);
+        g.setColour (button.findColour (juce::ComboBox::outlineColourId));
+        g.drawRect (bounds, 1.0f);
+    }
+
+    void drawComboBox (juce::Graphics& g, int width, int height, bool, int, int, int, int, juce::ComboBox& box) override
+    {
+        const auto bounds = juce::Rectangle<int> (width, height).toFloat();
+        g.setColour (box.findColour (juce::ComboBox::backgroundColourId));
+        g.fillRect (bounds);
+        g.setColour (box.findColour (box.hasKeyboardFocus (true) ? juce::ComboBox::focusedOutlineColourId
+                                                                  : juce::ComboBox::outlineColourId));
+        g.drawRect (bounds, 1.0f);
+
+        const juce::Rectangle<float> arrow ((float) width - 30.0f, 0.0f, 20.0f, (float) height);
+        juce::Path path;
+        path.startNewSubPath (arrow.getX() + 3.0f, arrow.getCentreY() - 2.0f);
+        path.lineTo (arrow.getCentreX(), arrow.getCentreY() + 3.0f);
+        path.lineTo (arrow.getRight() - 3.0f, arrow.getCentreY() - 2.0f);
+        g.setColour (box.findColour (juce::ComboBox::arrowColourId).withAlpha (box.isEnabled() ? 0.9f : 0.2f));
+        g.strokePath (path, juce::PathStrokeType (2.0f));
+    }
+
     juce::Label* createSliderTextBox (juce::Slider& slider) override
     {
         auto* label = LookAndFeel_V4::createSliderTextBox (slider);

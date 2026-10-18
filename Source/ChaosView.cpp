@@ -26,9 +26,9 @@ void ChaosView::paint (juce::Graphics& g)
     using namespace bleepforge;
     const auto area = getLocalBounds().toFloat();
     g.setColour (theme::panel);
-    g.fillRoundedRectangle (area, 6.0f);
+    g.fillRect (area);
     g.setColour (theme::outline);
-    g.drawRoundedRectangle (area.reduced (0.5f), 6.0f, 1.0f);
+    g.drawRect (area, 1.0f);
 
     // Amount stands apart: it scales the others
     const float divider = (float) (kPadding + kKnobWidth + 8);

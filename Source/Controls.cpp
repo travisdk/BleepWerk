@@ -125,7 +125,7 @@ void IconButton::paintButton (juce::Graphics& g, bool highlighted, bool down)
     if (icon == Icon::Dice)
     {
         // the five face: an outlined square with five pips
-        g.drawRoundedRectangle (area.reduced (0.75f), side * 0.18f, 1.5f);
+        g.drawRect (area, 1.5f);
         const float pip = side * 0.16f, inset = side * 0.28f;
         const auto inner = area.reduced (inset);
         for (auto centre : { inner.getTopLeft(), inner.getTopRight(), inner.getCentre(), inner.getBottomLeft(), inner.getBottomRight() })
