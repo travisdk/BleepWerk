@@ -78,7 +78,10 @@ inline constexpr SoundParam kSoundParams[] = {
     { "delayFeedback", 0, 0.95f, 0.35f },
     { "delayMix", 0, 1, 0 },
     { "roomSize", 0, 1, 0.4f },
+    { "roomDecay", 0.3f, 6, 1.2f }, // seconds
+    { "roomTone", 0, 1, 0.5f },
     { "roomMix", 0, 1, 0 },
+    { "roomDuck", 0, 1, 0 },
 
     { "outputGain", -48, 12, 0 },
 };
@@ -170,7 +173,10 @@ Patch readPatch (Get&& get)
     e.delayFeedback = get ("delayFeedback");
     e.delayMix = get ("delayMix");
     e.roomSize = get ("roomSize");
+    e.roomDecay = get ("roomDecay");
+    e.roomTone = get ("roomTone");
     e.roomMix = get ("roomMix");
+    e.roomDuck = get ("roomDuck");
 
     patch.outputDb = get ("outputGain");
     return patch;

@@ -224,8 +224,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     choice ("delayTime", "Delay Time", namesOf (bleepforge::kDelayTimeNames));
     sound ("delayFeedback", "Delay Feedback", linear ("delayFeedback"));
     sound ("delayMix", "Delay Mix", linear ("delayMix"));
-    sound ("roomSize", "Room Size", linear ("roomSize"));
-    sound ("roomMix", "Room Mix", linear ("roomMix"));
+    sound ("roomSize", "Reverb Size", linear ("roomSize"));
+    sound ("roomDecay", "Reverb Decay", skewed ("roomDecay", 1.5f), "s");
+    sound ("roomTone", "Reverb Tone", linear ("roomTone"));
+    sound ("roomMix", "Reverb Mix", linear ("roomMix"));
+    sound ("roomDuck", "Reverb Duck", linear ("roomDuck"));
 
     sound ("outputGain", "Output Gain", linear ("outputGain", 0.1f), "dB");
 

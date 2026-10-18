@@ -20,10 +20,13 @@ EffectsView::EffectsView (BleepForgeProcessor& p)
       feedback (p.apvts, "delayFeedback", "Feedback"),
       delayMix (p.apvts, "delayMix", "Mix"),
       roomSize (p.apvts, "roomSize", "Size"),
-      roomMix (p.apvts, "roomMix", "Mix")
+      roomDecay (p.apvts, "roomDecay", "Decay"),
+      roomTone (p.apvts, "roomTone", "Tone"),
+      roomMix (p.apvts, "roomMix", "Mix"),
+      roomDuck (p.apvts, "roomDuck", "Duck")
 {
     for (auto* c : std::initializer_list<juce::Component*> { &filterType, &cutoff, &resonance, &bits, &rate, &delayTime,
-                                                             &feedback, &delayMix, &roomSize, &roomMix })
+                                                             &feedback, &delayMix, &roomSize, &roomDecay, &roomTone, &roomMix, &roomDuck })
         addAndMakeVisible (c);
 
     timerCallback();
@@ -84,5 +87,9 @@ void EffectsView::resized()
     group (0, [&] { filterType.setBounds (area.removeFromLeft (kChoiceWidth).withTrimmedTop (10)); place (cutoff, kKnobWidth); place (resonance, kKnobWidth); });
     group (1, [&] { place (bits, kKnobWidth); place (rate, kKnobWidth); });
     group (2, [&] { place (delayTime, kKnobWidth); place (feedback, kKnobWidth); place (delayMix, kKnobWidth); });
-    group (3, [&] { place (roomSize, kKnobWidth); place (roomMix, kKnobWidth); });
+    group (3, [&]
+           {
+               for (auto* knob : { &roomSize, &roomDecay, &roomTone, &roomMix, &roomDuck })
+                   place (*knob, kKnobWidth);
+           });
 }

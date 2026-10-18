@@ -10,7 +10,7 @@
 #include <vector>
 
 // The effects after the engines, in a fixed order: filter, bitcrush, tempo-synced delay and a
-// small room. Each one is transparent at its default (filter Off, Bits and Rate Off, mixes at
+// plate reverb. Each one is transparent at its default (filter Off, Bits and Rate Off, mixes at
 // 0), so a patch that doesn't use them sounds as before. Buffers are sized in prepare(); the
 // audio thread never allocates. JUCE-free.
 namespace bleepforge
@@ -39,7 +39,10 @@ struct EffectParams
     float delayFeedback = 0.35f; // 0..0.95
     float delayMix = 0.0f;       // 0..1
     float roomSize = 0.4f;       // 0..1
+    float roomDecay = 1.2f;      // seconds
+    float roomTone = 0.5f;       // 0..1, dark to bright
     float roomMix = 0.0f;        // 0..1
+    float roomDuck = 0.0f;       // 0..1
 };
 
 // Dry stays at full level up to the middle and the wet signal reaches full level there, so
@@ -291,46 +294,135 @@ private:
     bool primed = false;
 };
 
-// A small room: an 8-line feedback delay network mixed by a Hadamard matrix. Size scales the
-// line lengths and the decay time together; the loop is damped, so the tail darkens as it
-// fades, like a real room.
-class Room
+// A delay line read at a fractional delay, for the plate's lines and allpasses. The buffer is
+// a power of two so wrapping is a mask. Before this sample's push, read (d) gives the input d
+// samples ago (d >= 1).
+class DelayLine
 {
 public:
-    static constexpr int kLines = 8;
+    void prepare (int maxDelay)
+    {
+        size_t size = 1;
+        while (size < (size_t) maxDelay + 2)
+            size *= 2;
+        buffer.assign (size, 0.0f);
+        mask = (int) size - 1;
+        pos = 0;
+    }
 
+    void reset()
+    {
+        std::fill (buffer.begin(), buffer.end(), 0.0f);
+        pos = 0;
+    }
+
+    bool empty() const { return buffer.empty(); }
+
+    float read (float delay) const
+    {
+        const int whole = (int) delay;
+        const float frac = delay - (float) whole;
+        const float a = buffer[(size_t) ((pos - whole + 1) & mask)];
+        const float b = buffer[(size_t) ((pos - whole) & mask)];
+        return a + frac * (b - a);
+    }
+
+    void push (float x)
+    {
+        pos = (pos + 1) & mask;
+        buffer[(size_t) pos] = x;
+    }
+
+    // a Schroeder allpass around this line: H = (z^-N - g) / (1 - g z^-N)
+    float allpass (float x, float delay, float g)
+    {
+        const float z = read (delay);
+        const float v = x + g * z;
+        push (v);
+        return z - g * v;
+    }
+
+private:
+    std::vector<float> buffer;
+    int mask = 0, pos = 0;
+};
+
+// The reverb: Jon Dattorro's plate ("Effect Design, Part 1: Reverberator and Other Filters",
+// J. Audio Eng. Soc. 45(9), 1997), written from the paper; see docs/LICENSE-REVIEW.md. The
+// input is low-cut, pre-delayed, band-limited and smeared by four allpasses, then circulates
+// in a tank of two cross-fed halves, each a modulated allpass, a delay, damping, a second
+// allpass and a delay. The slow modulation in the tank keeps the tail from ringing at fixed
+// pitches, which on tonal percussion sounds metallic. Size scales every delay, Decay sets the
+// loop gain for that time, Tone the damping and the input bandwidth, and Duck turns the wet
+// signal down while the input plays so the tail blooms in the gaps.
+class Plate
+{
+public:
     void prepare (float sampleRate)
     {
         fs = sampleRate;
-        for (size_t l = 0; l < kLines; ++l)
-            lines[l].assign ((size_t) (kBaseMs[l] * 0.001f * kMaxScale * fs) + 4, 0.0f);
-        scale.prepare (fs, 80.0f);
+        rateScale = fs / kPaperRate;
+        const float most = kMaxSize * rateScale;
+        for (size_t k = 0; k < diffusers.size(); ++k)
+            diffusers[k].prepare ((int) (kDiffuserLengths[k] * most) + 2);
+        for (size_t k = 0; k < 2; ++k)
+        {
+            modAllpass[k].prepare ((int) ((kModLengths[k] + kExcursion) * most) + 2);
+            firstDelay[k].prepare ((int) (kFirstDelays[k] * most) + 2);
+            secondAllpass[k].prepare ((int) (kSecondLengths[k] * most) + 2);
+            secondDelay[k].prepare ((int) (kSecondDelays[k] * most) + 2);
+        }
+        preDelay.prepare ((int) (kPreDelayMs * 0.001f * fs) + 2);
+
+        size.prepare (fs, 80.0f);
         mix.prepare (fs);
-        dampCoef = 1.0f - std::exp (-kTwoPi * 6000.0f / fs);
+        lowCutCoef = 1.0f - std::exp (-kTwoPi * kLowCutHz / fs);
+        lfoStep = kTwoPi * kLfoHz / fs;
+        duckAttack = 1.0f - std::exp (-1.0f / (0.003f * fs));
+        duckRelease = 1.0f - std::exp (-1.0f / (0.25f * fs));
         reset();
     }
 
     void reset()
     {
-        for (auto& line : lines)
-            std::fill (line.begin(), line.end(), 0.0f);
+        for (auto& d : diffusers)
+            d.reset();
+        for (size_t k = 0; k < 2; ++k)
+        {
+            modAllpass[k].reset();
+            firstDelay[k].reset();
+            secondAllpass[k].reset();
+            secondDelay[k].reset();
+        }
+        preDelay.reset();
+        lowCut.fill (0.0f);
+        bandwidthState = 0.0f;
         damp.fill (0.0f);
-        writePos.fill (0);
+        tankOut.fill (0.0f);
+        lfoPhase = 0.0f;
+        duckEnv = 0.0f;
         primed = false;
     }
 
-    void setParams (float size, float newMix)
+    // size, tone and duck 0..1, decay the time in seconds for the tail to fall 60 dB
+    void setParams (float newSize, float decaySeconds, float tone, float newMix, float duck)
     {
-        size = std::clamp (size, 0.0f, 1.0f);
-        scale.target = kMinScale + (kMaxScale - kMinScale) * size;
-        // gain per pass so every line falls 60 dB in the decay time; per block, as pow is slow
-        const float decaySeconds = 0.2f + 1.3f * size;
-        for (size_t l = 0; l < kLines; ++l)
-            gains[l] = std::pow (10.0f, -3.0f * kBaseMs[l] * 0.001f * scale.target / decaySeconds);
+        size.target = kMinSize + (kMaxSize - kMinSize) * std::clamp (newSize, 0.0f, 1.0f);
+        // the gain per tank segment (the paper's "decay") so the loop falls 60 dB in the decay
+        // time; per block, as pow is slow
+        const float segmentSeconds = kSegmentLength * size.target / kPaperRate;
+        decayGain = std::pow (10.0f, -3.0f * segmentSeconds / std::max (0.05f, decaySeconds));
+        // the paper ties decay diffusion 2 to the decay, kept between 0.25 and 0.5
+        diffusion2 = std::clamp (decayGain + 0.15f, 0.25f, 0.5f);
+
+        tone = std::clamp (tone, 0.0f, 1.0f);
+        dampCoef = 1.0f - std::exp (-kTwoPi * std::min (0.45f * fs, 1500.0f * std::exp2 (3.4f * tone)) / fs);
+        bandwidthCoef = 1.0f - std::exp (-kTwoPi * std::min (0.45f * fs, 4000.0f * std::exp2 (2.3f * tone)) / fs);
+        duckDepth = 0.75f * std::clamp (duck, 0.0f, 1.0f); // at most -12 dB
         mix.target = std::clamp (newMix, 0.0f, 1.0f);
         if (! primed)
         {
-            scale.jump (scale.target);
+            size.jump (size.target);
             mix.jump (mix.target);
             primed = true;
         }
@@ -338,81 +430,95 @@ public:
 
     void process (float* left, float* right, int numSamples)
     {
-        if (lines[0].empty())
+        if (preDelay.empty())
             return;
+        const float preDelaySamples = kPreDelayMs * 0.001f * fs;
         for (int i = 0; i < numSamples; ++i)
         {
-            const float s = scale.next();
+            const float scale = size.next() * rateScale;
             float dry, wet;
             mixGains (mix.next(), dry, wet);
             const float inL = left[i], inR = right != nullptr ? right[i] : inL;
 
-            std::array<float, kLines> x;
-            for (size_t l = 0; l < kLines; ++l)
-            {
-                const auto& line = lines[l];
-                const int size = (int) line.size();
-                const float length = kBaseMs[l] * 0.001f * s * fs;
-                float readPos = (float) writePos[l] - length;
-                if (readPos < 0.0f)
-                    readPos += (float) size;
-                const int r0 = (int) readPos;
-                const int r1 = r0 + 1 < size ? r0 + 1 : 0;
-                const float out = line[(size_t) r0] + (line[(size_t) r1] - line[(size_t) r0]) * ((float) readPos - (float) r0);
+            // the duck follows the input level, quick to grab and slow to let go
+            const float level = std::max (std::abs (inL), std::abs (inR));
+            duckEnv += (level > duckEnv ? duckAttack : duckRelease) * (level - duckEnv);
+            const float duckGain = 1.0f - duckDepth * std::min (1.0f, duckEnv * (1.0f / kDuckLevel));
 
-                damp[l] += dampCoef * (out - damp[l]);
-                x[l] = damp[l] * gains[l];
+            // input: low cut (two one-pole high-passes), pre-delay, bandwidth, diffusion
+            float x = 0.5f * (inL + inR);
+            for (auto& state : lowCut)
+            {
+                state += lowCutCoef * (x - state);
+                x -= state;
+            }
+            const float delayed = preDelay.read (preDelaySamples);
+            preDelay.push (x);
+            bandwidthState += bandwidthCoef * (delayed - bandwidthState);
+            x = bandwidthState;
+            for (size_t k = 0; k < diffusers.size(); ++k)
+                x = diffusers[k].allpass (x, kDiffuserLengths[k] * scale, k < 2 ? kInputDiffusion1 : kInputDiffusion2);
+
+            // the tank: each half takes the input plus the other half's output
+            lfoPhase += lfoStep;
+            if (lfoPhase > kTwoPi)
+                lfoPhase -= kTwoPi;
+            const float lfo[2] = { std::sin (lfoPhase), std::cos (lfoPhase) };
+            const float fed[2] = { x + tankOut[1], x + tankOut[0] };
+            for (size_t k = 0; k < 2; ++k)
+            {
+                // the paper's decay diffusion 1 has the opposite sign to the other allpasses
+                float t = modAllpass[k].allpass (fed[k], (kModLengths[k] + kExcursion * lfo[k]) * scale, -kDecayDiffusion1);
+                const float d = firstDelay[k].read (kFirstDelays[k] * scale);
+                firstDelay[k].push (t);
+                damp[k] += dampCoef * (d - damp[k]);
+                t = secondAllpass[k].allpass (damp[k] * decayGain, kSecondLengths[k] * scale, diffusion2);
+                tankOut[k] = secondDelay[k].read (kSecondDelays[k] * scale) * decayGain;
+                secondDelay[k].push (t);
             }
 
-            float outL = 0.0f, outR = 0.0f;
-            for (size_t l = 0; l < kLines; ++l)
-                (l % 2 == 0 ? outL : outR) += x[l];
+            // output taps (the paper's Table 2): each side reads mostly from the other half
+            auto tap = [scale] (const DelayLine& line, float at) { return line.read (std::max (1.0f, at * scale)); };
+            const float outL = tap (firstDelay[1], 266) + tap (firstDelay[1], 2974) - tap (secondAllpass[1], 1913)
+                             + tap (secondDelay[1], 1996) - tap (firstDelay[0], 1990) - tap (secondAllpass[0], 187)
+                             - tap (secondDelay[0], 1066);
+            const float outR = tap (firstDelay[0], 353) + tap (firstDelay[0], 3627) - tap (secondAllpass[0], 1228)
+                             + tap (secondDelay[0], 2673) - tap (firstDelay[1], 2111) - tap (secondAllpass[1], 335)
+                             - tap (secondDelay[1], 121);
 
-            hadamard (x);
-            for (size_t l = 0; l < kLines; ++l)
-            {
-                // left feeds the even lines, right the odd ones, with alternating signs
-                const float in = (l % 2 == 0 ? inL : inR) * ((l / 2) % 2 == 0 ? 1.0f : -1.0f);
-                auto& line = lines[l];
-                line[(size_t) writePos[l]] = x[l] + in * kInputGain;
-                if (++writePos[l] >= (int) line.size())
-                    writePos[l] = 0;
-            }
-
-            left[i] = dry * inL + wet * outL * kOutputGain;
+            const float wetGain = wet * duckGain * kOutputGain;
+            left[i] = dry * inL + wetGain * outL;
             if (right != nullptr)
-                right[i] = dry * inR + wet * outR * kOutputGain;
+                right[i] = dry * inR + wetGain * outR;
         }
     }
 
 private:
-    // mutually prime-ish lengths so the echoes don't line up into a pitch
-    static constexpr std::array<float, kLines> kBaseMs { 7.3f, 9.1f, 11.3f, 12.7f, 14.9f, 17.3f, 19.7f, 23.1f };
-    static constexpr float kMinScale = 0.6f, kMaxScale = 2.2f;
-    static constexpr float kInputGain = 0.5f, kOutputGain = 0.5f;
+    // the paper's delay lengths are in samples at its 29761 Hz; they scale to our rate and Size
+    static constexpr float kPaperRate = 29761.0f;
+    static constexpr std::array<float, 4> kDiffuserLengths { 142, 107, 379, 277 };
+    static constexpr std::array<float, 2> kModLengths { 672, 908 };
+    static constexpr std::array<float, 2> kFirstDelays { 4453, 4217 };
+    static constexpr std::array<float, 2> kSecondLengths { 1800, 2656 };
+    static constexpr std::array<float, 2> kSecondDelays { 3720, 3163 };
+    static constexpr float kExcursion = 12.0f; // the paper allows up to 16
+    static constexpr float kSegmentLength = 5400.0f; // about the samples between two decay gains
+    static constexpr float kInputDiffusion1 = 0.75f, kInputDiffusion2 = 0.625f, kDecayDiffusion1 = 0.7f;
+    static constexpr float kMinSize = 0.35f, kMaxSize = 1.3f;
+    static constexpr float kPreDelayMs = 15.0f, kLowCutHz = 200.0f, kLfoHz = 0.8f;
+    static constexpr float kDuckLevel = 0.3f; // input level that ducks fully
+    static constexpr float kOutputGain = 0.45f; // the paper uses 0.6; this matches the old room's level
 
-    // Fast Walsh-Hadamard transform, normalized so it is energy preserving.
-    static void hadamard (std::array<float, kLines>& x)
-    {
-        for (size_t h = 1; h < kLines; h *= 2)
-            for (size_t i = 0; i < kLines; i += h * 2)
-                for (size_t j = i; j < i + h; ++j)
-                {
-                    const float a = x[j], b = x[j + h];
-                    x[j] = a + b;
-                    x[j + h] = a - b;
-                }
-        const float norm = 1.0f / std::sqrt ((float) kLines);
-        for (auto& v : x)
-            v *= norm;
-    }
-
-    float fs = 48000.0f;
-    std::array<std::vector<float>, kLines> lines;
-    std::array<float, kLines> damp {}, gains {};
-    std::array<int, kLines> writePos {};
-    Smoothed scale, mix;
-    float dampCoef = 0.5f;
+    float fs = 48000.0f, rateScale = 1.0f;
+    std::array<DelayLine, 4> diffusers;
+    std::array<DelayLine, 2> modAllpass, firstDelay, secondAllpass, secondDelay;
+    DelayLine preDelay;
+    std::array<float, 2> lowCut {}, damp {}, tankOut {};
+    float bandwidthState = 0.0f;
+    float lowCutCoef = 0.0f, bandwidthCoef = 1.0f, dampCoef = 1.0f, decayGain = 0.5f, diffusion2 = 0.5f;
+    float lfoPhase = 0.0f, lfoStep = 0.0f;
+    float duckEnv = 0.0f, duckAttack = 0.0f, duckRelease = 0.0f, duckDepth = 0.0f;
+    Smoothed size, mix;
     bool primed = false;
 };
 
@@ -442,7 +548,7 @@ public:
         filter.setParams (p.filterType, p.cutoffHz, p.resonance);
         crusher.setParams (p.crushBits, p.crushRateHz);
         delay.setParams (p.delayTime, bpm, p.delayFeedback, p.delayMix);
-        room.setParams (p.roomSize, p.roomMix);
+        room.setParams (p.roomSize, p.roomDecay, p.roomTone, p.roomMix, p.roomDuck);
     }
 
     // right may be null for a mono output
@@ -458,6 +564,6 @@ private:
     Filter filter;
     Crusher crusher;
     Delay delay;
-    Room room;
+    Plate room;
 };
 } // namespace bleepforge

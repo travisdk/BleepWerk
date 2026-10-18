@@ -23,11 +23,11 @@ private:
 
     BleepForgeProcessor& processor;
     Choice filterType;
-    Knob cutoff, resonance, bits, rate, delayTime, feedback, delayMix, roomSize, roomMix;
+    Knob cutoff, resonance, bits, rate, delayTime, feedback, delayMix, roomSize, roomDecay, roomTone, roomMix, roomDuck;
 
     // the groups as laid out, for paint() to put the names and dividers on
     struct Group { const char* name; juce::Rectangle<int> area; };
-    std::array<Group, 4> groups { { { "FILTER", {} }, { "CRUSH", {} }, { "DELAY", {} }, { "ROOM", {} } } };
+    std::array<Group, 4> groups { { { "FILTER", {} }, { "CRUSH", {} }, { "DELAY", {} }, { "REVERB", {} } } };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EffectsView)
 };
