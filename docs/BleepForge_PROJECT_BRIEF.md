@@ -43,11 +43,14 @@ Each note is rendered by one of three engines, selectable per preset (later perh
 - Goal: drips, tinks, knocks, crackles by turning a few knobs
 
 **Machine engine** (added 2026-10-18)
-- Industrial sounds that last, tuned to the note: Hiss (noise through a bandpass, steam),
-  Hum (a driven sine with a rasp, motors and transformers), Grind (noise into a comb filter)
-- Four controls shared by all three types: Length (ends by itself, up to 6 s), Tone, Motion
-  (0 still, then a slow wave to a fast rattle), Focus (airy noise to a clear tone)
-- Metallic hits stay in the Foley engine (Material at metal): no separate Metal type
+- Industrial sounds tuned to the note: Hit (a click and noise striking the part, with a deep
+  rumble and a short hiss), Hiss (noise through a bandpass, steam), Hum (a driven sine with a
+  rasp, motors and transformers), Grind (noise into a comb filter)
+- Every type runs into a tuned metal resonator (8 inharmonic modes that follow the note) and a
+  light saturation
+- Five controls shared by all four types: Length (ends by itself, up to 6 s), Tone, Motion
+  (0 still, then a slow wave to a fast rattle), Focus (airy noise to a clear tone; on Hit, how
+  much rumble and hiss), Metal (dry source to about a second of ringing metal)
 
 ### 4.2 Voice mode
 
