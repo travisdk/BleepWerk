@@ -33,7 +33,12 @@ EngineView::EngineView (BleepForgeProcessor& p)
       size (p.apvts, "foleySize", "Size"),
       damping (p.apvts, "foleyDamping", "Damping"),
       brightness (p.apvts, "foleyBrightness", "Bright"),
-      sweep (p.apvts, "foleySweep", "Sweep", true)
+      sweep (p.apvts, "foleySweep", "Sweep", true),
+      machineType (p.apvts, "machineType", "Type"),
+      machineLength (p.apvts, "machineLength", "Length"),
+      machineTone (p.apvts, "machineTone", "Tone"),
+      motion (p.apvts, "machineMotion", "Motion"),
+      focus (p.apvts, "machineFocus", "Focus")
 {
     for (auto* c : std::initializer_list<juce::Component*> { &engine, &voices, &glide, &output, &dice, &back })
         addAndMakeVisible (c);
@@ -43,10 +48,10 @@ EngineView::EngineView (BleepForgeProcessor& p)
 
     bleepControls = { &bleepWave, &pulseWidth, &fmRatio, &fmAmount, &pitchAmount, &pitchDecay, &attack, &decay, &release, &noise };
     foleyControls = { &foleyExciter, &foleyLength, &material, &size, &damping, &brightness, &sweep };
-    for (auto* c : bleepControls)
-        addChildComponent (c);
-    for (auto* c : foleyControls)
-        addChildComponent (c);
+    machineControls = { &machineType, &machineLength, &machineTone, &motion, &focus };
+    for (auto* list : { &bleepControls, &foleyControls, &machineControls })
+        for (auto* c : *list)
+            addChildComponent (c);
 
     timerCallback();
     startTimerHz (10);
@@ -66,21 +71,24 @@ void EngineView::timerCallback()
     if (selected != shownEngine)
     {
         shownEngine = selected;
-        showEngine (selected == 1);
+        showEngine (selected);
     }
 }
 
-void EngineView::showEngine (bool foley)
+void EngineView::showEngine (int engineIndex)
 {
     for (auto* c : bleepControls)
-        c->setVisible (! foley);
+        c->setVisible (engineIndex == (int) bleepforge::Engine::Bleep);
     for (auto* c : foleyControls)
-        c->setVisible (foley);
+        c->setVisible (engineIndex == (int) bleepforge::Engine::Foley);
+    for (auto* c : machineControls)
+        c->setVisible (engineIndex == (int) bleepforge::Engine::Machine);
     repaint();
 }
 
 // Keeps the engine and the other engine's settings; the output gain is matched like a factory
-// preset's. The sound then shows as "Random Bleep" or "Random Foley", ready to save.
+// preset's. The sound then shows as "Random Bleep", "Random Foley" or "Random Machine", ready
+// to save.
 void EngineView::rollSound()
 {
     using namespace bleepforge;
@@ -92,12 +100,12 @@ void EngineView::rollSound()
     for (const auto& p : kSoundParams)
         before.values.push_back (value (p.id));
 
-    const bool foley = value ("engine") >= 0.5f;
+    const int engineIndex = juce::jlimit (0, kNumEngines - 1, juce::roundToInt (value ("engine")));
     DiceRng rng ((uint64_t) juce::Random::getSystemRandom().nextInt64());
-    for (const auto& v : randomMatchedSound (foley, rng, value))
+    for (const auto& v : randomMatchedSound ((Engine) engineIndex, rng, value))
         if (auto* param = apvts.getParameter (v.id))
             files::setParameterValue (*param, v.value);
-    presets.setCurrent (-1, foley ? "Random Foley" : "Random Bleep");
+    presets.setCurrent (-1, "Random " + juce::String (kEngineNames[engineIndex]));
 
     beforeRoll = std::move (before);
     back.setEnabled (true);
@@ -131,7 +139,7 @@ void EngineView::paint (juce::Graphics& g)
 
     g.setColour (theme::primary().withAlpha (0.8f));
     g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-    g.drawText (shownEngine == 1 ? "FOLEY" : "BLEEP",
+    g.drawText (juce::String (kEngineNames[juce::jlimit (0, kNumEngines - 1, shownEngine)]).toUpperCase(),
                 juce::Rectangle<float> ((float) kLeftWidth + kPadding, 4.0f, 120.0f, 14.0f), juce::Justification::centredLeft);
 }
 
@@ -139,11 +147,12 @@ void EngineView::resized()
 {
     auto area = getLocalBounds().reduced (kPadding);
 
-    // shared: two toggles stacked, then Glide and Output
+    // shared: the engine across the full width, so all three names fit, then Voices, Glide
+    // and Output below it
     auto left = area.removeFromLeft (kLeftWidth - kPadding * 2);
-    auto toggles = left.removeFromLeft (left.getWidth() - 2 * kKnobWidth - 6);
-    engine.setBounds (toggles.removeFromTop (toggles.getHeight() / 2).reduced (0, 4));
-    voices.setBounds (toggles.reduced (0, 4));
+    engine.setBounds (left.removeFromTop (44));
+    left.removeFromTop (4);
+    voices.setBounds (left.removeFromLeft (left.getWidth() - 2 * kKnobWidth - 6).withTrimmedTop (8));
     left.removeFromLeft (6);
     glide.setBounds (left.removeFromLeft (kKnobWidth));
     output.setBounds (left.removeFromLeft (kKnobWidth));
@@ -167,4 +176,5 @@ void EngineView::resized()
     };
     lay (bleepControls);
     lay (foleyControls);
+    lay (machineControls);
 }

@@ -105,7 +105,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
         return names;
     };
 
-    choice ("engine", "Engine", { "Bleep", "Foley" });
+    choice ("engine", "Engine", namesOf (bleepforge::kEngineNames));
 
     // Bleep engine
     choice ("bleepWave", "Wave", namesOf (bleepforge::kBleepWaveNames));
@@ -146,6 +146,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     sound ("foleyDamping", "Damping", linear ("foleyDamping"));
     sound ("foleyBrightness", "Brightness", linear ("foleyBrightness"));
     sound ("foleySweep", "Sweep", linear ("foleySweep", 0.1f), "st");
+
+    // Machine engine
+    choice ("machineType", "Machine Type", namesOf (bleepforge::kMachineTypeNames));
+    sound ("machineLength", "Machine Length", skewed ("machineLength", 600.0f), "ms");
+    sound ("machineTone", "Machine Tone", linear ("machineTone"));
+    sound ("machineMotion", "Motion", linear ("machineMotion"));
+    sound ("machineFocus", "Focus", linear ("machineFocus"));
 
     // Sequencer
     StringArray scales;
@@ -229,6 +236,7 @@ void BleepForgeProcessor::prepareToPlay (double sampleRate, int)
     seqMidi.ensureSize (4096);
     bleep.prepare (sampleRate);
     foley.prepare (sampleRate);
+    machine.prepare (sampleRate); // sizes the comb delays here, off the audio thread
     effects.prepare (sampleRate);
     readParams();
     effects.setParams (patch.effects, hostBpm);
@@ -249,28 +257,37 @@ void BleepForgeProcessor::readParams()
 
     bleep.setParams (patch.bleep);
     foley.setParams (patch.foleyParams);
+    machine.setParams (patch.machine);
     bleep.setMode (patch.mono ? bleepforge::BleepSynth::Mode::Mono : bleepforge::BleepSynth::Mode::Poly);
     foley.setMode (patch.mono ? bleepforge::FoleySynth::Mode::Mono : bleepforge::FoleySynth::Mode::Poly);
+    machine.setMode (patch.mono ? bleepforge::MachineSynth::Mode::Mono : bleepforge::MachineSynth::Mode::Poly);
     bleep.setGlideMs (patch.glideMs);
     foley.setGlideMs (patch.glideMs);
+    machine.setGlideMs (patch.glideMs);
     bleep.setChaos (patch.chaos);
     foley.setChaos (patch.chaos);
+    machine.setChaos (patch.chaos);
 }
 
 void BleepForgeProcessor::handleNote (const juce::MidiMessage& message)
 {
-    // note-offs go to both, so a note that started before an engine switch still ends
+    // note-offs go to every engine, so a note that started before an engine switch still ends
     if (message.isNoteOn())
     {
-        if (patch.foley)
-            foley.noteOn (message.getNoteNumber(), message.getFloatVelocity());
-        else
-            bleep.noteOn (message.getNoteNumber(), message.getFloatVelocity());
+        const int note = message.getNoteNumber();
+        const float velocity = message.getFloatVelocity();
+        switch (patch.engine)
+        {
+            case bleepforge::Engine::Bleep: bleep.noteOn (note, velocity); break;
+            case bleepforge::Engine::Foley: foley.noteOn (note, velocity); break;
+            case bleepforge::Engine::Machine: machine.noteOn (note, velocity); break;
+        }
     }
     else if (message.isNoteOff())
     {
         bleep.noteOff (message.getNoteNumber());
         foley.noteOff (message.getNoteNumber());
+        machine.noteOff (message.getNoteNumber());
     }
 }
 
@@ -294,6 +311,7 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             return;
         bleep.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
         foley.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
+        machine.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
     };
 
     int position = 0;

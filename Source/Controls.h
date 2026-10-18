@@ -29,7 +29,7 @@ struct Choice : juce::Component
     juce::AudioProcessorValueTreeState::ComboBoxAttachment attachment;
 };
 
-// Two buttons side by side for a two-way choice parameter.
+// One button per option, side by side, for a choice parameter with a few options.
 struct Toggle : juce::Component
 {
     Toggle (juce::AudioProcessorValueTreeState&, const juce::String& parameterId, const juce::String& name);
@@ -39,7 +39,7 @@ struct Toggle : juce::Component
 
     juce::RangedAudioParameter& parameter;
     juce::Label label;
-    juce::TextButton left, right;
+    juce::OwnedArray<juce::TextButton> buttons;
 };
 
 // A small icon button drawn without fonts or images: a die (roll random values) or a back

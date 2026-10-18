@@ -6,6 +6,7 @@
 #include "BleepSynth.h"
 #include "Effects.h"
 #include "FoleySynth.h"
+#include "MachineSynth.h"
 
 #include <cstring>
 #include <utility>
@@ -18,6 +19,10 @@
 // JUCE-free.
 namespace bleepforge
 {
+enum class Engine { Bleep, Foley, Machine };
+inline constexpr const char* kEngineNames[] = { "Bleep", "Foley", "Machine" };
+inline constexpr int kNumEngines = (int) std::size (kEngineNames);
+
 struct SoundParam
 {
     const char* id;
@@ -26,7 +31,7 @@ struct SoundParam
 
 // Choices run from 0 to their count - 1.
 inline constexpr SoundParam kSoundParams[] = {
-    { "engine", 0, 1, 0 },
+    { "engine", 0, kNumEngines - 1, 0 },
 
     { "bleepWave", 0, kNumBleepWaves - 1, 0 },
     { "bleepPulseWidth", 0.05f, 0.95f, 0.5f },
@@ -46,6 +51,12 @@ inline constexpr SoundParam kSoundParams[] = {
     { "foleyDamping", 0, 1, 0.5f },
     { "foleyBrightness", 0, 1, 0.5f },
     { "foleySweep", -24, 24, 0 },
+
+    { "machineType", 0, kNumMachineTypes - 1, (float) MachineType::Hum },
+    { "machineLength", 10, 6000, 400 },
+    { "machineTone", 0, 1, 0.5f },
+    { "machineMotion", 0, 1, 0 },
+    { "machineFocus", 0, 1, 0.5f },
 
     { "chaosAmount", 0, 1, 0.0f }, // off until asked for: presets and new instances play the same every hit
     { "chaosPitch", 0, 1, 0.2f },
@@ -87,9 +98,10 @@ inline float soundDefault (const char* id)
 
 struct Patch
 {
-    bool foley = false;
+    Engine engine = Engine::Bleep;
     BleepParams bleep;
     FoleyParams foleyParams;
+    MachineParams machine;
     ChaosDepths chaos;
     float velocityChaos = 0.0f;
     bool mono = false;
@@ -105,7 +117,7 @@ Patch readPatch (Get&& get)
     auto index = [&get] (const char* id, int count) { return std::clamp ((int) std::lround (get (id)), 0, count - 1); };
 
     Patch patch;
-    patch.foley = index ("engine", 2) == 1;
+    patch.engine = (Engine) index ("engine", kNumEngines);
 
     auto& b = patch.bleep;
     b.wave = (BleepWave) index ("bleepWave", kNumBleepWaves);
@@ -127,6 +139,13 @@ Patch readPatch (Get&& get)
     f.damping = get ("foleyDamping");
     f.brightness = get ("foleyBrightness");
     f.sweepSemis = get ("foleySweep");
+
+    auto& m = patch.machine;
+    m.type = (MachineType) index ("machineType", kNumMachineTypes);
+    m.lengthMs = get ("machineLength");
+    m.tone = get ("machineTone");
+    m.motion = get ("machineMotion");
+    m.focus = get ("machineFocus");
 
     // Amount scales every target's depth
     const float amount = get ("chaosAmount");
@@ -166,22 +185,40 @@ inline std::pair<std::vector<float>, std::vector<float>> renderPatch (const Patc
 
     BleepSynth bleep;
     FoleySynth foley;
+    MachineSynth machine;
     Effects effects;
     bleep.prepare (sampleRate);
     foley.prepare (sampleRate);
+    machine.prepare (sampleRate);
     effects.prepare (sampleRate);
     bleep.setParams (patch.bleep);
     foley.setParams (patch.foleyParams);
+    machine.setParams (patch.machine);
     bleep.setMode (patch.mono ? BleepSynth::Mode::Mono : BleepSynth::Mode::Poly);
     foley.setMode (patch.mono ? FoleySynth::Mode::Mono : FoleySynth::Mode::Poly);
+    machine.setMode (patch.mono ? MachineSynth::Mode::Mono : MachineSynth::Mode::Poly);
     bleep.setGlideMs (patch.glideMs);
     foley.setGlideMs (patch.glideMs);
+    machine.setGlideMs (patch.glideMs);
     effects.setParams (patch.effects, 120.0);
 
     constexpr int notes[] = { 60, 64, 67, 72 };
     const int step = (int) (0.125 * sampleRate), gate = (int) (0.1 * sampleRate);
-    auto noteOn = [&] (int note) { patch.foley ? foley.noteOn (note, 0.8f) : bleep.noteOn (note, 0.8f); };
-    auto noteOff = [&] (int note) { patch.foley ? foley.noteOff (note) : bleep.noteOff (note); };
+    auto noteOn = [&] (int note)
+    {
+        switch (patch.engine)
+        {
+            case Engine::Bleep: bleep.noteOn (note, 0.8f); break;
+            case Engine::Foley: foley.noteOn (note, 0.8f); break;
+            case Engine::Machine: machine.noteOn (note, 0.8f); break;
+        }
+    };
+    auto noteOff = [&] (int note)
+    {
+        bleep.noteOff (note);
+        foley.noteOff (note);
+        machine.noteOff (note);
+    };
 
     // events in time order: each note's on at k * step, its off a gate later
     std::vector<std::pair<int, int>> events; // sample, +note for on / -note - 1 for off
@@ -200,6 +237,7 @@ inline std::pair<std::vector<float>, std::vector<float>> renderPatch (const Patc
             const int n = std::min (256, to - position);
             bleep.renderAdding (left.data() + position, right.data() + position, n);
             foley.renderAdding (left.data() + position, right.data() + position, n);
+            machine.renderAdding (left.data() + position, right.data() + position, n);
             effects.process (left.data() + position, right.data() + position, n);
         }
         position = to;

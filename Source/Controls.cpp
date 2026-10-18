@@ -65,36 +65,35 @@ Toggle::Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& p
     addAndMakeVisible (label);
 
     const auto names = parameter.getAllValueStrings();
-    left.setButtonText (names[0]);
-    right.setButtonText (names[1]);
-    left.setConnectedEdges (juce::Button::ConnectedOnRight);
-    right.setConnectedEdges (juce::Button::ConnectedOnLeft);
-    for (auto* button : { &left, &right })
-        addAndMakeVisible (*button);
-    lookAndFeelChanged();
-    auto choose = [this] (float value)
+    const int last = names.size() - 1;
+    for (int i = 0; i <= last; ++i)
     {
-        parameter.beginChangeGesture();
-        parameter.setValueNotifyingHost (value);
-        parameter.endChangeGesture();
-        update();
-    };
-    left.onClick = [choose] { choose (0.0f); };
-    right.onClick = [choose] { choose (1.0f); };
+        auto* button = buttons.add (new juce::TextButton (names[i]));
+        button->setConnectedEdges ((i > 0 ? juce::Button::ConnectedOnLeft : 0) | (i < last ? juce::Button::ConnectedOnRight : 0));
+        button->onClick = [this, i, last]
+        {
+            parameter.beginChangeGesture();
+            parameter.setValueNotifyingHost ((float) i / (float) juce::jmax (1, last));
+            parameter.endChangeGesture();
+            update();
+        };
+        addAndMakeVisible (button);
+    }
+    lookAndFeelChanged();
     update();
 }
 
 void Toggle::lookAndFeelChanged()
 {
-    for (auto* button : { &left, &right })
+    for (auto* button : buttons)
         button->setColour (juce::TextButton::textColourOnId, bleepforge::theme::primary());
 }
 
 void Toggle::update()
 {
-    const bool second = parameter.getValue() >= 0.5f;
-    left.setToggleState (! second, juce::dontSendNotification);
-    right.setToggleState (second, juce::dontSendNotification);
+    const int selected = juce::roundToInt (parameter.getValue() * (float) juce::jmax (1, buttons.size() - 1));
+    for (int i = 0; i < buttons.size(); ++i)
+        buttons[i]->setToggleState (i == selected, juce::dontSendNotification);
 }
 
 void Toggle::resized()
@@ -102,8 +101,9 @@ void Toggle::resized()
     auto area = getLocalBounds();
     label.setBounds (area.removeFromTop (16));
     area = area.removeFromTop (26);
-    left.setBounds (area.removeFromLeft (area.getWidth() / 2));
-    right.setBounds (area);
+    const int width = area.getWidth() / juce::jmax (1, buttons.size());
+    for (int i = 0; i < buttons.size(); ++i)
+        buttons[i]->setBounds (i == buttons.size() - 1 ? area : area.removeFromLeft (width));
 }
 
 

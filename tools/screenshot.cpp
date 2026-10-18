@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Renders the interface of a fresh instance to a PNG, for checking the layout and for the
-// README: BleepForge_Screenshot <output.png> [scale] [velocity|ratchet] [foley] [range=<octaves>] [note=<bottom note>]
+// README: BleepForge_Screenshot <output.png> [scale] [velocity|ratchet] [foley|machine] [range=<octaves>] [note=<bottom note>]
 
 #include "MainView.h"
 #include "Theme.h"
@@ -11,7 +11,7 @@ int main (int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [velocity|ratchet] [foley] [range=<octaves>] [note=<bottom note>]\n";
+        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [velocity|ratchet] [foley|machine] [range=<octaves>] [note=<bottom note>]\n";
         return 1;
     }
 
@@ -29,6 +29,8 @@ int main (int argc, char* argv[])
         else if (option == "ratchet")
             processor.editMode = BleepForgeProcessor::EditMode::Ratchet;
         else if (option == "foley")
+            processor.apvts.getParameter ("engine")->setValueNotifyingHost (0.5f);
+        else if (option == "machine")
             processor.apvts.getParameter ("engine")->setValueNotifyingHost (1.0f);
         else if (option.startsWith ("range="))
         {

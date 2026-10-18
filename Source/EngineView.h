@@ -9,8 +9,8 @@
 
 #include <optional>
 
-// The sound section below the grid. Left: the engine (Bleep or Foley), Mono or Poly, Glide and
-// Output. Right: the controls of the selected engine, which swap when the engine changes, and
+// The sound section below the grid. Left: the engine (Bleep, Foley or Machine), and below it
+// Mono or Poly, Glide and Output. Right: the controls of the selected engine, which swap when the engine changes, and
 // by the engine's name the dice, which roll a random sound for that engine, with a back arrow.
 class EngineView : public juce::Component, private juce::Timer
 {
@@ -23,7 +23,7 @@ public:
 
 private:
     void timerCallback() override;
-    void showEngine (bool foley);
+    void showEngine (int engineIndex);
     void rollSound();
     void undoRoll();
 
@@ -35,6 +35,8 @@ private:
     Knob pulseWidth, fmRatio, fmAmount, pitchAmount, pitchDecay, attack, decay, release, noise;
     Choice foleyExciter;
     Knob foleyLength, material, size, damping, brightness, sweep;
+    Choice machineType;
+    Knob machineLength, machineTone, motion, focus;
 
     // the dice: a random sound for the engine in view, and back to the sound before it
     IconButton dice { IconButton::Icon::Dice, "Random sound for this engine" },
@@ -47,7 +49,7 @@ private:
     };
     std::optional<SoundBefore> beforeRoll;
 
-    std::vector<juce::Component*> bleepControls, foleyControls;
+    std::vector<juce::Component*> bleepControls, foleyControls, machineControls;
     int shownEngine = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EngineView)

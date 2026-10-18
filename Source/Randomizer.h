@@ -59,7 +59,7 @@ private:
 // A random sound for one engine: its own parameters, voices, Chaos and the effects. The
 // engine choice and the other engine's parameters are left out, and so is the output gain,
 // which the caller matches with matchedOutputDb().
-inline std::vector<PresetValue> randomSound (bool foley, DiceRng& rng)
+inline std::vector<PresetValue> randomSound (Engine engine, DiceRng& rng)
 {
     std::vector<PresetValue> v;
     auto set = [&v] (const char* id, float value)
@@ -69,7 +69,7 @@ inline std::vector<PresetValue> randomSound (bool foley, DiceRng& rng)
     };
     auto round = [] (float value, float to) { return std::round (value / to) * to; };
 
-    if (! foley)
+    if (engine == Engine::Bleep)
     {
         constexpr float waves[] = { 3, 2.5f, 2, 2.5f }; // sine, triangle, pulse, FM
         set ("bleepWave", (float) rng.pick (waves));
@@ -90,7 +90,7 @@ inline std::vector<PresetValue> randomSound (bool foley, DiceRng& rng)
         set ("bleepRelease", std::round (rng.logBetween (5, 150)));
         set ("bleepNoise", rng.chance (0.6f) ? 0.0f : round (rng.between (0, 0.4f), 0.01f));
     }
-    else
+    else if (engine == Engine::Foley)
     {
         set ("foleyExciter", (float) rng.below (kNumFoleyExciters));
         set ("foleyLength", round (rng.logBetween (0.1f, 30), 0.01f));
@@ -100,6 +100,15 @@ inline std::vector<PresetValue> randomSound (bool foley, DiceRng& rng)
         set ("foleyDamping", round (rng.between (0.25f, 0.9f), 0.01f));
         set ("foleyBrightness", round (rng.between (0.2f, 0.9f), 0.01f));
         set ("foleySweep", rng.chance (0.7f) ? 0.0f : std::round (rng.between (-12, 12)));
+    }
+    else
+    {
+        // from a short burst to a sound that lasts a bar, and still more often than moving
+        set ("machineType", (float) rng.below (kNumMachineTypes));
+        set ("machineLength", std::round (rng.logBetween (60, 2500)));
+        set ("machineTone", round (rng.between (0.1f, 0.9f), 0.01f));
+        set ("machineMotion", rng.chance (0.4f) ? 0.0f : round (rng.between (0.05f, 0.7f), 0.01f));
+        set ("machineFocus", round (rng.between (0.1f, 1.0f), 0.01f));
     }
 
     const bool mono = rng.chance (0.2f);
@@ -139,16 +148,16 @@ inline std::vector<PresetValue> randomSound (bool foley, DiceRng& rng)
 // too quiet even at the most gain (a narrow band-pass far from the note, say) is rolled
 // again. current (id) gives the parameters the dice leave alone, except the engine.
 template <typename Get>
-std::vector<PresetValue> randomMatchedSound (bool foley, DiceRng& rng, Get&& current)
+std::vector<PresetValue> randomMatchedSound (Engine engine, DiceRng& rng, Get&& current)
 {
     std::vector<PresetValue> values;
     for (int attempt = 0; attempt < 8; ++attempt)
     {
-        values = randomSound (foley, rng);
+        values = randomSound (engine, rng);
         const auto patch = readPatch ([&] (const char* id)
                                       {
                                           if (std::strcmp (id, "engine") == 0)
-                                              return foley ? 1.0f : 0.0f;
+                                              return (float) engine;
                                           for (const auto& v : values)
                                               if (std::strcmp (v.id, id) == 0)
                                                   return v.value;
