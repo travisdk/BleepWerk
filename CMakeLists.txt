@@ -47,7 +47,7 @@ if (BLEEPFORGE_BUILD_TESTS)
 endif()
 add_subdirectory(${CLAP_JUCE_EXTENSIONS_DIR} clap-juce-extensions EXCLUDE_FROM_ALL)
 
-# NEEDS_MIDI_OUTPUT: the sequencer can send its notes to the host (brief section 5.1).
+# An instrument played from the host's notes; sequencing is done in the DAW (brief section 5).
 juce_add_plugin(BleepForge
     COMPANY_NAME "Henrik Juhl"
     BUNDLE_ID dk.hjuhl.bleepforge
@@ -59,8 +59,8 @@ juce_add_plugin(BleepForge
     COPY_PLUGIN_AFTER_BUILD ${BLEEPFORGE_INSTALL_AFTER_BUILD}   # VST3 (CLAP is copied by the command further down)
     VST3_COPY_DIR "${VST3_INSTALL_DIR}"
     IS_SYNTH TRUE
-    NEEDS_MIDI_INPUT FALSE   # plays its own sequencer only
-    NEEDS_MIDI_OUTPUT TRUE
+    NEEDS_MIDI_INPUT TRUE    # played from the host's notes
+    NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE)
 
@@ -68,7 +68,6 @@ target_sources(BleepForge PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/MainView.cpp
-    Source/GridView.cpp
     Source/EngineView.cpp
     Source/Controls.cpp
     Source/ChaosView.cpp

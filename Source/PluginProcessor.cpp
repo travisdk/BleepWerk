@@ -73,8 +73,6 @@ BleepForgeProcessor::BleepForgeProcessor()
       apvts (*this, nullptr, "PARAMS", createParameterLayout()),
       userSettings (settingsOptions())
 {
-    // the grid starts empty: notes come from the user or the pattern dice
-    previewOn = userSettings.getBoolValue ("previewNotes", true);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createParameterLayout()
@@ -155,25 +153,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     sound ("machineFocus", "Focus", linear ("machineFocus"));
     sound ("machineMetal", "Metal", linear ("machineMetal"));
 
-    // Sequencer
-    StringArray scales;
-    for (const auto& scale : bleepforge::kScales)
-        scales.add (scale.name);
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqScale", 1 }, "Scale", scales,
-                                                              bleepforge::kDefaultScale));
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqRoot", 1 }, "Root", namesOf (bleepforge::kRootNames), 0));
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqRate", 1 }, "Rate", namesOf (bleepforge::kSeqRateNames),
-                                                              bleepforge::kDefaultSeqRate));
-    params.push_back (std::make_unique<AudioParameterFloat> (
-        ParameterID { "seqSwing", 1 }, "Swing", NormalisableRange<float> (0.5f, 0.75f, 0.005f), 0.5f,
-        AudioParameterFloatAttributes()
-            .withStringFromValueFunction ([] (float v, int) { return String (roundToInt (v * 100.0f)) + " %"; })
-            .withValueFromStringFunction ([] (const String& t) { return t.retainCharacters ("0123456789.").getFloatValue() / 100.0f; })));
-    // Cycle locks the pattern's chances into a phrase that repeats; Seed picks the phrase, and
-    // automating it changes the phrase on cue.
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqCycle", 1 }, "Cycle", namesOf (bleepforge::kCycleNames), 0));
-    params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqSeed", 1 }, "Seed", 1, bleepforge::kMaxSeed, 1));
-
     // Chaos: Amount scales every target's depth
     sound ("chaosAmount", "Chaos", linear ("chaosAmount"));
     sound ("chaosPitch", "Chaos Pitch", linear ("chaosPitch"));
@@ -182,13 +161,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     sound ("chaosPan", "Chaos Pan", linear ("chaosPan"));
     sound ("chaosVelocity", "Chaos Velocity", linear ("chaosVelocity"));
 
-    // how many octaves the grid shows at a time: a view setting, saved with the project
-    params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqRange", 1 }, "Visible Range", 1, kMaxVisibleOctaves,
-                                                           2, AudioParameterIntAttributes().withAutomatable (false)));
-
     // Voices
     choice ("voiceMode", "Voice Mode", { "Mono", "Poly" });
     sound ("glide", "Glide", skewed ("glide", 60.0f), "ms");
+    // How far a full pitch bend goes, up and down. A setting of the player, not of the sound,
+    // so it isn't in kSoundParams and presets leave it alone.
+    params.push_back (std::make_unique<AudioParameterInt> (
+        ParameterID { "bendRange", 1 }, "Bend Range", 0, 24, 2,
+        AudioParameterIntAttributes()
+            .withStringFromValueFunction ([] (int v, int) { return v == 0 ? String ("Off") : String::charToString (0xb1) + String (v) + " st"; })
+            .withValueFromStringFunction ([] (const String& t) { return t.retainCharacters ("0123456789").getIntValue(); })));
 
     // Effects, in signal order. Bits and Rate read "Off" at the top of their values, where they
     // do nothing; their knobs run backwards so that is fully left.
@@ -237,16 +219,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
 
 void BleepForgeProcessor::prepareToPlay (double sampleRate, int)
 {
-    seqMidi.ensureSize (4096);
     bleep.prepare (sampleRate);
     foley.prepare (sampleRate);
     machine.prepare (sampleRate); // sizes the comb delays here, off the audio thread
     effects.prepare (sampleRate);
+    noteInput.reset(); // prepare() has silenced the voices, so no key is held any more
     readParams();
     effects.setParams (patch.effects, hostBpm);
     outputGain.reset (sampleRate, 0.02);
     outputGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("outputGain")->load()));
-    previewPlaying = -1; // prepare() has silenced the voices
 }
 
 bool BleepForgeProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -271,42 +252,53 @@ void BleepForgeProcessor::readParams()
     bleep.setChaos (patch.chaos);
     foley.setChaos (patch.chaos);
     machine.setChaos (patch.chaos);
+    // the range may change while a bend is held
+    Engines { *this }.pitchBend (noteInput.currentBend());
 }
 
-void BleepForgeProcessor::handleNote (const juce::MidiMessage& message)
+void BleepForgeProcessor::Engines::noteOn (int note, float velocity)
 {
-    // note-offs go to every engine, so a note that started before an engine switch still ends
-    if (message.isNoteOn())
+    switch (p.patch.engine)
     {
-        const int note = message.getNoteNumber();
-        const float velocity = message.getFloatVelocity();
-        switch (patch.engine)
-        {
-            case bleepforge::Engine::Bleep: bleep.noteOn (note, velocity); break;
-            case bleepforge::Engine::Foley: foley.noteOn (note, velocity); break;
-            case bleepforge::Engine::Machine: machine.noteOn (note, velocity); break;
-        }
+        case bleepforge::Engine::Bleep: p.bleep.noteOn (note, velocity); break;
+        case bleepforge::Engine::Foley: p.foley.noteOn (note, velocity); break;
+        case bleepforge::Engine::Machine: p.machine.noteOn (note, velocity); break;
     }
-    else if (message.isNoteOff())
-    {
-        bleep.noteOff (message.getNoteNumber());
-        foley.noteOff (message.getNoteNumber());
-        machine.noteOff (message.getNoteNumber());
-    }
+}
+
+void BleepForgeProcessor::Engines::noteOff (int note)
+{
+    p.bleep.noteOff (note);
+    p.foley.noteOff (note);
+    p.machine.noteOff (note);
+}
+
+void BleepForgeProcessor::Engines::pitchBend (float amount)
+{
+    const float semis = amount * p.apvts.getRawParameterValue ("bendRange")->load();
+    p.bleep.setPitchBend (semis);
+    p.foley.setPitchBend (semis);
+    p.machine.setPitchBend (semis);
+}
+
+void BleepForgeProcessor::allNotesOff()
+{
+    bleep.allNotesOff();
+    foley.allNotesOff();
+    machine.allNotesOff();
 }
 
 void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
     readParams();
+    readTempo();
 
     const int numSamples = buffer.getNumSamples();
     buffer.clear();
-    runPreview (numSamples);
-    runSequencer (numSamples);
 
-    // Render between the sequencer's notes so they start on their exact sample. Chaos pans
-    // each note; a mono output gets them unpanned.
+    // Render between the host's MIDI events so each note starts on its exact sample. Chaos
+    // pans each note; a mono output gets them unpanned.
     float* left = buffer.getWritePointer (0);
     float* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
     auto renderRange = [&] (int from, int to)
@@ -318,116 +310,40 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         machine.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
     };
 
+    Engines engines { *this };
     int position = 0;
-    for (const auto metadata : seqMidi)
+    for (const auto metadata : midi)
     {
         const int eventPos = juce::jlimit (0, numSamples, metadata.samplePosition);
         renderRange (position, eventPos);
         position = juce::jmax (position, eventPos);
-        handleNote (metadata.getMessage());
+        noteInput.handle (metadata.data, metadata.numBytes, engines);
     }
     renderRange (position, numSamples);
 
-    // after runSequencer, which has read this block's tempo
     effects.setParams (patch.effects, hostBpm);
     effects.process (left, right, numSamples);
-
-    // BleepForge plays only its sequencer. With producesMidi() whatever is left in this buffer
-    // goes to the host, so it is cleared; the MIDI output mode will fill it with seqMidi.
-    midi.clear();
 
     outputGain.setTargetValue (juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("outputGain")->load()));
     outputGain.applyGain (buffer, numSamples);
 }
 
-// Steps follow the host's position, so the sequencer runs while the host plays.
-void BleepForgeProcessor::runSequencer (int numSamples)
+// While bypassed the host's note-offs don't reach the engines, so every note is let go and
+// nothing hangs once the plug-in plays again. The effects' tails are cut, as a bypass expects.
+void BleepForgeProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
-    double bpm = 120.0, ppq = 0.0;
-    bool playing = false;
+    buffer.clear();
+    noteInput.reset();
+    allNotesOff();
+}
+
+// The delay's synced time follows the host's tempo, kept from the last block that had one.
+void BleepForgeProcessor::readTempo()
+{
     if (auto* hostPlayHead = getPlayHead())
-    {
         if (auto position = hostPlayHead->getPosition())
-        {
-            if (auto positionBpm = position->getBpm())
-                bpm = *positionBpm;
-            if (auto hostPpq = position->getPpqPosition(); hostPpq && position->getIsPlaying())
-            {
-                ppq = *hostPpq;
-                playing = true;
-            }
-        }
-    }
-
-    hostBpm = bpm;
-    const auto settings = sequencerSettings();
-    seqMidi.clear();
-    sequencer.process (playing, ppq, bpm, getSampleRate(), numSamples, settings, grid,
-                       [this] (int sample, bool on, int note, float velocity)
-                       {
-                           seqMidi.addEvent (on ? juce::MidiMessage::noteOn (1, note, velocity)
-                                                  : juce::MidiMessage::noteOff (1, note), sample);
-                       });
-}
-
-bleepforge::SequencerSettings BleepForgeProcessor::sequencerSettings() const
-{
-    auto get = [this] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
-    bleepforge::SequencerSettings settings;
-    settings.scale = (int) get ("seqScale");
-    settings.root = (int) get ("seqRoot");
-    settings.stepBeats = bleepforge::kSeqRateBeats[(size_t) juce::jlimit (0, bleepforge::kNumSeqRates - 1, (int) get ("seqRate"))];
-    settings.swing = get ("seqSwing");
-    settings.cycleSteps = bleepforge::cycleSteps ((int) get ("seqCycle"), settings.stepBeats);
-    settings.seed = (int) get ("seqSeed");
-    settings.velocityChaos = get ("chaosAmount") * get ("chaosVelocity");
-    return settings;
-}
-
-void BleepForgeProcessor::gridEdited()
-{
-    updateHostDisplay (ChangeDetails().withNonParameterStateChanged (true));
-}
-
-void BleepForgeProcessor::previewNote (int note, float velocity)
-{
-    if (! previewOn.load() || note < 0 || note > 127)
-        return;
-    const auto vel = (uint32_t) juce::jlimit (1, 127, juce::roundToInt (velocity * 127.0f));
-    previewRequest = (1u << 16) | (vel << 8) | (uint32_t) note;
-}
-
-void BleepForgeProcessor::setPreviewEnabled (bool on)
-{
-    previewOn = on;
-    userSettings.setValue ("previewNotes", on);
-    userSettings.saveIfNeeded();
-}
-
-// Preview notes start and end on a block boundary: they don't follow the steps, so the few
-// milliseconds don't matter. A preview is short, about a 16th at 100 bpm, so it shows the pitch
-// and velocity without smearing into the pattern.
-void BleepForgeProcessor::runPreview (int numSamples)
-{
-    constexpr double kPreviewSeconds = 0.15;
-    if (previewPlaying >= 0)
-    {
-        previewSamplesLeft -= numSamples;
-        if (previewSamplesLeft <= 0)
-        {
-            handleNote (juce::MidiMessage::noteOff (1, previewPlaying));
-            previewPlaying = -1;
-        }
-    }
-
-    const auto request = previewRequest.exchange (0);
-    if ((request & (1u << 16)) == 0)
-        return;
-    if (previewPlaying >= 0)
-        handleNote (juce::MidiMessage::noteOff (1, previewPlaying)); // one preview at a time
-    previewPlaying = (int) (request & 0x7fu);
-    previewSamplesLeft = (int) (kPreviewSeconds * getSampleRate());
-    handleNote (juce::MidiMessage::noteOn (1, previewPlaying, (juce::uint8) ((request >> 8) & 0x7fu)));
+            if (auto bpm = position->getBpm())
+                hostBpm = *bpm;
 }
 
 juce::AudioProcessorEditor* BleepForgeProcessor::createEditor()
@@ -435,13 +351,12 @@ juce::AudioProcessorEditor* BleepForgeProcessor::createEditor()
     return new BleepForgeEditor (*this);
 }
 
-// The grid and other non-parameter data are stored with the APVTS state, so one XML blob
-// holds the whole project.
+// The preset name and other non-parameter data are stored with the APVTS state, so one XML
+// blob holds the whole project.
 void BleepForgeProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     state.setProperty ("stateVersion", kStateVersion, nullptr);
-    state.setProperty ("grid", juce::String (grid.toString()), nullptr);
     soundPresets.writeState (state);
 
     if (auto xml = state.createXml())
@@ -455,15 +370,15 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
         if (xml->hasTagName (apvts.state.getType()))
         {
             auto state = juce::ValueTree::fromXml (*xml);
-            const int version = state.getProperty ("stateVersion", kStateVersion);
-            juce::ignoreUnused (version); // migrations from older versions go here
-            if (! grid.fromString (state.getProperty ("grid").toString().toStdString()))
-                grid.clear();
             soundPresets.readState (state);
             // Only the parameters stay in the tree: getStateInformation adds the rest again, so
-            // a reloaded state saves byte for byte the same.
+            // a reloaded state saves byte for byte the same. Before version 2 it also held the
+            // sequencer's grid and seq* parameters, which are dropped here.
             for (auto id : { "stateVersion", "grid", "presetName", "presetIndex" })
                 state.removeProperty (id, nullptr);
+            for (int i = state.getNumChildren(); --i >= 0;)
+                if (apvts.getParameter (state.getChild (i).getProperty ("id").toString()) == nullptr)
+                    state.removeChild (i, nullptr);
             apvts.replaceState (state);
             // Tells the host every parameter may have changed, so it reads them all again
             // (CLAP: params rescan of the values, which the wrapper sends for a program change).

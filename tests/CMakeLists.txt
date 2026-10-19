@@ -1,9 +1,9 @@
 # Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
 # SPDX-License-Identifier: AGPL-3.0-only
 
-# JUCE-free unit tests for the DSP and sequencer. Run with ctest.
+# JUCE-free unit tests for the DSP, MIDI input and dice. Run with ctest.
 # Add a name here for each tests/test_<name>.cpp.
-set(BLEEPFORGE_TESTS bleep sequencer foley machine effects presets randomizer themes)
+set(BLEEPFORGE_TESTS bleep note_input foley machine effects presets randomizer themes)
 foreach (name ${BLEEPFORGE_TESTS})
     add_executable (test_${name} test_${name}.cpp)
     target_include_directories (test_${name} PRIVATE ${PROJECT_SOURCE_DIR}/Source)

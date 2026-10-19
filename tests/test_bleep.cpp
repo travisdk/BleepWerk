@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// The Bleep engine: pitch, envelopes ending by themselves, no DC or onset clicks, finite
-// output for every wave, and voice allocation in Mono and Poly mode.
+// The Bleep engine: pitch, pitch bend, envelopes ending by themselves, no DC or onset clicks,
+// finite output for every wave, voice allocation in Mono and Poly mode, and Chaos.
 #include "BleepSynth.h"
 #include "TestUtils.h"
 
@@ -67,6 +67,20 @@ static void pitchIsRight()
         const auto out = render (synth, ms (300));
         CHECK (std::abs (frequency (out, ms (50), ms (300)) - 440.0) < 0.5);
     }
+}
+
+// A bend set before the note starts it there; one during the note slides it there.
+static void bendShiftsThePitch()
+{
+    auto synth = makeSynth (steady (BleepWave::Sine));
+    synth.setPitchBend (2.0f);
+    synth.noteOn (69, 1.0f);
+    auto out = render (synth, ms (200));
+    CHECK (std::abs (frequency (out, ms (20), ms (200)) - 493.88) < 0.5);
+
+    synth.setPitchBend (-2.0f);
+    out = render (synth, ms (200));
+    CHECK (std::abs (frequency (out, ms (50), ms (200)) - 392.00) < 0.5);
 }
 
 static void pitchEnvelopeFalls()
@@ -253,6 +267,36 @@ static void chaosVariesEachNote()
     }
 }
 
+// Each note's peak level follows its velocity, moved up or down by Chaos.
+static void chaosVariesVelocity()
+{
+    auto synth = makeSynth (steady (BleepWave::Sine));
+    ChaosDepths chaos;
+    chaos.velocity = 1.0f;
+    float lo = 1.0f, hi = 0.0f;
+    for (int i = 0; i < 16; ++i)
+    {
+        synth.allNotesOff();
+        render (synth, ms (300));
+        synth.setChaos (i == 0 ? ChaosDepths {} : chaos); // the first one plain, as a reference
+        synth.noteOn (69, 0.5f);
+        const auto out = render (synth, ms (50));
+        float peak = 0.0f;
+        for (float s : out)
+            peak = std::max (peak, std::abs (s));
+        const float velocity = peak / BleepVoice::kLevel;
+        if (i == 0)
+            CHECK (std::abs (velocity - 0.5f) < 0.01f);
+        else
+        {
+            lo = std::min (lo, velocity);
+            hi = std::max (hi, velocity);
+        }
+    }
+    CHECK (hi - lo > 0.2f);
+    CHECK (lo > 0.5f * (1.0f - kChaosMaxVelocity) - 0.01f && hi < 0.5f * (1.0f + kChaosMaxVelocity) + 0.01f);
+}
+
 static void chaosPansNotes()
 {
     auto synth = makeSynth (steady (BleepWave::Sine));
@@ -318,6 +362,7 @@ static void chaosVariesDecay()
 int main()
 {
     pitchIsRight();
+    bendShiftsThePitch();
     pitchEnvelopeFalls();
     notesEndByThemselves();
     releaseCutsANote();
@@ -328,6 +373,7 @@ int main()
     polyAllocatesAndSteals();
     modeSwitchReleasesEverything();
     chaosVariesEachNote();
+    chaosVariesVelocity();
     chaosPansNotes();
     chaosVariesDecay();
     return finish ("bleep");

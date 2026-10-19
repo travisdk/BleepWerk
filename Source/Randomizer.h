@@ -4,18 +4,18 @@
 #pragma once
 
 #include "FactoryPresets.h"
-#include "Sequencer.h"
-#include "Euclid.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <vector>
 
-// The dice: a random sound for the selected engine and a random pattern. Neither picks
-// uniformly over a parameter's whole range, which mostly gives noise, endless rings or a
-// fully wet delay; each draws from ranges that suit short percussive tones, with the effects
-// off more often than on. Runs on the message thread; the generator is our own so a seed
-// gives the same result on every platform (the tests rely on it). JUCE-free.
+// The dice: a random sound for the selected engine. It doesn't pick uniformly over a
+// parameter's whole range, which mostly gives noise, endless rings or a fully wet delay; it
+// draws from ranges that suit short percussive tones, with the effects off more often than
+// on. Runs on the message thread; the generator is our own so a seed gives the same result on
+// every platform (the tests rely on it). JUCE-free.
 namespace bleepforge
 {
 // xorshift64*: small, fast and the same everywhere, unlike std::uniform_*_distribution.
@@ -175,86 +175,5 @@ std::vector<PresetValue> randomMatchedSound (Engine engine, DiceRng& rng, Get&& 
             break;
     }
     return values;
-}
-
-// Replaces the whole pattern with a random one in rows firstRow .. firstRow + numRows - 1
-// (the rows in view), keeping the grid's length. A few rows carry the pattern, led by a root
-// note, each on a rotated Euclidean rhythm; hits on downbeats are harder and more often certain.
-// The new pattern is built aside and copied in, so the audio thread never plays a half-cleared
-// grid or the default length.
-inline void randomPattern (Grid& target, int scale, int firstRow, int numRows, DiceRng& rng)
-{
-    const int length = target.getLength();
-    const int size = scaleAt (scale).size;
-    Grid grid;
-    grid.setLength (length);
-    if (numRows <= 0)
-    {
-        target.copyFrom (grid);
-        return;
-    }
-
-    auto degreeOf = [size] (int row) { return row % size; };
-    auto randomRow = [&] { return firstRow + rng.below (numRows); };
-
-    // the lead row: a root in view when there is one
-    std::vector<int> roots;
-    for (int row = firstRow; row < firstRow + numRows; ++row)
-        if (degreeOf (row) == 0)
-            roots.push_back (row);
-    std::vector<int> lanes { roots.empty() ? randomRow() : roots[(size_t) rng.below ((int) roots.size())] };
-
-    // the others favour the chord tones (third and fifth) of seven-note scales
-    const int extra = 1 + rng.below (std::min (4, numRows));
-    for (int i = 0, tries = 0; i < extra && tries < 50; ++tries)
-    {
-        const int row = randomRow();
-        const int degree = degreeOf (row);
-        const bool chordTone = degree == 0 || (size == 7 && (degree == 2 || degree == 4));
-        if (std::find (lanes.begin(), lanes.end(), row) != lanes.end() || (! chordTone && rng.chance (0.5f)))
-            continue;
-        lanes.push_back (row);
-        ++i;
-    }
-
-    // Each row plays its own Euclidean rhythm, rotated against the others, so the hits roll
-    // round each other. The lead row is busier and usually starts on the first step.
-    std::vector<bool> taken ((size_t) length, false);
-    int placed = 0;
-    for (size_t lane = 0; lane < lanes.size(); ++lane)
-    {
-        const bool lead = lane == 0;
-        const int pulses = std::max (1, (int) std::lround ((float) length * (lead ? rng.between (0.2f, 0.45f) : rng.between (0.1f, 0.35f))));
-        const int rotation = lead && rng.chance (0.7f) ? 0 : rng.below (length);
-        const EuclidPattern rhythm (length, pulses, rotation);
-
-        for (int step = 0; step < length; ++step)
-        {
-            // where another row already plays, mostly leave the step to it
-            if (! rhythm.isOnset (step) || (taken[(size_t) step] && rng.chance (0.7f)))
-                continue;
-
-            const bool downbeat = step % 4 == 0;
-            Cell c;
-            c.on = true;
-            const float certain = lead ? 0.8f : downbeat ? 0.6f : 0.45f;
-            c.probability = rng.chance (certain) ? 1.0f : std::round (rng.between (0.25f, 0.9f) * 20.0f) / 20.0f;
-            c.velocity = downbeat ? rng.between (0.75f, 1.0f) : rng.between (0.45f, 0.9f);
-            constexpr float ratchets[] = { 83, 10, 4, 3 };
-            c.ratchet = 1 + rng.pick (ratchets);
-            grid.set (rowSlot (lanes[lane], scale), step, c);
-            taken[(size_t) step] = true;
-            ++placed;
-        }
-    }
-
-    if (placed == 0) // never an empty grid: the lead row on the first step
-    {
-        Cell c;
-        c.on = true;
-        c.velocity = 0.9f;
-        grid.set (rowSlot (lanes.front(), scale), 0, c);
-    }
-    target.copyFrom (grid);
 }
 } // namespace bleepforge

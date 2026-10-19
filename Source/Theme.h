@@ -13,7 +13,7 @@ namespace bleepforge::theme
 {
 inline const juce::Colour background { 0xff000000 | kBackgroundRgb };
 inline const juce::Colour panel { 0xff000000 | kPanelRgb };
-inline const juce::Colour panelAlt { 0xff000000 | kPanelAltRgb }; // every second beat in the grid
+inline const juce::Colour panelAlt { 0xff000000 | kPanelAltRgb }; // tooltips
 inline const juce::Colour outline { 0xff2b3039 };
 inline const juce::Colour text { 0xffd8dce4 };
 inline const juce::Colour dimText { 0xff7a8190 };

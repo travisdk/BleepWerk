@@ -1,10 +1,9 @@
 // Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// The dice. Random sounds: every value names a sound parameter of the right engine and sits
-// in its range, and each sound, at its matched gain, plays, stays below clipping and falls
-// silent by itself, like a factory preset; the output gain is the matched one. Random patterns: only rows in view, the length
-// kept, never empty, and the same seed gives the same pattern.
+// The sound dice: every value names a sound parameter of the right engine and sits in its
+// range, and each sound, at its matched gain, plays, stays below clipping and falls silent by
+// itself, like a factory preset; the output gain is the matched one.
 #include "Randomizer.h"
 #include "TestUtils.h"
 
@@ -73,39 +72,8 @@ static void testSounds()
         }
 }
 
-static void testPatterns()
-{
-    const int scale = kDefaultScale, firstRow = 35, inView = 15; // C4 to C6 in minor
-    for (uint64_t seed = 1; seed <= 500; ++seed)
-    {
-        Grid grid;
-        grid.setLength (12);
-        DiceRng rng (seed);
-        randomPattern (grid, scale, firstRow, inView, rng);
-        CHECK (grid.getLength() == 12);
-
-        int hits = 0;
-        for (int row = 0; row < numRows (scale, 0); ++row)
-            for (int step = 0; step < kMaxSteps; ++step)
-                if (grid.get (rowSlot (row, scale), step).on)
-                {
-                    ++hits;
-                    CHECK (row >= firstRow && row < firstRow + inView);
-                    CHECK (step < 12);
-                }
-        CHECK (hits > 0);
-
-        Grid again;
-        again.setLength (12);
-        DiceRng sameSeed (seed);
-        randomPattern (again, scale, firstRow, inView, sameSeed);
-        CHECK (again.toString() == grid.toString());
-    }
-}
-
 int main()
 {
     testSounds();
-    testPatterns();
     return finish ("randomizer");
 }

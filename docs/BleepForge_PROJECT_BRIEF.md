@@ -2,7 +2,7 @@
 
 ## 1. Concept
 
-BleepForge is a melodic instrument plugin for hypnotic and minimal techno. It produces short, percussive, organic sounds: classic bleeps and blips plus foley-like tones (drips, metallic tinks, wooden knocks, crackles). It has a built-in probability grid sequencer inspired by the UX of Stochas, so patterns vary subtly on every pass, or lock into a phrase that repeats.
+BleepForge is a melodic instrument plugin for hypnotic and minimal techno. It produces short, percussive, organic sounds: classic bleeps and blips plus foley-like tones (drips, metallic tinks, wooden knocks, crackles). It is played from MIDI notes: sequencing is done in the DAW. (Until 2026-10-19 it had a built-in probability grid sequencer; that version is kept on the `with-sequencer` branch and tag `v0.9-with-sequencer`.)
 
 Hypnotic techno (target since 2026-10-18) leans on long loops that drift out of phase, slow change over many bars, rolling polyrhythms and space (dub delay, room). Features are weighed against that.
 
@@ -15,20 +15,21 @@ Everything is synthesized. No samples, no third-party audio content.
 - Platforms: Linux and Windows
 - License: open source, free (same approach as SubForge)
 - Build: CMake
-- Parameters via AudioProcessorValueTreeState, full state save/restore (including sequencer grid)
+- Parameters via AudioProcessorValueTreeState, full state save/restore (projects saved with the sequencer version load, their grid is ignored)
 
 ## 3. Hard constraints
 
 - **No samples or wavetables from any external source.** All sound comes from DSP code. Factory presets are parameter sets only.
-- **No copied code from other plugins.** Stochas (and other open source sequencers) may inspire the UX concept, but the implementation must be our own. Do not copy source code, graphics or presets from any other project.
+- **No copied code from other plugins.** Do not copy source code, graphics or presets from any other project.
 - **Real-time safety:** no allocations, locks or file I/O on the audio thread.
-- Sequencer must be sample-accurate and follow host tempo, transport and position.
+- MIDI input is sample-accurate: each note starts on the sample the host puts it on.
+- No hanging notes: note-offs, sustain release, all-notes-off and bypass always end what plays.
 
 ## 4. Sound engine
 
 ### 4.1 Voice types
 
-Each note is rendered by one of three engines, selectable per preset (later perhaps per row):
+Each note is rendered by one of three engines, selectable per preset:
 
 **Bleep engine**
 - Oscillator: sine, triangle, square/pulse (PWM), simple 2-operator FM
@@ -54,11 +55,11 @@ Each note is rendered by one of three engines, selectable per preset (later perh
 
 ### 4.2 Voice mode
 
-- Selectable: **Mono** (one note at a time, classic bleep line, with optional glide) or **Poly** (several rows may sound at once)
+- Selectable: **Mono** (one note at a time, classic bleep line, with optional glide; the last key held wins, and letting go of it returns to the key still held) or **Poly** (up to 8 notes at once)
 
 ### 4.3 Per-hit variation ("Chaos")
 
-- Global Chaos amount plus per-target depth: pitch, decay, tone/brightness, pan
+- Global Chaos amount plus per-target depth: pitch, decay, tone/brightness, pan, velocity
 - Randomization is per triggered note, so repeated notes never sound identical
 
 ### 4.4 Effects (simple, in this order)
@@ -68,39 +69,24 @@ Each note is rendered by one of three engines, selectable per preset (later perh
 - Short tempo-synced delay
 - Plate reverb (Dattorro)
 
-## 5. Sequencer (probability grid)
+## 5. MIDI input
 
-UX inspired by Stochas, own implementation.
-
-- **Rows = notes**: every MIDI note in the selected scale and key, Stochas style (rows show the scale degrees, not all 12 chromatic notes); the grid shows 1 to 4 octaves at a time and scrolls
-- **Scale selector**: 43 scales (from SeqVerse), grouped in the menu: basic, modes, five-, six- and eight-note, exotic (Phrygian dominant, double harmonic, Hirajoshi, In Sen, ...), jazz
-- **Root note** selector
-- **Columns = steps**: 16 by default, selectable length (1 to 32 steps) to allow polymeter against the DAW
-- **Step rate**: 1/8, 1/16, 1/32, triplets
-- **Per cell**:
-  - On/off
-  - Probability (0 to 100 %)
-  - Velocity
-  - Ratchet (1 to 4 repeats within the step)
-- Global swing
-- **Cycle** (Off, 1, 2, 4, 8, 16 bars) and **Seed** (1 to 999): with a cycle, the pattern restarts every cycle and each cell's chance and velocity variation come from the seed and its place in the cycle, so a probabilistic pattern becomes a phrase that repeats exactly; another seed gives another phrase, and Seed can be automated. Off: every pass is drawn afresh (from SeqVerse)
-- **Dice**: one rolls a random sound for the selected engine (curated ranges, output gain matched), one replaces the pattern with a random one in the rows in view (each row on a rotated Euclidean rhythm, led by a root row). Each has a back arrow that undoes its last roll
-- No MIDI input: the plugin plays its own sequencer only (decided 2026-10-17)
-
-### 5.1 MIDI output (optional mode)
-
-- The plugin declares MIDI output (JUCE `producesMidi()`), so the sequencer's generated notes (after probability, ratchets, velocity and Chaos on velocity) are sent to the host
-- **Output mode** parameter: Audio only, Audio + MIDI, MIDI only
-- In **MIDI only** mode the sound engine is disabled entirely (no voices rendered, no CPU cost), so BleepForge works purely as a probability sequencer driving another synth
-- Selectable output MIDI channel
-- Note-offs must always be sent correctly (also on transport stop, mode change and bypass), so no hanging notes
-- Note: host support for MIDI output from instrument plugins varies. CLAP note output is the primary target (Bitwig handles it well); VST3 MIDI output should be implemented but tested per host
+- Notes come from the host on any channel, velocity included; sequencing, probability and
+  pattern variation are done in the DAW (Bitwig's note probability and randomisation, for one)
+- Note-offs (also note-on at velocity 0), the sustain pedal (CC 64), all-notes-off and
+  all-sound-off (CC 123, 120, which also let go of the pedal) and reset-all-controllers
+  (CC 121: pedal up, bend centred)
+- Pitch bend on all three engines, with a Bend Range of 0 to 24 semitones (default 2). It is a
+  setting of the player, so sound presets leave it alone
+- No MIDI output
+- **Dice**: rolls a random sound for the selected engine (curated ranges, output gain
+  matched), with a back arrow that undoes the last roll
 
 ## 6. UI
 
-- Top: grid (main focus, clearly readable probability per cell, e.g. fill level or opacity)
-- Bottom: engine section (Bleep / Foley / Machine), Chaos, effects
-- Simple cell editing: click to toggle, drag or modifier+drag to set probability/velocity
+- Top: title, preset browser, settings
+- Then the engine section (Bleep / Foley / Machine, with Voices, Glide, Bend and Output), and
+  below it Chaos and the effects
 - Resizable window
 - Own visual identity, not imitating any other plugin
 
@@ -108,11 +94,12 @@ UX inspired by Stochas, own implementation.
 
 - Factory presets defined in code or as bundled parameter files (no audio content)
 - A large factory set (over 100), grouped by category: bleeps, pulses, FM, noise, lo-fi, dub, wood, metal, machine, glass, drips, textures
-- Sound presets never change the pattern or the sequencer settings
+- Sound presets never change the Bend Range
 
 ## 8. Quality and testing
 
-- Unit tests for sequencer logic (step timing, probability distribution, ratchets, scale mapping)
+- JUCE-free unit tests for the engines, effects, presets, dice and MIDI input (sustain,
+  all-notes-off, mono last-note priority, pitch bend)
 - Validate builds with pluginval
 - Test in at least one host on each platform (Bitwig on Linux and Windows is the primary host)
 
@@ -120,20 +107,14 @@ UX inspired by Stochas, own implementation.
 
 1. **Skeleton:** JUCE 8 project with CMake, CLAP + VST3 build on Linux and Windows, empty UI, APVTS in place
 2. **Bleep engine**, mono/poly
-3. **Sequencer core:** grid model, host sync, scale/root/octave, probability, velocity
-4. **Grid UI**
-5. **Foley engine**
-6. **Ratchets, Chaos, swing, step length/rate**
-7. **Effects**
-8. **Presets, state save/restore, polish**
-9. **Testing and release** (README, license, build artifacts)
+3. **Foley engine**
+4. **Chaos**
+5. **Effects**
+6. **Presets, state save/restore, polish**
+7. **MIDI input instead of the built-in sequencer** (2026-10-19)
+8. **Testing and release** (README, license, build artifacts)
 
 ## 10. Open for later
 
-- MIDI output mode (Audio / Audio + MIDI / MIDI only, channel), see 5.1; skipped from the milestones on 2026-10-18
-- Engine selection per row instead of per preset
-- A separate MIDI-effect build of the sequencer (for hosts that prefer MIDI effects over instruments with MIDI out)
-- Pattern slots / pattern switching
 - Final product name
-- Hypnotic techno, considered 2026-10-18: a loop length per row (polymeter inside one instance; for now several instances with different Steps do it), slow built-in drift (LFOs over 4 to 64 bars on cutoff, FM amount, brightness), wetter and longer sounds from the dice and a "Hypnotic" preset category, patterns longer than 32 steps
-- Richer ratchets, see [IDEAS.md](../IDEAS.md)
+- Hypnotic techno, considered 2026-10-18: slow built-in drift (LFOs over 4 to 64 bars on cutoff, FM amount, brightness), wetter and longer sounds from the dice and a "Hypnotic" preset category

@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// The Machine engine: every type is tuned to the note, with or without the resonator, Length
+// The Machine engine: every type is tuned to the note and follows pitch bend, with or without the resonator, Length
 // sets how long a sound lasts and every voice ends by itself (note-offs or not), Motion moves
 // the sound and 0 keeps it still, Chaos makes every hit ring a little differently, and every
 // type and setting gives finite output at a sensible level.
@@ -244,6 +244,18 @@ static void everySettingIsSane()
     CHECK (quietest > 0.02f);
 }
 
+// Pitch bend moves the hum and its resonator with it.
+static void bendMovesTheNote()
+{
+    MachineSynth synth;
+    synth.prepare (fs);
+    synth.setParams (params (MachineType::Hum, 0.0f, 1.0f));
+    synth.setPitchBend (-3.0f);
+    synth.noteOn (57, 1.0f);
+    const auto out = render (synth, ms (600));
+    CHECK (std::abs (zeroCrossingHz (out, ms (100), ms (500)) / noteHz (54) - 1.0) < 0.01);
+}
+
 // The saturation rounds off the loudest hits, so four times the velocity is a little less
 // than four times as loud.
 static void velocityScalesTheLevel()
@@ -291,6 +303,7 @@ static void chaosVariesTheResonator()
 int main()
 {
     everyTypeFollowsTheNote();
+    bendMovesTheNote();
     lengthSetsHowLongItLasts();
     voicesEndByThemselves();
     motionMovesTheSound();

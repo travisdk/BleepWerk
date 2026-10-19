@@ -43,6 +43,7 @@ public:
     {
         fs = sampleRate;
         tiltCoef = 1.0f - std::exp (-kTwoPi * 1500.0f / fs);
+        bendCoef = bendCoefFor (fs);
         noise.seed (noiseSeed);
         reset();
     }
@@ -87,6 +88,14 @@ public:
 
     void release() { amp.noteOff(); }
 
+    // Pitch bend in semitones: a sounding voice slides there, a silent one starts there.
+    void setBend (float semis)
+    {
+        bendTarget = semis;
+        if (! isActive())
+            bend = semis;
+    }
+
     // Adds the voice to out. glideCoef is the per-sample one-pole coefficient (0 = no glide).
     void render (float* out, int numSamples, const BleepParams& p, float glideCoef)
     {
@@ -98,7 +107,8 @@ public:
         for (int i = 0; i < numSamples && amp.isActive(); ++i)
         {
             currentPitch = targetPitch + (currentPitch - targetPitch) * glideCoef;
-            const float pitch = currentPitch + variation.pitchSemis + p.pitchEnvSemis * pitchEnv;
+            bend += bendCoef * (bendTarget - bend);
+            const float pitch = currentPitch + bend + variation.pitchSemis + p.pitchEnvSemis * pitchEnv;
             pitchEnv *= pitchCoef;
             const float inc = std::min (0.45f, 440.0f * std::exp2 ((pitch - 69.0f) / 12.0f) / fs);
 
@@ -160,6 +170,7 @@ private:
     float carrierPhase = 0.0f, modulatorPhase = 0.0f;
     float currentPitch = 60.0f, targetPitch = 60.0f, pitchEnv = 0.0f, gain = 1.0f;
     float tiltLowpass = 0.0f, tiltCoef = 0.2f;
+    float bend = 0.0f, bendTarget = 0.0f, bendCoef = 0.1f;
     Variation variation;
     int note = -1;
 };

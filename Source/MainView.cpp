@@ -4,54 +4,22 @@
 #include "MainView.h"
 #include "Theme.h"
 #include "BleepForgeVersion.h"
-#include "Randomizer.h"
 
 namespace
 {
-constexpr int kMargin = 16, kHeaderHeight = 40, kBarHeight = 28, kStatusHeight = 26, kEngineHeight = 150, kBottomHeight = 120,
-              kGap = 10, kChaosWidth = 350;
-
-using EditMode = BleepForgeProcessor::EditMode;
-
-juce::String helpText (EditMode mode)
-{
-    const juce::String value = mode == EditMode::Velocity ? "velocity" : mode == EditMode::Ratchet ? "ratchet (1-4 hits)" : "probability";
-    return "Click: on/off    Drag up/down: " + value + "    Double-click: reset";
-}
-
-void styleBarLabel (juce::Label& label)
-{
-    label.setJustificationType (juce::Justification::centredRight);
-    label.setFont (juce::FontOptions (13.0f));
-}
+constexpr int kMargin = 16, kHeaderHeight = 40, kEngineHeight = 150, kBottomHeight = 120, kGap = 10, kChaosWidth = 350;
 } // namespace
 
 MainView::MainView (BleepForgeProcessor& p)
-    : processor (p), gridView (p), engineView (p), chaosView (p), effectsView (p)
+    : processor (p), engineView (p), chaosView (p), effectsView (p)
 {
     setSize (kWidth, kHeight);
     using namespace bleepforge;
 
-    // header: edit mode and settings
-    editLabel.setJustificationType (juce::Justification::centredRight);
-    editLabel.setFont (juce::FontOptions (13.0f));
-    addAndMakeVisible (editLabel);
-    for (auto* button : { &probabilityButton, &velocityButton, &ratchetButton })
-    {
-        button->setClickingTogglesState (false);
-        addAndMakeVisible (*button);
-    }
-    probabilityButton.setConnectedEdges (juce::Button::ConnectedOnRight);
-    velocityButton.setConnectedEdges (juce::Button::ConnectedOnLeft | juce::Button::ConnectedOnRight);
-    ratchetButton.setConnectedEdges (juce::Button::ConnectedOnLeft);
-    probabilityButton.onClick = [this] { setEditMode (EditMode::Probability); };
-    velocityButton.onClick = [this] { setEditMode (EditMode::Velocity); };
-    ratchetButton.onClick = [this] { setEditMode (EditMode::Ratchet); };
+    // header: settings and the sound preset browser
     settingsButton.setTooltip ("Settings");
     settingsButton.onClick = [this] { showSettingsMenu(); };
     addAndMakeVisible (settingsButton);
-
-    // the sound preset browser
     presetPrev.setConnectedEdges (juce::Button::ConnectedOnRight);
     presetButton.setConnectedEdges (juce::Button::ConnectedOnLeft | juce::Button::ConnectedOnRight);
     presetNext.setConnectedEdges (juce::Button::ConnectedOnLeft);
@@ -68,75 +36,11 @@ MainView::MainView (BleepForgeProcessor& p)
     for (auto* button : { &presetPrev, &presetButton, &presetNext, &saveButton })
         addAndMakeVisible (*button);
 
-    // sequencer bar
-    // grouped under headings; the item IDs stay the parameter's order
-    for (auto* group : kScaleGroups)
-    {
-        scaleBox.addSectionHeading (group);
-        for (int i = 0; i < kNumScales; ++i)
-            if (std::strcmp (kScales[i].group, group) == 0)
-                scaleBox.addItem (kScales[i].name, i + 1);
-    }
-    for (auto* name : kRootNames)
-        rootBox.addItem (name, rootBox.getNumItems() + 1);
-    for (auto* name : kSeqRateNames)
-        rateBox.addItem (name, rateBox.getNumItems() + 1);
-    scaleAttachment = std::make_unique<ComboAttachment> (processor.apvts, "seqScale", scaleBox);
-    rootAttachment = std::make_unique<ComboAttachment> (processor.apvts, "seqRoot", rootBox);
-    rateAttachment = std::make_unique<ComboAttachment> (processor.apvts, "seqRate", rateBox);
-
-    stepsSlider.setRange (1.0, (double) kMaxSteps, 1.0);
-    stepsSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 34, 24);
-    stepsSlider.setValue (processor.getGrid().getLength(), juce::dontSendNotification);
-    stepsSlider.onValueChange = [this]
-    {
-        processor.getGrid().setLength ((int) stepsSlider.getValue());
-        processor.gridEdited();
-    };
-
-    swingSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 44, 24);
-    swingAttachment = std::make_unique<SliderAttachment> (processor.apvts, "seqSwing", swingSlider);
-    if (auto* swing = processor.apvts.getParameter ("seqSwing"))
-        swingSlider.setDoubleClickReturnValue (true, swing->convertFrom0to1 (swing->getDefaultValue()));
-
-    for (auto* label : { &scaleLabel, &rootLabel, &stepsLabel, &rateLabel, &swingLabel })
-    {
-        styleBarLabel (*label);
-        addAndMakeVisible (*label);
-    }
-    for (auto* c : std::initializer_list<juce::Component*> { &scaleBox, &rootBox, &stepsSlider, &rateBox, &swingSlider,
-                                                             &patternBack, &patternDice })
-        addAndMakeVisible (c);
-    patternDice.onClick = [this] { rollPattern(); };
-    patternBack.onClick = [this] { undoPatternRoll(); };
-    patternBack.setEnabled (false);
-
-    for (auto* name : kCycleNames)
-        cycleBox.addItem (name, cycleBox.getNumItems() + 1);
-    cycleBox.setTooltip ("Repeat the pattern's chances as a phrase of this length");
-    cycleAttachment = std::make_unique<ComboAttachment> (processor.apvts, "seqCycle", cycleBox);
-    seedSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 40, 22);
-    seedSlider.setTooltip ("Which phrase the cycle repeats");
-    seedAttachment = std::make_unique<SliderAttachment> (processor.apvts, "seqSeed", seedSlider);
-    for (auto* label : { &cycleLabel, &seedLabel })
-    {
-        styleBarLabel (*label);
-        addAndMakeVisible (*label);
-    }
-    addAndMakeVisible (cycleBox);
-    addAndMakeVisible (seedSlider);
-
-    // grid, status line and sound
-    status.setFont (juce::FontOptions (12.0f));
-    status.setColour (juce::Label::textColourId, theme::dimText);
-    addAndMakeVisible (status);
-    gridView.onStatus = [this] (const juce::String& text) { showStatus (text); };
-    addAndMakeVisible (gridView);
+    // the sound
     addAndMakeVisible (engineView);
     addAndMakeVisible (chaosView);
     addAndMakeVisible (effectsView);
 
-    setEditMode (processor.editMode.load());
     refreshPreset();
     startTimerHz (10);
 }
@@ -146,46 +50,11 @@ MainView::~MainView()
     stopTimer();
 }
 
-// The grid's length isn't a parameter, so a loaded project doesn't tell the slider; the
-// preset can change from the host (programs) or a loaded project; Seed follows Cycle.
+// The preset can change from the host (programs) or a loaded project.
 void MainView::timerCallback()
 {
     if (processor.getSoundPresets().version() != shownPresetVersion)
         refreshPreset();
-
-    // the seed only matters with a cycle
-    const bool cycling = processor.apvts.getRawParameterValue ("seqCycle")->load() >= 0.5f;
-    seedSlider.setEnabled (cycling);
-    seedLabel.setEnabled (cycling);
-
-    const int length = processor.getGrid().getLength();
-    if ((int) stepsSlider.getValue() != length && ! stepsSlider.isMouseButtonDown())
-        stepsSlider.setValue (length, juce::dontSendNotification);
-}
-
-void MainView::showStatus (const juce::String& text)
-{
-    status.setText (text.isEmpty() ? helpText (processor.editMode.load()) : text, juce::dontSendNotification);
-}
-
-void MainView::setEditMode (EditMode mode)
-{
-    using namespace bleepforge;
-    processor.editMode = mode;
-    probabilityButton.setToggleState (mode == EditMode::Probability, juce::dontSendNotification);
-    velocityButton.setToggleState (mode == EditMode::Velocity, juce::dontSendNotification);
-    ratchetButton.setToggleState (mode == EditMode::Ratchet, juce::dontSendNotification);
-    probabilityButton.setColour (juce::TextButton::textColourOnId, theme::primary());
-    velocityButton.setColour (juce::TextButton::textColourOnId, theme::secondary());
-    ratchetButton.setColour (juce::TextButton::textColourOnId, theme::secondary());
-    gridView.editModeChanged();
-    showStatus ({});
-}
-
-// The edit mode buttons carry the theme's shades.
-void MainView::lookAndFeelChanged()
-{
-    setEditMode (processor.editMode.load());
 }
 
 // For every open BleepForge editor of this process, and saved for the next ones.
@@ -205,24 +74,7 @@ void MainView::chooseTheme (int index)
 
 void MainView::showSettingsMenu()
 {
-    auto* range = processor.apvts.getParameter ("seqRange");
-    const int current = (int) processor.apvts.getRawParameterValue ("seqRange")->load();
-
-    juce::PopupMenu rangeMenu;
-    for (int octaves = 1; octaves <= BleepForgeProcessor::kMaxVisibleOctaves; ++octaves)
-        rangeMenu.addItem (juce::String (octaves) + (octaves == 1 ? " octave" : " octaves"), true, octaves == current,
-                           [range, octaves]
-                           {
-                               range->beginChangeGesture();
-                               range->setValueNotifyingHost (range->convertTo0to1 ((float) octaves));
-                               range->endChangeGesture();
-                           });
-
     juce::PopupMenu menu;
-    menu.addSectionHeader ("Grid");
-    menu.addSubMenu ("Visible range: " + juce::String (current) + (current == 1 ? " octave" : " octaves"), rangeMenu);
-    menu.addItem ("Preview notes", true, processor.previewEnabled(),
-                  [this] { processor.setPreviewEnabled (! processor.previewEnabled()); });
 
     // each theme in its bright shade
     menu.addSectionHeader ("Colour");
@@ -308,32 +160,6 @@ void MainView::refreshPreset()
     presetButton.setButtonText (presets.name());
     const auto category = presets.entryCategory (presets.current());
     presetButton.setTooltip (category.isEmpty() ? presets.name() : category + ": " + presets.name());
-}
-
-// Replaces the whole pattern; scale, key, steps and rate stay as they are.
-void MainView::rollPattern()
-{
-    auto& grid = processor.getGrid();
-    patternBeforeRoll = std::make_unique<bleepforge::Grid>();
-    patternBeforeRoll->copyFrom (grid);
-
-    bleepforge::DiceRng rng ((uint64_t) juce::Random::getSystemRandom().nextInt64());
-    bleepforge::randomPattern (grid, processor.sequencerSettings().scale, gridView.firstRow(), gridView.visibleRows(), rng);
-    processor.gridEdited();
-    gridView.repaint(); // the grid view's timer only redraws for steps and hits
-    patternBack.setEnabled (true);
-}
-
-// One step back only, like the sound dice.
-void MainView::undoPatternRoll()
-{
-    if (patternBeforeRoll == nullptr)
-        return;
-    processor.getGrid().copyFrom (*patternBeforeRoll);
-    processor.gridEdited();
-    gridView.repaint();
-    patternBeforeRoll.reset();
-    patternBack.setEnabled (false);
 }
 
 void MainView::savePreset (const juce::String& name)
@@ -450,7 +276,7 @@ void MainView::resized()
 {
     auto area = getLocalBounds().reduced (kMargin);
 
-    // header: edit mode after the title, settings on the right
+    // header: the title, then the preset browser and settings on the right
     auto header = area.removeFromTop (kHeaderHeight);
     settingsButton.setBounds (header.removeFromRight (26).withSizeKeepingCentre (26, 26));
     header.removeFromRight (14);
@@ -458,50 +284,13 @@ void MainView::resized()
     header.removeFromRight (8);
     for (auto [button, width] : { std::pair { &presetNext, 26 }, { &presetButton, 200 }, { &presetPrev, 26 } })
         button->setBounds (header.removeFromRight (width).withSizeKeepingCentre (width, 26));
-    header.removeFromLeft (176);
-    editLabel.setBounds (header.removeFromLeft (36).withSizeKeepingCentre (36, 26));
-    header.removeFromLeft (6);
-    for (auto [button, width] : { std::pair { &probabilityButton, 86 }, { &velocityButton, 70 }, { &ratchetButton, 70 } })
-        button->setBounds (header.removeFromLeft (width).withSizeKeepingCentre (width, 26));
 
-    // sequencer bar
-    area.removeFromTop (4);
-    auto bar = area.removeFromTop (kBarHeight);
-    auto place = [&bar] (juce::Component& label, int labelWidth, juce::Component& control, int width)
-    {
-        label.setBounds (bar.removeFromLeft (labelWidth));
-        bar.removeFromLeft (6);
-        control.setBounds (bar.removeFromLeft (width).withSizeKeepingCentre (width, 24));
-        bar.removeFromLeft (18);
-    };
-    place (scaleLabel, 44, scaleBox, 160);
-    place (rootLabel, 36, rootBox, 64);
-    place (stepsLabel, 44, stepsSlider, 96);
-    place (rateLabel, 36, rateBox, 78);
-    place (swingLabel, 44, swingSlider, 130);
-    patternDice.setBounds (bar.removeFromRight (22).withSizeKeepingCentre (22, 22));
-    bar.removeFromRight (4);
-    patternBack.setBounds (bar.removeFromRight (22).withSizeKeepingCentre (22, 22));
-
-    // sound at the bottom: the engine, then Chaos and the effects side by side
-    auto bottom = area.removeFromBottom (kBottomHeight);
+    // the sound: the engine, then Chaos and the effects side by side
+    area.removeFromTop (kGap);
+    engineView.setBounds (area.removeFromTop (kEngineHeight));
+    area.removeFromTop (kGap);
+    auto bottom = area.removeFromTop (kBottomHeight);
     chaosView.setBounds (bottom.removeFromLeft (kChaosWidth));
     bottom.removeFromLeft (kGap);
     effectsView.setBounds (bottom);
-    area.removeFromBottom (kGap);
-    engineView.setBounds (area.removeFromBottom (kEngineHeight));
-    area.removeFromBottom (kGap);
-
-    area.removeFromTop (8);
-    auto footer = area.removeFromBottom (kStatusHeight);
-    footer.removeFromRight ((int) (GridView::kOverviewWidth + GridView::kOverviewGap));
-    seedSlider.setBounds (footer.removeFromRight (92).withSizeKeepingCentre (92, 22));
-    footer.removeFromRight (6);
-    seedLabel.setBounds (footer.removeFromRight (34));
-    footer.removeFromRight (16);
-    cycleBox.setBounds (footer.removeFromRight (84).withSizeKeepingCentre (84, 22));
-    footer.removeFromRight (6);
-    cycleLabel.setBounds (footer.removeFromRight (40));
-    status.setBounds (footer.withTrimmedLeft ((int) GridView::kLabelWidth - 4));
-    gridView.setBounds (area);
 }

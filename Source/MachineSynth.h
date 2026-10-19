@@ -10,8 +10,7 @@
 #include <iterator>
 #include <vector>
 
-// The Machine engine: industrial sounds, tuned to the note so they play melodically in the
-// grid. Every type is a source into a metal resonator (8 sharp bandpasses on inharmonic
+// The Machine engine: industrial sounds, tuned to the note so they play melodically. Every type is a source into a metal resonator (8 sharp bandpasses on inharmonic
 // ratios that follow the note), then a light saturation:
 //   Hit    a click and a burst of noise striking the resonator, with a deep rumble and a short
 //          hiss layered on: a heavy industrial hit
@@ -74,6 +73,7 @@ public:
     void prepare (float sampleRate, uint32_t noiseSeed)
     {
         fs = sampleRate;
+        bendCoef = bendCoefFor (fs);
         noise.seed (noiseSeed);
         comb.assign ((size_t) (fs / kLowestHz) + 4, 0.0f);
         // Hit's hiss layer: a fixed bandpass around 7 kHz, about two octaves wide
@@ -140,6 +140,14 @@ public:
     // Length decides when it ends; note-offs don't stop it.
     void release() {}
 
+    // Pitch bend in semitones: a sounding voice slides there, a silent one starts there.
+    void setBend (float semis)
+    {
+        bendTarget = semis;
+        if (! isActive())
+            bend = semis;
+    }
+
     void render (float* out, int numSamples, const MachineParams& p, float glideCoef)
     {
         if (stage == Stage::Idle)
@@ -182,6 +190,7 @@ public:
             ++elapsed;
 
             currentPitch = targetPitch + (currentPitch - targetPitch) * glideCoef;
+            bend += bendCoef * (bendTarget - bend);
             if (needsCoefs || i % kCoefInterval == 0)
                 updateCoefs (p.type, tone, focus, metal);
 
@@ -237,7 +246,7 @@ private:
 
     float pitchHz (float semis) const
     {
-        return 440.0f * std::exp2 ((currentPitch + variation.pitchSemis + semis - 69.0f) / 12.0f);
+        return 440.0f * std::exp2 ((currentPitch + bend + variation.pitchSemis + semis - 69.0f) / 12.0f);
     }
 
     // The resonator's coefficients and gains, and Hiss's bandpass. A click puts little energy
@@ -420,6 +429,7 @@ private:
     int elapsed = 0;
     float env = 0.0f, gain = 1.0f;
     float currentPitch = 60.0f, targetPitch = 60.0f, phase = 0.0f, lfoPhase = 0.0f;
+    float bend = 0.0f, bendTarget = 0.0f, bendCoef = 0.1f;
     std::array<Mode, kMachineModeRatios.size()> modes {};                    // the resonator
     float x1 = 0.0f, x2 = 0.0f;
     float dryPower = 0.0f, wetPower = 0.0f, wetGain = 1.0f; // the ring matched to the source

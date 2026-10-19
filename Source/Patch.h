@@ -107,7 +107,6 @@ struct Patch
     FoleyParams foleyParams;
     MachineParams machine;
     ChaosDepths chaos;
-    float velocityChaos = 0.0f;
     bool mono = false;
     float glideMs = 0.0f;
     EffectParams effects;
@@ -158,7 +157,7 @@ Patch readPatch (Get&& get)
     patch.chaos.decay = amount * get ("chaosDecay");
     patch.chaos.tone = amount * get ("chaosTone");
     patch.chaos.pan = amount * get ("chaosPan");
-    patch.velocityChaos = amount * get ("chaosVelocity");
+    patch.chaos.velocity = amount * get ("chaosVelocity");
 
     patch.mono = index ("voiceMode", 2) == 0;
     patch.glideMs = get ("glide");
