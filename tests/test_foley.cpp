@@ -214,6 +214,35 @@ static void velocityScalesTheLevel()
     CHECK (std::abs (peak (hard) / peak (soft) - 4.0f) < 0.2f);
 }
 
+// With Chaos off, a note struck again sounds the same, also with the noisy exciters (a looped
+// bar mustn't change from pass to pass); any Chaos makes each hit different.
+static void repeatedHitsMatchWithoutChaos()
+{
+    for (auto exciter : { FoleyExciter::Noise, FoleyExciter::Crackle })
+        for (bool withChaos : { false, true })
+        {
+            FoleyParams p = pureTone();
+            p.exciter = exciter;
+            p.exciterMs = 5.0f;
+            p.damping = 0.9f;
+            FoleySynth synth;
+            synth.prepare (fs);
+            synth.setParams (p);
+            ChaosDepths chaos;
+            chaos.pan = 0.5f; // moves no sample of a mono render, only the noise
+            synth.setChaos (withChaos ? chaos : ChaosDepths {});
+
+            synth.noteOn (60, 1.0f);
+            const auto first = render (synth, ms (300));
+            CHECK (synth.activeVoices() == 0);
+            synth.noteOn (67, 1.0f); // another note in between moves on any shared noise
+            render (synth, ms (300));
+            synth.noteOn (60, 1.0f);
+            const auto again = render (synth, ms (300));
+            CHECK ((first == again) != withChaos);
+        }
+}
+
 int main()
 {
     noteSetsTheFundamental();
@@ -224,5 +253,6 @@ int main()
     sweepSlidesIntoTheNote();
     everyExciterAndMaterialIsSane();
     velocityScalesTheLevel();
+    repeatedHitsMatchWithoutChaos();
     return finish ("foley");
 }
