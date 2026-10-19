@@ -26,6 +26,7 @@ struct Variation
     float decayScale = 1.0f;
     float tone = 0.0f; // -1 darker .. 1 brighter
     float modeSpread = 0.0f; // 0..1: how far a resonator may detune its modes (Machine)
+    uint32_t noiseSeed = 0x9e3779b9u; // where the voice's noise starts on this hit
 };
 
 // How far Chaos may move each note, 0..1 per target (the amount already applied).
@@ -191,6 +192,16 @@ private:
         const float pan = signedRandom() * chaos.pan;
         if (chaos.velocity > 0.0f)
             velocity = std::clamp (velocity * (1.0f + kChaosMaxVelocity * chaos.velocity * signedRandom()), 1.0f / 127.0f, 1.0f);
+
+        // Every hit restarts the voice's noise, so with Chaos off a note sounds the same each
+        // time (a looped bar doesn't change from pass to pass). The seed follows the note so a
+        // chord's voices don't share one noise; any Chaos makes it random again.
+        variation.noiseSeed = (uint32_t) (note + 1) * 0x9e3779b9u;
+        if (chaos.pitch > 0.0f || chaos.decay > 0.0f || chaos.tone > 0.0f || chaos.pan > 0.0f || chaos.velocity > 0.0f)
+        {
+            signedRandom();
+            variation.noiseSeed = rng;
+        }
 
         if (! voices[index].isActive())
             panNow[index] = pan; // a silent voice can jump; a ringing one glides

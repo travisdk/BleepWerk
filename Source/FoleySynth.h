@@ -103,6 +103,7 @@ public:
     void start (int midiNote, float velocity, bool glide, const Variation& v = {})
     {
         variation = v;
+        noise.seed (v.noiseSeed);
         if (! active)
             glide = false;
         note = midiNote;

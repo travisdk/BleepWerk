@@ -65,6 +65,7 @@ public:
     void start (int midiNote, float velocity, bool glide, const Variation& v = {})
     {
         variation = v;
+        noise.seed (v.noiseSeed);
         if (! amp.isActive())
         {
             carrierPhase = modulatorPhase = 0.0f;
