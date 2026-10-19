@@ -66,7 +66,7 @@ Each note is rendered by one of three engines, selectable per preset (later perh
 - Filter (LP/BP/HP, resonance)
 - Bitcrush / sample rate reduction
 - Short tempo-synced delay
-- Small room reverb
+- Plate reverb (Dattorro)
 
 ## 5. Sequencer (probability grid)
 
