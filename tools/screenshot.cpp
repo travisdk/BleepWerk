@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Renders the interface of a fresh instance to a PNG, for checking the layout and for the
-// README: BleepForge_Screenshot <output.png> [scale] [velocity|ratchet] [foley|machine] [range=<octaves>] [note=<bottom note>]
+// README: BleepForge_Screenshot <output.png> [scale] [foley|machine]
 
 #include "MainView.h"
 #include "Theme.h"
@@ -11,7 +11,7 @@ int main (int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [velocity|ratchet] [foley|machine] [range=<octaves>] [note=<bottom note>]\n";
+        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [foley|machine]\n";
         return 1;
     }
 
@@ -24,21 +24,10 @@ int main (int argc, char* argv[])
     for (int i = 3; i < argc; ++i)
     {
         const juce::String option (argv[i]);
-        if (option == "velocity")
-            processor.editMode = BleepForgeProcessor::EditMode::Velocity;
-        else if (option == "ratchet")
-            processor.editMode = BleepForgeProcessor::EditMode::Ratchet;
-        else if (option == "foley")
+        if (option == "foley")
             processor.apvts.getParameter ("engine")->setValueNotifyingHost (0.5f);
         else if (option == "machine")
             processor.apvts.getParameter ("engine")->setValueNotifyingHost (1.0f);
-        else if (option.startsWith ("range="))
-        {
-            auto* range = processor.apvts.getParameter ("seqRange");
-            range->setValueNotifyingHost (range->convertTo0to1 (option.fromFirstOccurrenceOf ("=", false, false).getFloatValue()));
-        }
-        else if (option.startsWith ("note="))
-            processor.bottomNote = option.fromFirstOccurrenceOf ("=", false, false).getIntValue();
     }
 
     auto view = std::make_unique<MainView> (processor);

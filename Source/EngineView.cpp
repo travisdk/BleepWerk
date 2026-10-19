@@ -8,7 +8,7 @@
 
 namespace
 {
-constexpr int kPadding = 10, kLeftWidth = 250, kKnobWidth = 62, kChoiceWidth = 104;
+constexpr int kPadding = 10, kLeftWidth = 312, kKnobWidth = 62, kChoiceWidth = 104;
 } // namespace
 
 EngineView::EngineView (BleepForgeProcessor& p)
@@ -16,6 +16,7 @@ EngineView::EngineView (BleepForgeProcessor& p)
       engine (p.apvts, "engine", "Engine"),
       voices (p.apvts, "voiceMode", "Voices"),
       glide (p.apvts, "glide", "Glide"),
+      bend (p.apvts, "bendRange", "Bend"),
       output (p.apvts, "outputGain", "Output"),
       bleepWave (p.apvts, "bleepWave", "Wave"),
       pulseWidth (p.apvts, "bleepPulseWidth", "Pulse W"),
@@ -41,7 +42,7 @@ EngineView::EngineView (BleepForgeProcessor& p)
       focus (p.apvts, "machineFocus", "Focus"),
       metal (p.apvts, "machineMetal", "Metal")
 {
-    for (auto* c : std::initializer_list<juce::Component*> { &engine, &voices, &glide, &output, &dice, &back })
+    for (auto* c : std::initializer_list<juce::Component*> { &engine, &voices, &glide, &bend, &output, &dice, &back })
         addAndMakeVisible (c);
     dice.onClick = [this] { rollSound(); };
     back.onClick = [this] { undoRoll(); };
@@ -148,14 +149,15 @@ void EngineView::resized()
 {
     auto area = getLocalBounds().reduced (kPadding);
 
-    // shared: the engine across the full width, so all three names fit, then Voices, Glide
-    // and Output below it
+    // shared: the engine across the full width, so all three names fit, then Voices, Glide,
+    // Bend and Output below it
     auto left = area.removeFromLeft (kLeftWidth - kPadding * 2);
     engine.setBounds (left.removeFromTop (44));
     left.removeFromTop (4);
-    voices.setBounds (left.removeFromLeft (left.getWidth() - 2 * kKnobWidth - 6).withTrimmedTop (8));
+    voices.setBounds (left.removeFromLeft (left.getWidth() - 3 * kKnobWidth - 6).withTrimmedTop (8));
     left.removeFromLeft (6);
     glide.setBounds (left.removeFromLeft (kKnobWidth));
+    bend.setBounds (left.removeFromLeft (kKnobWidth));
     output.setBounds (left.removeFromLeft (kKnobWidth));
 
     // the engine's own: its choice first, then the knobs

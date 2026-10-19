@@ -11,12 +11,12 @@
 // Plays notes on a set of voices of one engine: up to kMaxVoices at once in Poly mode
 // (stealing the quietest releasing voice, else the oldest), or one with glide in Mono mode
 // (the last key held wins). Chaos gives every note its own small variation of pitch, decay,
-// tone and stereo position. JUCE-free.
+// tone, velocity and stereo position. Pitch bend moves every voice. JUCE-free.
 //
 // A Voice provides: prepare (float sampleRate, uint32_t noiseSeed), reset(), isActive(),
 // isReleasing(), getNote(), getLevel(), start (int note, float velocity, bool glide,
-// const Variation&), glideTo (int note), release(), and render (float* out, int numSamples,
-// const Params&, float glideCoef), which adds to out.
+// const Variation&), glideTo (int note), release(), setBend (float semis), and render (float* out,
+// int numSamples, const Params&, float glideCoef), which adds to out.
 namespace bleepforge
 {
 // How one note differs from the patch, drawn by Chaos.
@@ -31,11 +31,16 @@ struct Variation
 // How far Chaos may move each note, 0..1 per target (the amount already applied).
 struct ChaosDepths
 {
-    float pitch = 0.0f, decay = 0.0f, tone = 0.0f, pan = 0.0f;
+    float pitch = 0.0f, decay = 0.0f, tone = 0.0f, pan = 0.0f, velocity = 0.0f;
 };
 
 inline constexpr float kChaosMaxPitchSemis = 2.0f;  // at full depth; depth^2, so fine near 0
 inline constexpr float kChaosMaxDecayOctaves = 1.5f; // decay up to 2^1.5 longer or shorter
+inline constexpr float kChaosMaxVelocity = 0.6f;     // velocity up to 60 % softer or harder
+
+// How fast a voice follows the pitch bend: about 5 ms to the new value, so a bend sweeps
+// smoothly and a jump doesn't click.
+inline float bendCoefFor (float sampleRate) { return 1.0f - std::exp (-4.6f / (0.005f * sampleRate)); }
 
 template <typename Voice, typename Params>
 class VoicePool
@@ -55,6 +60,13 @@ public:
 
     void setParams (const Params& p) { params = p; }
     void setChaos (const ChaosDepths& depths) { chaos = depths; }
+
+    // Pitch bend in semitones, for every voice: sounding ones slide there, silent ones start there.
+    void setPitchBend (float semis)
+    {
+        for (auto& voice : voices)
+            voice.setBend (semis);
+    }
 
     // Switching mode releases whatever plays, so no Poly voice is left hanging in Mono.
     void setMode (Mode m)
@@ -177,6 +189,8 @@ private:
         variation.tone = signedRandom() * chaos.tone;
         variation.modeSpread = chaos.pitch; // the voice draws each mode's own detune from it
         const float pan = signedRandom() * chaos.pan;
+        if (chaos.velocity > 0.0f)
+            velocity = std::clamp (velocity * (1.0f + kChaosMaxVelocity * chaos.velocity * signedRandom()), 1.0f / 127.0f, 1.0f);
 
         if (! voices[index].isActive())
             panNow[index] = pan; // a silent voice can jump; a ringing one glides

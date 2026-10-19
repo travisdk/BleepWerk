@@ -10,7 +10,7 @@
 // The factory sound presets, in the order the browser shows them. Each lists only what it
 // changes from the defaults in kSoundParams; everything else, the output gain included, is
 // reset on loading. The output gain is set by matchedOutputDb() so they all play about
-// equally loud. A preset never touches the pattern or the sequencer. JUCE-free.
+// equally loud. A preset never touches the pitch bend range, a setting of the player. JUCE-free.
 namespace bleepforge
 {
 struct PresetValue

@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// The Foley engine: the note sets the fundamental and Size shifts it, Damping sets how long
+// The Foley engine: the note (and pitch bend) sets the fundamental and Size shifts it, Damping sets how long
 // it rings and every voice ends by itself, Brightness adds overtones, the sweep slides into
 // the note, and every exciter and material gives finite output at a sensible level.
 #include "FoleySynth.h"
@@ -82,6 +82,18 @@ static FoleyParams pureTone()
     p.brightness = 0.0f;
     p.damping = 0.1f;
     return p;
+}
+
+// Pitch bend retunes the object: two semitones up from A4.
+static void bendRetunesTheObject()
+{
+    FoleySynth synth;
+    synth.prepare (fs);
+    synth.setParams (pureTone());
+    synth.setPitchBend (2.0f);
+    synth.noteOn (69, 1.0f);
+    const auto out = render (synth, ms (400));
+    CHECK (std::abs (frequency (out, ms (150), ms (400)) - 493.88) < 2.0);
 }
 
 static void noteSetsTheFundamental()
@@ -205,6 +217,7 @@ static void velocityScalesTheLevel()
 int main()
 {
     noteSetsTheFundamental();
+    bendRetunesTheObject();
     dampingSetsTheRingTime();
     voicesEndByThemselves();
     brightnessAddsOvertones();

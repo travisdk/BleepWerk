@@ -9,8 +9,8 @@
 
 #include <optional>
 
-// The sound section below the grid. Left: the engine (Bleep, Foley or Machine), and below it
-// Mono or Poly, Glide and Output. Right: the controls of the selected engine, which swap when the engine changes, and
+// The sound section. Left: the engine (Bleep, Foley or Machine), and below it
+// Mono or Poly, Glide, Bend and Output. Right: the controls of the selected engine, which swap when the engine changes, and
 // by the engine's name the dice, which roll a random sound for that engine, with a back arrow.
 class EngineView : public juce::Component, private juce::Timer
 {
@@ -29,7 +29,7 @@ private:
 
     BleepForgeProcessor& processor;
     Toggle engine, voices;
-    Knob glide, output;
+    Knob glide, bend, output;
 
     Choice bleepWave;
     Knob pulseWidth, fmRatio, fmAmount, pitchAmount, pitchDecay, attack, decay, release, noise;

@@ -78,6 +78,7 @@ public:
     void prepare (float sampleRate, uint32_t noiseSeed)
     {
         fs = sampleRate;
+        bendCoef = bendCoefFor (fs);
         noise.seed (noiseSeed);
         reset();
     }
@@ -126,6 +127,14 @@ public:
     // A struck object rings out by itself; note-offs don't stop it.
     void release() {}
 
+    // Pitch bend in semitones: a sounding voice slides there, a silent one starts there.
+    void setBend (float semis)
+    {
+        bendTarget = semis;
+        if (! isActive())
+            bend = semis;
+    }
+
     void render (float* out, int numSamples, const FoleyParams& p, float glideCoef)
     {
         if (! active)
@@ -147,10 +156,12 @@ public:
 
         for (int i = 0; i < numSamples; ++i)
         {
-            const bool sliding = std::abs (currentPitch - targetPitch) > 1.0e-3f || (std::abs (p.sweepSemis) > 1.0e-3f && sweepEnv > 1.0e-3f);
+            const bool sliding = std::abs (currentPitch - targetPitch) > 1.0e-3f || std::abs (bend - bendTarget) > 1.0e-3f
+                              || (std::abs (p.sweepSemis) > 1.0e-3f && sweepEnv > 1.0e-3f);
             if (needsCoefs || (sliding && i % kCoefInterval == 0))
                 updateCoefs (p);
             currentPitch = targetPitch + (currentPitch - targetPitch) * glideCoef;
+            bend += bendCoef * (bendTarget - bend);
             sweepEnv *= sweepCoef;
 
             // zeros at DC and Nyquist (x - x[n-2]) make each resonator a bandpass, so the
@@ -223,7 +234,7 @@ private:
         needsCoefs = false;
         const auto material = blendMaterial (p.material);
         const float size = std::clamp (p.size, 0.0f, 1.0f);
-        const float pitch = currentPitch + variation.pitchSemis + 12.0f * (1.0f - 2.0f * size) - p.sweepSemis * sweepEnv;
+        const float pitch = currentPitch + bend + variation.pitchSemis + 12.0f * (1.0f - 2.0f * size) - p.sweepSemis * sweepEnv;
         const float f0 = 440.0f * std::exp2 ((pitch - 69.0f) / 12.0f);
 
         // ring time of the fundamental: 3 s .. 20 ms, longer for big objects and metal
@@ -263,6 +274,7 @@ private:
     int exciterPos = 0, exciterLeft = 0, exciterLength = 1;
     float strength = 1.0f, lowpass = 0.0f, x1 = 0.0f, x2 = 0.0f, sweepEnv = 0.0f, level = 0.0f, levelDecay = 0.999f;
     float currentPitch = 60.0f, targetPitch = 60.0f;
+    float bend = 0.0f, bendTarget = 0.0f, bendCoef = 0.1f;
     Variation variation;
     int note = -1;
 };

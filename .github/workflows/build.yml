@@ -15,7 +15,7 @@ on:
 env:
   JUCE_VERSION: "8.0.15"
   CLAP_JUCE_EXTENSIONS_COMMIT: 7adee3a1bd4684d4caa5601100e364abccff4b4d
-  TEST_TARGETS: "test_bleep test_sequencer test_foley"   # test_<name> targets from tests/CMakeLists.txt, space-separated
+  TEST_TARGETS: "test_bleep test_note_input test_foley"   # test_<name> targets from tests/CMakeLists.txt, space-separated
 
 jobs:
   build:
