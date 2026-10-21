@@ -64,23 +64,6 @@ static float peak (const std::vector<float>& v)
     return p;
 }
 
-// from the first to the last rising zero crossing, interpolated between samples
-static double zeroCrossingHz (const std::vector<float>& v, int from, int to)
-{
-    double first = -1.0, last = -1.0;
-    int crossings = 0;
-    for (int i = std::max (1, from); i < to; ++i)
-        if (v[(size_t) i - 1] < 0.0f && v[(size_t) i] >= 0.0f)
-        {
-            const double at = i - 1 + v[(size_t) i - 1] / (v[(size_t) i - 1] - v[(size_t) i]);
-            if (first < 0.0)
-                first = at;
-            last = at;
-            ++crossings;
-        }
-    return crossings < 2 ? 0.0 : (crossings - 1) * fs / (last - first);
-}
-
 // The frequency between lo and hi (Hz) with the most energy, in 1 Hz steps.
 static double strongestHz (const std::vector<float>& v, int from, int to, double lo, double hi)
 {
@@ -130,11 +113,6 @@ static void everyTypeFollowsTheNote()
     {
         const double hz = noteHz (note);
 
-        // a pure hum is a sine on the note
-        const auto hum = play (params (MachineType::Hum, 0.0f, 1.0f), note, 600);
-        const double humHz = zeroCrossingHz (hum, ms (100), ms (500));
-        CHECK (std::abs (humHz / hz - 1.0) < 0.01);
-
         // a whistling hiss at Tone 0 sits on the note (found by its period: the faint
         // broadband rest of the noise would throw off a count of zero crossings)
         const double period = fs / hz;
@@ -146,22 +124,19 @@ static void everyTypeFollowsTheNote()
         const auto grind = play (params (MachineType::Grind, 1.0f, 1.0f), note, 600);
         const int lag = bestLag (grind, ms (100), ms (300), (int) (period * 0.7), (int) (period * 1.3));
         CHECK (std::abs (lag / period - 1.0) < 0.03);
-        std::printf ("note %d: hum %.1f hiss %.1f grind %.1f Hz (note %.1f)\n", note, humHz, hissHz, fs / lag, hz);
+        std::printf ("note %d: hiss %.1f grind %.1f Hz (note %.1f)\n", note, hissHz, fs / lag, hz);
 
-        // the ringing resonator's lowest, loudest mode is the note: a struck hit, and a hum
-        // through it still sits on its note
+        // the ringing resonator's lowest, loudest mode is the note
         const auto hit = play (params (MachineType::Hit, 0.3f, 1.0f, 0.0f, 1000.0f, 1.0f), note, 600);
         const double hitHz = strongestHz (hit, ms (20), ms (400), hz * 0.85, hz * 1.15);
         CHECK (std::abs (hitHz / hz - 1.0) < 0.01);
-        const auto ringingHum = play (params (MachineType::Hum, 0.0f, 1.0f, 0.0f, 1000.0f, 1.0f), note, 600);
-        CHECK (std::abs (zeroCrossingHz (ringingHum, ms (200), ms (500)) / hz - 1.0) < 0.01);
     }
 }
 
 static void lengthSetsHowLongItLasts()
 {
     // a hit dies away by itself before its Length; the rest hold until their fade
-    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Hum, MachineType::Grind })
+    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Grind })
         for (float lengthMs : { 100.0f, 1500.0f })
         {
             const auto out = play (params (type, 0.5f, 0.5f, 0.0f, lengthMs, 0.5f), 48, lengthMs + 300.0);
@@ -177,7 +152,7 @@ static void voicesEndByThemselves()
     // a note-off doesn't cut the sound, and with or without one every voice ends
     MachineSynth synth;
     synth.prepare (fs);
-    synth.setParams (params (MachineType::Hum, 0.5f, 0.5f, 0.3f, 800.0f));
+    synth.setParams (params (MachineType::Hiss, 0.5f, 0.5f, 0.3f, 800.0f));
     synth.noteOn (48, 1.0f);
     render (synth, ms (50));
     synth.noteOff (48);
@@ -191,21 +166,21 @@ static void voicesEndByThemselves()
 
 static void motionMovesTheSound()
 {
-    // the level of 20 ms windows over a second: still at Motion 0, moving above it
+    // the level of 40 ms windows over a second: still at Motion 0, moving above it
     auto spread = [] (const std::vector<float>& v)
     {
         double lo = 1.0e9, hi = 0.0;
-        for (int start = ms (100); start + ms (20) <= ms (1100); start += ms (20))
+        for (int start = ms (100); start + ms (40) <= ms (1100); start += ms (40))
         {
-            const double level = rms (v, start, start + ms (20));
+            const double level = rms (v, start, start + ms (40));
             lo = std::min (lo, level);
             hi = std::max (hi, level);
         }
         return hi / std::max (1.0e-9, lo);
     };
-    const auto still = play (params (MachineType::Hum, 0.3f, 1.0f, 0.0f, 3000.0f), 45, 1200);
-    const auto moving = play (params (MachineType::Hum, 0.3f, 1.0f, 0.3f, 3000.0f), 45, 1200);
-    std::printf ("hum level spread: still %.2f, moving %.2f\n", spread (still), spread (moving));
+    const auto still = play (params (MachineType::Hiss, 0.5f, 0.0f, 0.0f, 3000.0f), 45, 1200);
+    const auto moving = play (params (MachineType::Hiss, 0.5f, 0.0f, 0.3f, 3000.0f), 45, 1200);
+    std::printf ("hiss level spread: still %.2f, moving %.2f\n", spread (still), spread (moving));
     CHECK (spread (still) < 1.3);
     CHECK (spread (moving) > 2.0);
 
@@ -220,7 +195,7 @@ static void motionMovesTheSound()
 static void everySettingIsSane()
 {
     float loudest = 0.0f, quietest = 1.0e9f;
-    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Hum, MachineType::Grind })
+    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Grind })
         for (float tone : { 0.0f, 0.5f, 1.0f })
             for (float focus : { 0.0f, 0.5f, 1.0f })
                 for (float motion : { 0.0f, 1.0f })
@@ -244,26 +219,29 @@ static void everySettingIsSane()
     CHECK (quietest > 0.02f);
 }
 
-// Pitch bend moves the hum and its resonator with it.
+// Pitch bend moves the comb and its resonator with it.
 static void bendMovesTheNote()
 {
     MachineSynth synth;
     synth.prepare (fs);
-    synth.setParams (params (MachineType::Hum, 0.0f, 1.0f));
+    synth.setParams (params (MachineType::Grind, 1.0f, 1.0f));
     synth.setPitchBend (-3.0f);
     synth.noteOn (57, 1.0f);
     const auto out = render (synth, ms (600));
-    CHECK (std::abs (zeroCrossingHz (out, ms (100), ms (500)) / noteHz (54) - 1.0) < 0.01);
+    const double period = fs / noteHz (54);
+    const int lag = bestLag (out, ms (100), ms (300), (int) (period * 0.7), (int) (period * 1.3));
+    CHECK (std::abs (lag / period - 1.0) < 0.03);
 }
 
 // The saturation rounds off the loudest hits, so four times the velocity is a little less
 // than four times as loud.
 static void velocityScalesTheLevel()
 {
-    const auto soft = play (params (MachineType::Hum, 0.0f, 1.0f), 48, 300, 0.25f);
-    const auto hard = play (params (MachineType::Hum, 0.0f, 1.0f), 48, 300, 1.0f);
-    const float ratio = peak (hard) / peak (soft);
-    CHECK (ratio > 3.0f && ratio < 4.05f);
+    const auto soft = play (params (MachineType::Hiss, 0.5f, 0.0f), 48, 300, 0.25f);
+    const auto hard = play (params (MachineType::Hiss, 0.5f, 0.0f), 48, 300, 1.0f);
+    const double ratio = rms (hard, 0, ms (300)) / rms (soft, 0, ms (300));
+    std::printf ("velocity ratio %.3f\n", ratio);
+    CHECK (ratio > 3.0 && ratio < 4.05);
 }
 
 // With Chaos on pitch, the resonator's modes move a little on every note, so the second mode
