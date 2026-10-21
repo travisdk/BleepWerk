@@ -19,11 +19,32 @@ enum class FilterType { Off, LowPass, BandPass, HighPass };
 inline constexpr const char* kFilterTypeNames[] = { "Off", "LP", "BP", "HP" };
 inline constexpr int kNumFilterTypes = (int) std::size (kFilterTypeNames);
 
-// Delay times in beats, straight, triplet and dotted, short enough for a percussive line.
-inline constexpr const char* kDelayTimeNames[] = { "1/32", "1/16T", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D", "1/4" };
-inline constexpr double kDelayTimeBeats[] = { 0.125, 1.0 / 6.0, 0.25, 1.0 / 3.0, 0.375, 0.5, 2.0 / 3.0, 0.75, 1.0 };
-inline constexpr int kNumDelayTimes = (int) std::size (kDelayTimeNames);
-inline constexpr int kDefaultDelayTime = 4; // 1/16 dotted, the classic against a straight 1/16 line
+// The delay time is a note value, each twice the one before, and a feel that makes it a
+// triplet or dotted. Two controls rather than one list, so the knob takes even steps and the
+// feel can be seen at a glance.
+inline constexpr const char* kDelayNoteNames[] = { "1/32", "1/16", "1/8", "1/4", "1/2" };
+inline constexpr double kDelayNoteBeats[] = { 0.125, 0.25, 0.5, 1.0, 2.0 };
+inline constexpr int kNumDelayNotes = (int) std::size (kDelayNoteNames);
+inline constexpr const char* kDelayFeelNames[] = { "Straight", "Triplet", "Dotted" };
+inline constexpr double kDelayFeelScale[] = { 1.0, 2.0 / 3.0, 1.5 };
+inline constexpr int kNumDelayFeels = (int) std::size (kDelayFeelNames);
+inline constexpr int kDefaultDelayNote = 1, kDefaultDelayFeel = 2; // 1/16 dotted, the classic against a straight 1/16 line
+
+inline double delayBeats (int note, int feel)
+{
+    return kDelayNoteBeats[std::clamp (note, 0, kNumDelayNotes - 1)] * kDelayFeelScale[std::clamp (feel, 0, kNumDelayFeels - 1)];
+}
+
+// Before 0.11 the time was one list, "delayTime": 1/32, 1/16T, 1/16, 1/8T, 1/16D, 1/8, 1/4T,
+// 1/8D, 1/4. Older projects and presets are read through this, so they keep their length.
+inline void splitOldDelayTime (int oldIndex, int& note, int& feel)
+{
+    constexpr int notes[] = { 0, 1, 1, 2, 1, 2, 3, 2, 3 };
+    constexpr int feels[] = { 0, 1, 0, 1, 2, 0, 1, 2, 0 };
+    const int i = std::clamp (oldIndex, 0, (int) std::size (notes) - 1);
+    note = notes[i];
+    feel = feels[i];
+}
 
 inline constexpr float kCrushBitsOff = 16.0f;    // at the top of the Bits range the crusher is out
 inline constexpr float kCrushRateOff = 48000.0f; // and at the top of the Rate range there is no hold
@@ -35,7 +56,8 @@ struct EffectParams
     float resonance = 0.2f;      // 0..1
     float crushBits = kCrushBitsOff; // 1..16, fractional values blend in smoothly
     float crushRateHz = kCrushRateOff;
-    int delayTime = kDefaultDelayTime; // index into kDelayTimeBeats
+    int delayNote = kDefaultDelayNote; // index into kDelayNoteBeats
+    int delayFeel = kDefaultDelayFeel; // index into kDelayFeelScale
     float delayFeedback = 0.35f; // 0..0.95
     float delayMix = 0.0f;       // 0..1
     float roomSize = 0.4f;       // 0..1
@@ -210,7 +232,7 @@ private:
 class Delay
 {
 public:
-    static constexpr double kMaxSeconds = 4.0; // 1/4 at 15 BPM
+    static constexpr double kMaxSeconds = 6.0; // 1/2 dotted at 30 BPM
 
     void prepare (float sampleRate)
     {
@@ -234,10 +256,9 @@ public:
         primed = false;
     }
 
-    void setParams (int timeIndex, double bpm, float newFeedback, float newMix)
+    void setParams (int note, int feel, double bpm, float newFeedback, float newMix)
     {
-        const double beats = kDelayTimeBeats[std::clamp (timeIndex, 0, kNumDelayTimes - 1)];
-        const double seconds = beats * 60.0 / std::max (1.0, bpm);
+        const double seconds = delayBeats (note, feel) * 60.0 / std::max (1.0, bpm);
         delaySamples.target = (float) std::clamp (seconds * fs, 1.0, (double) lines[0].size() - 3.0);
         feedback.target = std::clamp (newFeedback, 0.0f, 0.95f);
         mix.target = std::clamp (newMix, 0.0f, 1.0f);
@@ -547,7 +568,7 @@ public:
     {
         filter.setParams (p.filterType, p.cutoffHz, p.resonance);
         crusher.setParams (p.crushBits, p.crushRateHz);
-        delay.setParams (p.delayTime, bpm, p.delayFeedback, p.delayMix);
+        delay.setParams (p.delayNote, p.delayFeel, bpm, p.delayFeedback, p.delayMix);
         room.setParams (p.roomSize, p.roomDecay, p.roomTone, p.roomMix, p.roomDuck);
     }
 

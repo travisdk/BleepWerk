@@ -57,19 +57,22 @@ void Choice::resized()
     box.setBounds (area.removeFromTop (28).reduced (2, 0));
 }
 
-Toggle::Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& parameterId, const juce::String& name)
-    : parameter (*apvts.getParameter (parameterId))
+Toggle::Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& parameterId, const juce::String& name,
+                bool stackButtons, const juce::StringArray& labels)
+    : parameter (*apvts.getParameter (parameterId)), stacked (stackButtons)
 {
     styleName (label, name);
     label.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (label);
 
-    const auto names = parameter.getAllValueStrings();
+    const auto names = labels.isEmpty() ? parameter.getAllValueStrings() : labels;
     const int last = names.size() - 1;
+    const int before = stacked ? juce::Button::ConnectedOnTop : juce::Button::ConnectedOnLeft;
+    const int after = stacked ? juce::Button::ConnectedOnBottom : juce::Button::ConnectedOnRight;
     for (int i = 0; i <= last; ++i)
     {
         auto* button = buttons.add (new juce::TextButton (names[i]));
-        button->setConnectedEdges ((i > 0 ? juce::Button::ConnectedOnLeft : 0) | (i < last ? juce::Button::ConnectedOnRight : 0));
+        button->setConnectedEdges ((i > 0 ? before : 0) | (i < last ? after : 0));
         button->onClick = [this, i, last]
         {
             parameter.beginChangeGesture();
@@ -100,6 +103,13 @@ void Toggle::resized()
 {
     auto area = getLocalBounds();
     label.setBounds (area.removeFromTop (16));
+    if (stacked)
+    {
+        const int height = area.getHeight() / juce::jmax (1, buttons.size());
+        for (int i = 0; i < buttons.size(); ++i)
+            buttons[i]->setBounds (i == buttons.size() - 1 ? area : area.removeFromTop (height));
+        return;
+    }
     area = area.removeFromTop (26);
     const int width = area.getWidth() / juce::jmax (1, buttons.size());
     for (int i = 0; i < buttons.size(); ++i)

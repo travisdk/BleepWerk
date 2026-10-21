@@ -24,6 +24,7 @@ private:
     BleepForgeProcessor& processor;
     Choice filterType;
     Knob cutoff, resonance, bits, rate, delayTime, feedback, delayMix, roomSize, roomDecay, roomTone, roomMix, roomDuck;
+    Toggle delayFeel; // straight, triplet or dotted, stacked beside Time
 
     // the groups as laid out, for paint() to put the names and dividers on
     struct Group { const char* name; juce::Rectangle<int> area; };

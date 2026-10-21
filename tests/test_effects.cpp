@@ -119,10 +119,26 @@ static void testCrusher()
     CHECK (changes >= 470 && changes <= 481); // 480 holds in 100 ms
 }
 
+// Every old delayTime keeps its length as a time and a feel, and the new values are right.
+static void testDelayTimes()
+{
+    constexpr double oldBeats[] = { 0.125, 1.0 / 6.0, 0.25, 1.0 / 3.0, 0.375, 0.5, 2.0 / 3.0, 0.75, 1.0 };
+    for (int i = 0; i < (int) std::size (oldBeats); ++i)
+    {
+        int note = -1, feel = -1;
+        splitOldDelayTime (i, note, feel);
+        CHECK (std::abs (delayBeats (note, feel) - oldBeats[i]) < 1.0e-9);
+    }
+    CHECK (std::abs (delayBeats (3, 2) - 1.5) < 1.0e-9); // 1/4 dotted
+    CHECK (std::abs (delayBeats (4, 0) - 2.0) < 1.0e-9); // 1/2
+    CHECK (std::abs (delayBeats (4, 2) - 3.0) < 1.0e-9); // 1/2 dotted, the longest
+}
+
 static void testDelay()
 {
     EffectParams p;
-    p.delayTime = 2; // 1/16 at 120 BPM: 125 ms
+    p.delayNote = 1; // 1/16 at 120 BPM: 125 ms
+    p.delayFeel = 0;
     p.delayMix = 1.0f;
     p.delayFeedback = 0.5f;
     const int echo = (int) (0.125 * fs);
@@ -231,6 +247,7 @@ int main()
     testDefaultsPassThrough();
     testFilter();
     testCrusher();
+    testDelayTimes();
     testDelay();
     testReverb();
     return finish ("effects");

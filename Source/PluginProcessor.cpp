@@ -203,7 +203,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
                                               const float value = text.retainCharacters ("0123456789.").getFloatValue();
                                               return text.contains ("k") ? value * 1000.0f : value;
                                           })));
-    choice ("delayTime", "Delay Time", namesOf (bleepforge::kDelayTimeNames));
+    choice ("delayNote", "Delay Time", namesOf (bleepforge::kDelayNoteNames));
+    choice ("delayFeel", "Delay Feel", namesOf (bleepforge::kDelayFeelNames));
     sound ("delayFeedback", "Delay Feedback", linear ("delayFeedback"));
     sound ("delayMix", "Delay Mix", linear ("delayMix"));
     sound ("roomSize", "Reverb Size", linear ("roomSize"));
@@ -375,6 +376,19 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
             // a reloaded state saves byte for byte the same.
             for (auto id : { "stateVersion", "presetName", "presetIndex" })
                 state.removeProperty (id, nullptr);
+            // before version 3 the delay time was one list; it becomes a time and a feel
+            if (auto old = state.getChildWithProperty ("id", "delayTime"); old.isValid())
+            {
+                int note = 0, feel = 0;
+                bleepforge::splitOldDelayTime (juce::roundToInt ((float) old.getProperty ("value")), note, feel);
+                for (auto [id, value] : { std::pair { "delayNote", note }, std::pair { "delayFeel", feel } })
+                {
+                    juce::ValueTree param ("PARAM");
+                    param.setProperty ("id", id, nullptr);
+                    param.setProperty ("value", value, nullptr);
+                    state.appendChild (param, nullptr);
+                }
+            }
             for (int i = state.getNumChildren(); --i >= 0;)
                 if (apvts.getParameter (state.getChild (i).getProperty ("id").toString()) == nullptr)
                     state.removeChild (i, nullptr);

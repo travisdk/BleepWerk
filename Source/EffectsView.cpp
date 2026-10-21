@@ -6,7 +6,7 @@
 
 namespace
 {
-constexpr int kPadding = 10, kTitleHeight = 12, kKnobWidth = 50, kChoiceWidth = 58, kGroupGap = 13;
+constexpr int kPadding = 10, kTitleHeight = 12, kKnobWidth = 50, kChoiceWidth = 58, kFeelWidth = 36, kGroupGap = 13;
 } // namespace
 
 EffectsView::EffectsView (BleepForgeProcessor& p)
@@ -16,17 +16,18 @@ EffectsView::EffectsView (BleepForgeProcessor& p)
       resonance (p.apvts, "filterResonance", "Reso"),
       bits (p.apvts, "crushBits", "Bits"),
       rate (p.apvts, "crushRate", "Rate"),
-      delayTime (p.apvts, "delayTime", "Time"),
+      delayTime (p.apvts, "delayNote", "Time"),
       feedback (p.apvts, "delayFeedback", "Feedback"),
       delayMix (p.apvts, "delayMix", "Mix"),
       roomSize (p.apvts, "roomSize", "Size"),
       roomDecay (p.apvts, "roomDecay", "Decay"),
       roomTone (p.apvts, "roomTone", "Tone"),
       roomMix (p.apvts, "roomMix", "Mix"),
-      roomDuck (p.apvts, "roomDuck", "Duck")
+      roomDuck (p.apvts, "roomDuck", "Duck"),
+      delayFeel (p.apvts, "delayFeel", "", true, { "Str", "Tri", "Dot" })
 {
     for (auto* c : std::initializer_list<juce::Component*> { &filterType, &cutoff, &resonance, &bits, &rate, &delayTime,
-                                                             &feedback, &delayMix, &roomSize, &roomDecay, &roomTone, &roomMix, &roomDuck })
+                                                             &delayFeel, &feedback, &delayMix, &roomSize, &roomDecay, &roomTone, &roomMix, &roomDuck })
         addAndMakeVisible (c);
 
     timerCallback();
@@ -38,9 +39,10 @@ EffectsView::~EffectsView()
     stopTimer();
 }
 
-// Follows the filter type, which automation or the host can change too.
+// Follows the filter type and the delay feel, which automation or the host can change too.
 void EffectsView::timerCallback()
 {
+    delayFeel.update();
     const bool filterOn = (int) processor.apvts.getRawParameterValue ("filterType")->load() != (int) bleepforge::FilterType::Off;
     cutoff.setEnabled (filterOn);
     resonance.setEnabled (filterOn);
@@ -86,7 +88,7 @@ void EffectsView::resized()
 
     group (0, [&] { filterType.setBounds (area.removeFromLeft (kChoiceWidth).withTrimmedTop (10)); place (cutoff, kKnobWidth); place (resonance, kKnobWidth); });
     group (1, [&] { place (bits, kKnobWidth); place (rate, kKnobWidth); });
-    group (2, [&] { place (delayTime, kKnobWidth); place (feedback, kKnobWidth); place (delayMix, kKnobWidth); });
+    group (2, [&] { place (delayTime, kKnobWidth); place (delayFeel, kFeelWidth); area.removeFromLeft (6); place (feedback, kKnobWidth); place (delayMix, kKnobWidth); });
     group (3, [&]
            {
                for (auto* knob : { &roomSize, &roomDecay, &roomTone, &roomMix, &roomDuck })
