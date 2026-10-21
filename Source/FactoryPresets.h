@@ -33,7 +33,7 @@ inline constexpr float Sine = 0, Triangle = 1, Pulse = 2, FM = 3;
 inline constexpr float Noise = 0, Mallet = 1, Crackle = 2;
 inline constexpr float LP = 1, BP = 2, HP = 3;
 inline constexpr float D32 = 0, D16T = 1, D16 = 2, D8T = 3, D16D = 4, D8 = 5, D4T = 6, D8D = 7, D4 = 8;
-inline constexpr float Hit = 0, Hiss = 1, Hum = 2, Grind = 3;
+inline constexpr float Hit = 0, Hiss = 1, Grind = 2;
 inline constexpr float Mono = 0;
 
 inline constexpr PresetValue Foley { "engine", 1 };
@@ -249,7 +249,7 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Press Stamp", "Metal", { Foley, { "foleyExciter", Noise }, { "foleyLength", 1.5f }, { "foleyMaterial", 0.45f }, { "foleySize", 0.8f },
                                     { "foleyDamping", 0.7f }, { "foleyBrightness", 0.4f }, { "foleySweep", -5 } } },
 
-        // ---- Machine: struck parts, steam, motors and grinders, tuned to the note
+        // ---- Machine: struck parts, steam and grinders, tuned to the note
         { "Press Clonk", "Machine", { Machine, { "machineType", Hit }, { "machineLength", 900 }, { "machineTone", 0.45f },
                                       { "machineFocus", 0.4f }, { "machineMetal", 0.75f }, { "chaosAmount", 0.5f }, { "chaosPitch", 0.6f },
                                       { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
@@ -267,18 +267,6 @@ inline const std::vector<FactoryPreset>& factoryPresets()
                                        { "machineFocus", 0.95f }, { "machineMetal", 0.4f } } },
         { "Air Brake", "Machine", { Machine, { "machineType", Hiss }, { "machineLength", 180 }, { "machineTone", 0.9f },
                                     { "machineFocus", 0.35f }, { "machineMetal", 0.1f }, { "chaosAmount", 0.4f }, { "chaosTone", 0.6f } } },
-        { "Transformer", "Machine", { Machine, { "machineType", Hum }, { "machineLength", 3000 }, { "machineTone", 0.4f },
-                                      { "machineFocus", 0.9f }, { "machineMetal", 0.3f } } },
-        { "Motor Pulse", "Machine", { Machine, { "machineType", Hum }, { "machineLength", 2000 }, { "machineTone", 0.6f },
-                                      { "machineFocus", 0.7f }, { "machineMotion", 0.45f }, { "machineMetal", 0.4f } } },
-        { "Generator", "Machine", { Machine, { "machineType", Hum }, { "machineLength", 4000 }, { "machineTone", 0.8f },
-                                    { "machineFocus", 0.4f }, { "machineMotion", 0.6f }, { "machineMetal", 0.45f }, { "filterType", LP },
-                                    { "filterCutoff", 1500 } } },
-        { "Sub Thrum", "Machine", { Machine, { "machineType", Hum }, { "machineLength", 800 }, { "machineTone", 0.2f },
-                                    { "machineFocus", 1 }, { "machineMotion", 0.75f }, { "machineMetal", 0.1f } } },
-        { "Factory Floor", "Machine", { Machine, { "machineType", Hum }, { "machineLength", 2000 }, { "machineTone", 0.5f },
-                                        { "machineFocus", 0.1f }, { "machineMotion", 0.3f }, { "machineMetal", 0.6f }, { "roomSize", 0.8f },
-                                        { "roomDecay", 1.2f }, { "roomMix", 0.35f } } },
         { "Grinder", "Machine", { Machine, { "machineType", Grind }, { "machineLength", 900 }, { "machineTone", 0.7f },
                                   { "machineFocus", 0.8f }, { "machineMotion", 0.4f }, { "machineMetal", 0.7f } } },
         { "Lathe", "Machine", { Machine, { "machineType", Grind }, { "machineLength", 2500 }, { "machineTone", 0.5f },

@@ -15,23 +15,22 @@
 //   Hit    a click and a burst of noise striking the resonator, with a deep rumble and a short
 //          hiss layered on: a heavy industrial hit
 //   Hiss   steam: noise through a bandpass that sits on the note (or octaves above it)
-//   Hum    a motor or transformer: a deep tone, from a pure sine to a buzz, with a rasp
 //   Grind  noise through a comb filter tuned to the note, which slides when it moves
 // Five controls, the same for every type:
 //   Length how long the sound lasts, fade included (a voice ends by itself, note-offs don't
-//          stop it, so a short step can start a hum that lasts for bars)
+//          stop it, so a short step can start a hiss that lasts for bars)
 //   Tone   dark to bright
-//   Motion how fast it moves: 0 is still, then a slow wave up to a fast rattle. It pulses the
-//          level (Hum), sweeps the comb (Grind), makes the hiss flutter (Hiss) or rattles the
-//          struck part with small knocks (Hit)
+//   Motion how fast it moves: 0 is still, then a slow wave up to a fast rattle. It sweeps the
+//          comb (Grind), makes the hiss flutter (Hiss) or rattles the struck part with small
+//          knocks (Hit)
 //   Focus  from wide, airy noise to a clear tone; on Hit, how much rumble and hiss there is
 //   Metal  how much the resonator rings: 0 the dry source, 1 ringing metal for about a second
 // Chaos moves the resonator's modes a little on every note, so no two hits ring the same.
 // JUCE-free.
 namespace bleepforge
 {
-enum class MachineType { Hit, Hiss, Hum, Grind };
-inline constexpr const char* kMachineTypeNames[] = { "Hit", "Hiss", "Hum", "Grind" };
+enum class MachineType { Hit, Hiss, Grind };
+inline constexpr const char* kMachineTypeNames[] = { "Hit", "Hiss", "Grind" };
 inline constexpr int kNumMachineTypes = (int) std::size (kMachineTypeNames);
 
 struct MachineParams
@@ -93,11 +92,11 @@ public:
         x1 = x2 = 0.0f;
         stage = Stage::Idle;
         env = 0.0f;
-        ic1 = ic2 = combLowpass = noiseLowpass = 0.0f;
+        ic1 = ic2 = combLowpass = 0.0f;
         air1 = air2 = rumble1 = rumble2 = 0.0f;
         dryPower = wetPower = 0.0f;
         wetGain = 1.0f;
-        phase = lfoPhase = subPhase = 0.0f;
+        lfoPhase = subPhase = 0.0f;
         note = -1;
     }
 
@@ -113,10 +112,7 @@ public:
         variation = v;
         noise.seed (v.noiseSeed);
         if (stage == Stage::Idle)
-        {
             glide = false;
-            phase = 0.0f;
-        }
         note = midiNote;
         targetPitch = (float) midiNote;
         if (! glide)
@@ -207,7 +203,6 @@ public:
                     layers = (1.0f - focus) * hitLayers();
                     break;
                 case MachineType::Hiss: dry = hiss (lfo); break;
-                case MachineType::Hum: dry = hum (tone, focus, lfo); break;
                 case MachineType::Grind: dry = grind (tone, focus, lfo); break;
             }
 
@@ -372,28 +367,6 @@ private:
         return v1 * svfK * svfGain * (1.0f - 0.6f * lfo);
     }
 
-    // A sine on the note, driven into a buzz by Tone (less on high notes, where the overtones
-    // would alias). Below full Focus a rasp joins in: noise chopped by the tone's own cycle.
-    // Motion pulses the level, like a motor that labours.
-    float hum (float tone, float focus, float lfo)
-    {
-        const float f = pitchHz (0.0f);
-        const float inc = std::min (0.45f, f / fs);
-        const float sine = std::sin (kTwoPi * phase);
-        phase = wrapPhase (phase + inc);
-
-        const float drive = 1.0f + 8.0f * tone * std::min (1.0f, 150.0f / f);
-        float s = std::tanh (drive * sine) / std::tanh (drive);
-
-        const float lpCoef = 1.0f - std::exp (-kTwoPi * std::min (0.45f * fs, 4.0f * f) / fs);
-        noiseLowpass += lpCoef * (noise.next() - noiseLowpass);
-        // a one-pole lowpass passes a/(2-a) of white noise's power; this keeps the rasp as loud
-        // on low notes as on high ones
-        const float rasp = noiseLowpass * (1.0f + sine) * std::sqrt ((2.0f - lpCoef) / lpCoef);
-        s += (1.0f - focus) * (rasp - s);
-        return 0.55f * s * (1.0f - 0.8f * lfo);
-    }
-
     // Noise into a feedback comb whose delay is one period of the note; Focus is the feedback,
     // from a faint colour to a ringing tone, and Tone the lowpass in the loop. Motion slides
     // the comb up to a fifth up and back, the sound of a grinder biting.
@@ -429,7 +402,7 @@ private:
     bool needsCoefs = true;
     int elapsed = 0;
     float env = 0.0f, gain = 1.0f;
-    float currentPitch = 60.0f, targetPitch = 60.0f, phase = 0.0f, lfoPhase = 0.0f;
+    float currentPitch = 60.0f, targetPitch = 60.0f, lfoPhase = 0.0f;
     float bend = 0.0f, bendTarget = 0.0f, bendCoef = 0.1f;
     std::array<Mode, kMachineModeRatios.size()> modes {};                    // the resonator
     float x1 = 0.0f, x2 = 0.0f;
@@ -438,7 +411,6 @@ private:
     float hitLowpass = 0.0f, subPhase = 0.0f, rumble1 = 0.0f, rumble2 = 0.0f;
     float air1 = 0.0f, air2 = 0.0f, airK = 1.0f, airA1 = 0.0f, airA2 = 0.0f, airA3 = 0.0f;
     float ic1 = 0.0f, ic2 = 0.0f, svfG = 0.1f, svfK = 1.0f, svfGain = 1.0f; // Hiss
-    float noiseLowpass = 0.0f;                                               // Hum
     std::vector<float> comb;                                                 // Grind
     size_t combWrite = 0;
     float combLowpass = 0.0f;
