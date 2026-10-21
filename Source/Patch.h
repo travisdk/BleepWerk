@@ -74,7 +74,8 @@ inline constexpr SoundParam kSoundParams[] = {
     { "filterResonance", 0, 1, 0.2f },
     { "crushBits", 1, kCrushBitsOff, kCrushBitsOff },
     { "crushRate", 200, kCrushRateOff, kCrushRateOff },
-    { "delayTime", 0, kNumDelayTimes - 1, kDefaultDelayTime },
+    { "delayNote", 0, kNumDelayNotes - 1, kDefaultDelayNote },
+    { "delayFeel", 0, kNumDelayFeels - 1, kDefaultDelayFeel },
     { "delayFeedback", 0, 0.95f, 0.35f },
     { "delayMix", 0, 1, 0 },
     { "roomSize", 0, 1, 0.4f },
@@ -168,7 +169,8 @@ Patch readPatch (Get&& get)
     e.resonance = get ("filterResonance");
     e.crushBits = get ("crushBits");
     e.crushRateHz = get ("crushRate");
-    e.delayTime = index ("delayTime", kNumDelayTimes);
+    e.delayNote = index ("delayNote", kNumDelayNotes);
+    e.delayFeel = index ("delayFeel", kNumDelayFeels);
     e.delayFeedback = get ("delayFeedback");
     e.delayMix = get ("delayMix");
     e.roomSize = get ("roomSize");

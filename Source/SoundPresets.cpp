@@ -86,12 +86,21 @@ bool SoundPresets::loadFile (const juce::File& file)
     if (xml == nullptr || ! xml->hasTagName ("BleepForgePreset"))
         return false;
 
+    // files saved before 0.11 have one delay time list instead of a time and a feel
+    int oldDelayNote = -1, oldDelayFeel = -1;
+    if (auto* old = xml->getChildByAttribute ("id", "delayTime"))
+        bleepforge::splitOldDelayTime (juce::roundToInt (old->getDoubleAttribute ("value")), oldDelayNote, oldDelayFeel);
+
     for (auto* p : state.processor.getParameters())
         if (auto* param = dynamic_cast<juce::RangedAudioParameter*> (p); param != nullptr && isSoundParameter (param->paramID))
         {
             float value = param->convertFrom0to1 (param->getDefaultValue());
             if (auto* element = xml->getChildByAttribute ("id", param->paramID))
                 value = (float) element->getDoubleAttribute ("value", value);
+            else if (oldDelayNote >= 0 && param->paramID == "delayNote")
+                value = (float) oldDelayNote;
+            else if (oldDelayFeel >= 0 && param->paramID == "delayFeel")
+                value = (float) oldDelayFeel;
             files::setParameterValue (*param, value);
         }
     return true;

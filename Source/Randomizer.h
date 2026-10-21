@@ -135,7 +135,8 @@ inline std::vector<PresetValue> randomSound (Engine engine, DiceRng& rng)
     set ("crushRate", crush && rng.chance (0.5f) ? std::round (rng.logBetween (4000, 20000)) : kCrushRateOff);
 
     const bool delay = rng.chance (0.6f);
-    set ("delayTime", (float) rng.below (kNumDelayTimes));
+    set ("delayNote", (float) rng.below (kNumDelayNotes - 1)); // up to 1/4: 1/2 is long for a dice roll
+    set ("delayFeel", (float) rng.below (kNumDelayFeels));
     set ("delayFeedback", round (rng.between (0.2f, 0.6f), 0.01f));
     set ("delayMix", delay ? round (rng.between (0.1f, 0.35f), 0.01f) : 0.0f);
 

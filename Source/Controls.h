@@ -31,10 +31,13 @@ struct Choice : juce::Component
     juce::AudioProcessorValueTreeState::ComboBoxAttachment attachment;
 };
 
-// One button per option, side by side, for a choice parameter with a few options.
+// One button per option, side by side, for a choice parameter with a few options. Stacked
+// instead where there is height but no width; labels, if given, replace the option names
+// on the buttons.
 struct Toggle : juce::Component
 {
-    Toggle (juce::AudioProcessorValueTreeState&, const juce::String& parameterId, const juce::String& name);
+    Toggle (juce::AudioProcessorValueTreeState&, const juce::String& parameterId, const juce::String& name,
+            bool stacked = false, const juce::StringArray& labels = {});
     void resized() override;
     void update(); // follows the parameter
     void lookAndFeelChanged() override; // the theme changed
@@ -42,6 +45,7 @@ struct Toggle : juce::Component
     juce::RangedAudioParameter& parameter;
     juce::Label label;
     juce::OwnedArray<juce::TextButton> buttons;
+    bool stacked;
 };
 
 // A small icon button drawn without fonts or images: a die (roll random values) or a back

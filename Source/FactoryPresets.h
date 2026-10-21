@@ -32,7 +32,8 @@ namespace preset
 inline constexpr float Sine = 0, Saw = 1, Pulse = 2, FM = 3;
 inline constexpr float Noise = 0, Mallet = 1, Crackle = 2;
 inline constexpr float LP = 1, BP = 2, HP = 3;
-inline constexpr float D32 = 0, D16T = 1, D16 = 2, D8T = 3, D16D = 4, D8 = 5, D4T = 6, D8D = 7, D4 = 8;
+inline constexpr float N32 = 0, N16 = 1, N8 = 2, N4 = 3, N2 = 4;
+inline constexpr float Straight = 0, Triplet = 1, Dotted = 2;
 inline constexpr float Hit = 0, Hiss = 1, Grind = 2;
 inline constexpr float Mono = 0;
 
@@ -174,28 +175,28 @@ inline const std::vector<FactoryPreset>& factoryPresets()
 
         // ---- Dub and delay
         { "Dub Bleep", "Dub", { { "bleepPitchAmount", 0 }, { "bleepDecay", 200 }, { "filterType", LP }, { "filterCutoff", 2500 },
-                                { "delayTime", D8D }, { "delayFeedback", 0.6f }, { "delayMix", 0.4f } } },
+                                { "delayNote", N8 }, { "delayFeel", Dotted }, { "delayFeedback", 0.6f }, { "delayMix", 0.4f } } },
         { "Echo Blip", "Dub", { { "bleepPitchAmount", 12 }, { "bleepPitchDecay", 15 }, { "bleepDecay", 120 },
-                                { "delayTime", D16D }, { "delayFeedback", 0.5f }, { "delayMix", 0.35f } } },
+                                { "delayNote", N16 }, { "delayFeel", Dotted }, { "delayFeedback", 0.5f }, { "delayMix", 0.35f } } },
         { "Space Stab", "Dub", { { "bleepWave", Pulse }, { "bleepPitchAmount", 0 }, { "bleepDecay", 250 }, { "filterType", LP },
-                                 { "filterCutoff", 1500 }, { "filterResonance", 0.4f }, { "delayTime", D4 }, { "delayFeedback", 0.62f },
+                                 { "filterCutoff", 1500 }, { "filterResonance", 0.4f }, { "delayNote", N4 }, { "delayFeel", Straight }, { "delayFeedback", 0.62f },
                                  { "delayMix", 0.4f }, { "roomSize", 0.7f }, { "roomDecay", 1.1f }, { "roomMix", 0.3f } } },
-        { "Triplet Echo", "Dub", { { "bleepDecay", 150 }, { "delayTime", D8T }, { "delayFeedback", 0.55f },
+        { "Triplet Echo", "Dub", { { "bleepDecay", 150 }, { "delayNote", N8 }, { "delayFeel", Triplet }, { "delayFeedback", 0.55f },
                                    { "delayMix", 0.4f } } },
         { "Dub Tick", "Dub", { { "bleepWave", Pulse }, { "bleepPulseWidth", 0.1f }, { "bleepDecay", 20 }, { "filterType", HP },
-                               { "filterCutoff", 2000 }, { "delayTime", D16D }, { "delayFeedback", 0.7f }, { "delayMix", 0.45f } } },
+                               { "filterCutoff", 2000 }, { "delayNote", N16 }, { "delayFeel", Dotted }, { "delayFeedback", 0.7f }, { "delayMix", 0.45f } } },
         { "Dub Bell", "Dub", { { "bleepWave", FM }, { "bleepFmRatio", 3.5f }, { "bleepFmAmount", 0.4f }, { "bleepPitchAmount", 0 },
-                               { "bleepDecay", 700 }, { "delayTime", D4T }, { "delayFeedback", 0.55f }, { "delayMix", 0.35f },
+                               { "bleepDecay", 700 }, { "delayNote", N4 }, { "delayFeel", Triplet }, { "delayFeedback", 0.55f }, { "delayMix", 0.35f },
                                { "roomDecay", 0.7f }, { "roomMix", 0.3f } } },
         { "Echo Plate", "Dub", { Foley, { "foleyMaterial", 0.5f }, { "foleySize", 0.4f }, { "foleyDamping", 0.4f }, { "foleyBrightness", 0.6f },
-                                 { "delayTime", D8 }, { "delayFeedback", 0.5f }, { "delayMix", 0.35f } } },
+                                 { "delayNote", N8 }, { "delayFeel", Straight }, { "delayFeedback", 0.5f }, { "delayMix", 0.35f } } },
         { "Long Echo", "Dub", { { "bleepPitchAmount", 0 }, { "bleepDecay", 150 }, { "filterType", LP }, { "filterCutoff", 1800 },
-                                { "delayTime", D8D }, { "delayFeedback", 0.65f }, { "delayMix", 0.45f } } },
-        { "Slapback Blip", "Dub", { { "bleepDecay", 100 }, { "delayTime", D32 }, { "delayFeedback", 0.2f }, { "delayMix", 0.35f } } },
+                                { "delayNote", N8 }, { "delayFeel", Dotted }, { "delayFeedback", 0.65f }, { "delayMix", 0.45f } } },
+        { "Slapback Blip", "Dub", { { "bleepDecay", 100 }, { "delayNote", N32 }, { "delayFeel", Straight }, { "delayFeedback", 0.2f }, { "delayMix", 0.35f } } },
         { "Dub Hat", "Dub", { { "bleepNoise", 1 }, { "bleepDecay", 30 }, { "filterType", HP }, { "filterCutoff", 6000 },
-                              { "delayTime", D16D }, { "delayFeedback", 0.55f }, { "delayMix", 0.4f } } },
+                              { "delayNote", N16 }, { "delayFeel", Dotted }, { "delayFeedback", 0.55f }, { "delayMix", 0.4f } } },
         { "Chord Echo", "Dub", { { "bleepPitchAmount", 0 }, { "bleepDecay", 300 }, { "filterType", BP },
-                                 { "filterCutoff", 900 }, { "filterResonance", 0.35f }, { "delayTime", D8D }, { "delayFeedback", 0.7f },
+                                 { "filterCutoff", 900 }, { "filterResonance", 0.35f }, { "delayNote", N8 }, { "delayFeel", Dotted }, { "delayFeedback", 0.7f },
                                  { "delayMix", 0.5f }, { "roomSize", 0.8f }, { "roomDecay", 1.2f }, { "roomMix", 0.35f } } },
 
         // ---- Wood
@@ -276,7 +277,7 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Sander", "Machine", { Machine, { "machineType", Grind }, { "machineLength", 400 }, { "machineTone", 0.9f },
                                  { "machineFocus", 0.4f }, { "machineMotion", 0.7f }, { "machineMetal", 0.3f } } },
         { "Conveyor", "Machine", { Machine, { "machineType", Grind }, { "machineLength", 1500 }, { "machineTone", 0.35f },
-                                   { "machineFocus", 0.6f }, { "machineMotion", 0.55f }, { "machineMetal", 0.55f }, { "delayTime", D8D },
+                                   { "machineFocus", 0.6f }, { "machineMotion", 0.55f }, { "machineMetal", 0.55f }, { "delayNote", N8 }, { "delayFeel", Dotted },
                                    { "delayFeedback", 0.4f }, { "delayMix", 0.2f } } },
 
         // ---- Glass and ceramic
@@ -291,12 +292,12 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Bottle Clink", "Glass", { Foley, { "foleyExciter", Noise }, { "foleyLength", 0.4f }, { "foleyMaterial", 0.7f }, { "foleySize", 0.25f },
                                      { "foleyDamping", 0.4f }, { "foleyBrightness", 1 }, { "filterType", HP }, { "filterCutoff", 900 },
                                      { "filterResonance", 0.35f }, { "crushRate", 14000 },
-                                     { "delayTime", D8D }, { "delayFeedback", 0.35f }, { "delayMix", 0.18f }, { "roomSize", 0.3f },
+                                     { "delayNote", N8 }, { "delayFeel", Dotted }, { "delayFeedback", 0.35f }, { "delayMix", 0.18f }, { "roomSize", 0.3f },
                                      { "roomDecay", 0.6f }, { "roomMix", 0.15f }, { "chaosAmount", 0.35f }, { "chaosPitch", 0.12f }, { "chaosTone", 0.45f } } },
         { "Ice Clink", "Glass", { Foley, { "foleyLength", 0.05f }, { "foleyMaterial", 1 }, { "foleySize", 0.05f }, { "foleyDamping", 0.4f },
                                   { "foleyBrightness", 1 }, { "chaosAmount", 0.5f }, { "chaosPitch", 0.5f } } },
         { "Crystal", "Glass", { Foley, { "foleyLength", 0.2f }, { "foleyMaterial", 0.9f }, { "foleySize", 0.3f }, { "foleyDamping", 0.1f },
-                                { "foleyBrightness", 0.7f }, { "delayTime", D8D }, { "delayFeedback", 0.4f }, { "delayMix", 0.25f },
+                                { "foleyBrightness", 0.7f }, { "delayNote", N8 }, { "delayFeel", Dotted }, { "delayFeedback", 0.4f }, { "delayMix", 0.25f },
                                 { "roomDecay", 0.7f }, { "roomMix", 0.3f } } },
         { "Glass Shard", "Glass", { Foley, { "foleyExciter", Noise }, { "foleyLength", 0.5f }, { "foleyMaterial", 1 }, { "foleySize", 0.15f },
                                     { "foleyBrightness", 0.9f } } },
@@ -314,7 +315,7 @@ inline const std::vector<FactoryPreset>& factoryPresets()
                                { "roomDecay", 0.7f }, { "roomMix", 0.25f } } },
         { "Bloop", "Drips", { Foley, { "foleyLength", 1 }, { "foleyMaterial", 0.2f }, { "foleySize", 0.6f }, { "foleyDamping", 0.75f },
                               { "foleyBrightness", 0.3f }, { "foleySweep", 24 } } },
-        { "Cave Drip", "Drips", { Foley, { "foleyMaterial", 0.7f }, { "foleySweep", 12 }, { "delayTime", D4 }, { "delayFeedback", 0.4f },
+        { "Cave Drip", "Drips", { Foley, { "foleyMaterial", 0.7f }, { "foleySweep", 12 }, { "delayNote", N4 }, { "delayFeel", Straight }, { "delayFeedback", 0.4f },
                                   { "delayMix", 0.2f }, { "roomSize", 0.9f }, { "roomDecay", 1.4f }, { "roomMix", 0.45f } } },
         { "Falling Drop", "Drips", { Foley, { "foleyMaterial", 0.65f }, { "foleyDamping", 0.6f }, { "foleySweep", -12 } } },
         { "Plip", "Drips", { Foley, { "foleyLength", 0.1f }, { "foleyMaterial", 0.9f }, { "foleySize", 0.1f }, { "foleyDamping", 0.75f },
@@ -341,7 +342,7 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Scrape", "Textures", { Foley, { "foleyExciter", Noise }, { "foleyLength", 80 }, { "foleyMaterial", 0.5f }, { "foleySize", 0.3f },
                                   { "foleyDamping", 0.7f }, { "foleyBrightness", 0.6f }, { "foleySweep", 5 } } },
         { "Rattle Echo", "Textures", { Foley, { "foleyExciter", Crackle }, { "foleyLength", 50 }, { "foleyMaterial", 0.4f }, { "foleySize", 0.3f },
-                                       { "foleyDamping", 0.7f }, { "foleyBrightness", 0.7f }, { "delayTime", D16D }, { "delayFeedback", 0.5f },
+                                       { "foleyDamping", 0.7f }, { "foleyBrightness", 0.7f }, { "delayNote", N16 }, { "delayFeel", Dotted }, { "delayFeedback", 0.5f },
                                        { "delayMix", 0.35f } } },
     };
     return presets;
