@@ -60,7 +60,7 @@ static BleepSynth makeSynth (const BleepParams& p, BleepSynth::Mode mode = Bleep
 
 static void pitchIsRight()
 {
-    for (auto wave : { BleepWave::Sine, BleepWave::Triangle, BleepWave::Pulse })
+    for (auto wave : { BleepWave::Sine, BleepWave::Saw, BleepWave::Pulse })
     {
         auto synth = makeSynth (steady (wave));
         synth.noteOn (69, 1.0f);
@@ -123,7 +123,7 @@ static void releaseCutsANote()
 
 static void noDcAndNoOnsetClick()
 {
-    for (auto wave : { BleepWave::Sine, BleepWave::Triangle, BleepWave::Pulse, BleepWave::FM })
+    for (auto wave : { BleepWave::Sine, BleepWave::Saw, BleepWave::Pulse, BleepWave::FM })
         for (float pw : { 0.5f, 0.2f, 0.8f })
         {
             auto p = steady (wave);
@@ -138,7 +138,7 @@ static void noDcAndNoOnsetClick()
                 sum += out[(size_t) i];
             CHECK (std::abs (sum / ms (400)) < 0.01);
 
-            // sine, triangle and FM start at zero; a pulse can't, it starts on its edge
+            // sine, saw and FM start at zero; a pulse can't, it starts on its edge
             if (wave != BleepWave::Pulse)
                 CHECK (std::abs (out[0]) < 0.05f);
         }

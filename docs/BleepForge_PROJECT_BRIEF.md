@@ -32,7 +32,7 @@ Everything is synthesized. No samples, no third-party audio content.
 Each note is rendered by one of three engines, selectable per preset:
 
 **Bleep engine**
-- Oscillator: sine, triangle, square/pulse (PWM), simple 2-operator FM
+- Oscillator: sine, saw, square/pulse (PWM), simple 2-operator FM
 - Fast pitch envelope (amount, decay) for the classic "blip"
 - Short amp envelope (attack, decay, optional short release)
 - Optional noise blend

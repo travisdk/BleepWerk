@@ -9,13 +9,15 @@
 #include <array>
 #include <iterator>
 
-// The Bleep engine: one oscillator (sine, triangle, pulse with variable width, or 2-operator
+// The Bleep engine: one oscillator (sine, saw, pulse with variable width, or 2-operator
 // FM) with a fast pitch envelope, a short amp envelope and a noise blend. BleepSynth plays
 // them through a VoicePool (Mono or Poly). JUCE-free.
 namespace bleepforge
 {
-enum class BleepWave { Sine, Triangle, Pulse, FM };
-inline constexpr const char* kBleepWaveNames[] = { "Sine", "Triangle", "Pulse", "FM" };
+// Saw took Triangle's place (index 1), which sounded too close to the sine to tell apart, so
+// older projects and presets that chose Triangle now get Saw.
+enum class BleepWave { Sine, Saw, Pulse, FM };
+inline constexpr const char* kBleepWaveNames[] = { "Sine", "Saw", "Pulse", "FM" };
 inline constexpr int kNumBleepWaves = (int) std::size (kBleepWaveNames);
 
 inline constexpr float kMaxFmIndex = 8.0f; // modulation index at FM amount 100 %
@@ -138,12 +140,12 @@ private:
                 out = std::sin (kTwoPi * t);
                 break;
 
-            case BleepWave::Triangle:
+            case BleepWave::Saw:
             {
                 // starts at 0 rising, like the sine, so a fresh note doesn't click
-                const float u = wrapPhase (t + 0.25f);
-                out = 1.0f - 4.0f * std::abs (u - 0.5f);
-                out += 4.0f * inc * (polyBlamp (u, inc) - polyBlamp (wrapPhase (u + 0.5f), inc));
+                const float u = wrapPhase (t + 0.5f);
+                out = 2.0f * u - 1.0f;
+                out -= 2.0f * stepResidualAtWrap (u, inc); // falls by 2 where u wraps
                 break;
             }
 
