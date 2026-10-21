@@ -261,6 +261,8 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Rattling Plate", "Machine", { Machine, { "machineType", Hit }, { "machineLength", 700 }, { "machineTone", 0.65f },
                                          { "machineFocus", 0.7f }, { "machineMotion", 0.55f }, { "machineMetal", 0.9f },
                                          { "chaosAmount", 0.6f }, { "chaosPitch", 0.7f } } },
+        { "Donk", "Machine", { Machine, { "machineType", Hit }, { "roomSize", 1.0f }, { "roomDecay", 4.0f }, { "roomMix", 0.12f },
+                               { "roomDuck", 0.12f } } },
         { "Steam Valve", "Machine", { Machine, { "machineType", Hiss }, { "machineLength", 300 }, { "machineTone", 0.75f },
                                       { "machineFocus", 0.2f }, { "machineMetal", 0.15f } } },
         { "Pressure Leak", "Machine", { Machine, { "machineType", Hiss }, { "machineLength", 1200 }, { "machineTone", 0.85f },
