@@ -14,15 +14,16 @@
 // ratios that follow the note), then a light saturation:
 //   Hit    a click and a burst of noise striking the resonator, with a deep rumble and a short
 //          hiss layered on: a heavy industrial hit
-//   Hiss   steam: noise through a bandpass that sits on the note (or octaves above it)
+//   Hiss   steam: noise through a bandpass that sits on the note (or octaves above it),
+//          opening with a brighter puff
 //   Grind  noise through a comb filter tuned to the note, which slides when it moves
 // Five controls, the same for every type:
 //   Length how long the sound lasts, fade included (a voice ends by itself, note-offs don't
 //          stop it, so a short step can start a hiss that lasts for bars)
 //   Tone   dark to bright
 //   Motion how fast it moves: 0 is still, then a slow wave up to a fast rattle. It sweeps the
-//          comb (Grind), makes the hiss flutter (Hiss) or rattles the struck part with small
-//          knocks (Hit)
+//          comb and rasps it (Grind), makes the hiss flutter and drop (Hiss) or rattles the
+//          struck part with small knocks (Hit)
 //   Focus  from wide, airy noise to a clear tone; on Hit, how much rumble and hiss there is
 //   Metal  how much the resonator rings: 0 the dry source, 1 ringing metal for about a second
 // Chaos moves the resonator's modes a little on every note, so no two hits ring the same.
@@ -67,6 +68,8 @@ public:
     static constexpr float kLowestHz = 20.0f; // the comb's longest delay
     static constexpr float kMaxModeSpread = 0.015f; // mode detuning at full Chaos pitch depth
     static constexpr float kHitRing = 1.0f;         // how loud a struck mode rings
+    static constexpr float kPuffSeconds = 0.03f;    // Hiss's opening puff dies away over this
+    static constexpr float kGrindLevel = 1.15f;     // Grind's comb output, at about the level it had
     static constexpr float kClick = 2.0f;           // the strike's click, which alone rings the low modes
 
     // The comb's delay line is sized here, off the audio thread.
@@ -94,7 +97,8 @@ public:
         x1 = x2 = 0.0f;
         stage = Stage::Idle;
         env = 0.0f;
-        ic1 = ic2 = combLowpass = 0.0f;
+        ic1 = ic2 = combLowpass = grindNoise = 0.0f;
+        hissShift = 0.0f;
         air1 = air2 = rumble1 = rumble2 = 0.0f;
         dryPower = wetPower = 0.0f;
         wetGain = 1.0f;
@@ -120,7 +124,7 @@ public:
         if (! glide)
             currentPitch = targetPitch;
         gain = velocity;
-        lfoPhase = 0.0f; // every hit moves the same way, so a pattern stays hypnotic
+        lfoPhase = teethPhase = 0.0f; // every hit moves the same way, so a pattern stays hypnotic
         stage = Stage::Attack;
         elapsed = 0;
         struck = 0;
@@ -190,12 +194,18 @@ public:
 
             currentPitch = targetPitch + (currentPitch - targetPitch) * glideCoef;
             bend += bendCoef * (bendTarget - bend);
-            if (needsCoefs || i % kCoefInterval == 0)
-                updateCoefs (p.type, tone, focus, metal);
 
             // 0 at the start of a note and back at every cycle: moves away from rest and back
             const float lfo = moving ? 0.5f - 0.5f * std::cos (kTwoPi * lfoPhase) : 0.0f;
             lfoPhase = wrapPhase (lfoPhase + lfoInc);
+
+            // Hiss: a puff as the valve opens, brighter and louder for the first tens of ms;
+            // Motion lowers the band as the pressure drops, and back
+            const float puff = std::exp (-(float) elapsed / (kPuffSeconds * fs));
+            hissShift = 12.0f * puff - 9.0f * lfo;
+
+            if (needsCoefs || i % kCoefInterval == 0)
+                updateCoefs (p.type, tone, focus, metal);
 
             float dry = 0.0f, layers = 0.0f;
             switch (p.type)
@@ -204,8 +214,8 @@ public:
                     dry = strike (tone, p.motion);
                     layers = (1.0f - focus) * hitLayers();
                     break;
-                case MachineType::Hiss: dry = hiss (lfo); break;
-                case MachineType::Grind: dry = grind (tone, focus, lfo); break;
+                case MachineType::Hiss: dry = hiss (lfo, puff); break;
+                case MachineType::Grind: dry = grind (tone, focus, lfo, p.motion); break;
             }
 
             float wet = resonate (dry);
@@ -285,7 +295,7 @@ private:
         if (type == MachineType::Hiss)
         {
             // no higher than 16 kHz: above it a hiss is felt more than heard
-            const float centre = std::clamp (pitchHz (48.0f * tone), 20.0f, std::min (16000.0f, 0.45f * fs));
+            const float centre = std::clamp (pitchHz (48.0f * tone + hissShift), 20.0f, std::min (16000.0f, 0.45f * fs));
             const float q = 0.7f * std::pow (60.0f, focus);
             svfG = std::tan (kPi * centre / fs);
             svfK = 1.0f / q;
@@ -361,8 +371,9 @@ private:
 
     // White noise through a bandpass. Tone lifts the centre from the note up to four octaves
     // above it, since steam hisses high; Focus narrows it from about an octave wide to a
-    // whistle. Motion makes the hiss flutter: the level dips.
-    float hiss (float lfo)
+    // whistle. Every note opens with a puff, up to twice as loud and an octave higher. Motion
+    // makes the hiss flutter: the level dips deeply and the band drops (see render()).
+    float hiss (float lfo, float puff)
     {
         const float x = noise.next();
         const float a1 = 1.0f / (1.0f + svfG * (svfG + svfK)), a2 = svfG * a1, a3 = svfG * a2;
@@ -371,15 +382,17 @@ private:
         const float v2 = ic2 + a2 * ic1 + a3 * v3;
         ic1 = 2.0f * v1 - ic1;
         ic2 = 2.0f * v2 - ic2;
-        return v1 * svfK * svfGain * (1.0f - 0.6f * lfo);
+        return v1 * svfK * svfGain * (1.0f - 0.85f * lfo) * (1.0f + puff);
     }
 
     // Noise into a feedback comb whose delay is one period of the note; Focus is the feedback,
-    // from a faint colour to a ringing tone, and Tone the lowpass in the loop. Motion slides
-    // the comb up to a fifth up and back, the sound of a grinder biting.
-    float grind (float tone, float focus, float lfo)
+    // from a faint colour to a ringing tone. Only what comes round the comb is heard: with the
+    // noise itself in the output too, the note drowned in plain hiss. Tone darkens the noise
+    // going in and the loop alike. Motion slides the comb up to an octave up and back, the
+    // sound of a grinder biting, and rasps it: teeth catching up to about 50 times a second.
+    float grind (float tone, float focus, float lfo, float motion)
     {
-        const float f = std::max (kLowestHz, pitchHz (7.0f * lfo));
+        const float f = std::max (kLowestHz, pitchHz (12.0f * lfo));
         const float delay = std::min ((float) comb.size() - 2.0f, fs / f);
         const float feedback = 0.3f + 0.68f * focus;
         const float lpCoef = 1.0f - std::exp (-kTwoPi * 600.0f * std::exp2 (tone * 4.74f) / fs);
@@ -394,13 +407,20 @@ private:
         const float delayed = comb[i0] + frac * (comb[i1] - comb[i0]);
 
         combLowpass += lpCoef * (delayed - combLowpass);
-        const float x = noise.next() * 0.5f;
-        const float y = x + feedback * combLowpass;
+        grindNoise += lpCoef * (noise.next() - grindNoise);
+        const float y = grindNoise + feedback * combLowpass;
         comb[combWrite] = y;
         combWrite = (combWrite + 1) % comb.size();
-        // the lowpass in the loop takes most of the energy the feedback adds, so the level
-        // stays about the same without correcting for it
-        return y * 1.2f;
+
+        teethPhase = wrapPhase (teethPhase + (6.0f + 44.0f * motion) / fs);
+        const float tooth = std::pow (0.5f + 0.5f * std::cos (kTwoPi * teethPhase), 4.0f);
+        // the rasp takes away about 0.58 of the level on average at full Motion; given back
+        const float rasp = (1.0f - 0.8f * motion * (1.0f - tooth)) / (1.0f - 0.58f * motion);
+        // more feedback rings louder, and darker noise has less in it (a one-pole lowpass passes
+        // about lpCoef / 2 of white noise's power); this keeps the level about the same
+        // (the loop's own lowpass damps the ring, so the feedback needs less than 1 - g^2)
+        const float level = kGrindLevel * std::pow (1.0f - feedback * feedback, 0.35f) / std::sqrt (lpCoef);
+        return combLowpass * level * rasp;
     }
 
     float fs = 48000.0f;
@@ -420,7 +440,8 @@ private:
     float ic1 = 0.0f, ic2 = 0.0f, svfG = 0.1f, svfK = 1.0f, svfGain = 1.0f; // Hiss
     std::vector<float> comb;                                                 // Grind
     size_t combWrite = 0;
-    float combLowpass = 0.0f;
+    float combLowpass = 0.0f, grindNoise = 0.0f, teethPhase = 0.0f;
+    float hissShift = 0.0f; // semitones the puff and Motion move Hiss's band
     Variation variation;
     int note = -1;
 };
