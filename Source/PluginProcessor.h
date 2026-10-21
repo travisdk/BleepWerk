@@ -69,7 +69,7 @@ private:
 
     // Saved with the plug-in state so later versions can migrate older projects.
     //   1: 0.1.0
-    //   2: the built-in sequencer removed (its grid and seq* parameters are ignored on loading)
+    //   2: 0.10.0
     static constexpr int kStateVersion = 2;
 
     // Every engine renders every block, so switching lets the old one ring out; notes go to

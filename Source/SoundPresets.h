@@ -9,9 +9,8 @@
 #include <optional>
 
 // Sound presets: the factory presets followed by the user's .bfpreset files. A preset covers
-// every parameter except the sequencer's (IDs starting with "seq"), so loading a sound never
-// touches the pattern or the sequencer settings. Adapted from SubForge. Runs on the message
-// thread.
+// the sound parameters of the patch table (Patch.h), so loading a sound never touches settings
+// of the player such as the pitch bend range. Adapted from SubForge. Runs on the message thread.
 class SoundPresets
 {
 public:
@@ -19,7 +18,7 @@ public:
 
     explicit SoundPresets (juce::AudioProcessorValueTreeState&);
 
-    static bool isSoundParameter (const juce::String& id) { return ! id.startsWith ("seq"); }
+    static bool isSoundParameter (const juce::String& id) { return bleepforge::findSoundParam (id.toRawUTF8()) != nullptr; }
 
     // factory entries first, then user files
     int numFactory() const { return (int) bleepforge::factoryPresets().size(); }
