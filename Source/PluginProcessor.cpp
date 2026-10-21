@@ -372,9 +372,8 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
             auto state = juce::ValueTree::fromXml (*xml);
             soundPresets.readState (state);
             // Only the parameters stay in the tree: getStateInformation adds the rest again, so
-            // a reloaded state saves byte for byte the same. Before version 2 it also held the
-            // sequencer's grid and seq* parameters, which are dropped here.
-            for (auto id : { "stateVersion", "grid", "presetName", "presetIndex" })
+            // a reloaded state saves byte for byte the same.
+            for (auto id : { "stateVersion", "presetName", "presetIndex" })
                 state.removeProperty (id, nullptr);
             for (int i = state.getNumChildren(); --i >= 0;)
                 if (apvts.getParameter (state.getChild (i).getProperty ("id").toString()) == nullptr)

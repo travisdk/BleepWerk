@@ -2,7 +2,7 @@
 
 ## 1. Concept
 
-BleepForge is a melodic instrument plugin for hypnotic and minimal techno. It produces short, percussive, organic sounds: classic bleeps and blips plus foley-like tones (drips, metallic tinks, wooden knocks, crackles). It is played from MIDI notes: sequencing is done in the DAW. (Until 2026-10-19 it had a built-in probability grid sequencer; that version is kept on the `with-sequencer` branch and tag `v0.9-with-sequencer`.)
+BleepForge is a melodic instrument plugin for hypnotic and minimal techno. It produces short, percussive, organic sounds: classic bleeps and blips plus foley-like tones (drips, metallic tinks, wooden knocks, crackles). It is played from MIDI notes: sequencing is done in the DAW.
 
 Hypnotic techno (target since 2026-10-18) leans on long loops that drift out of phase, slow change over many bars, rolling polyrhythms and space (dub delay, room). Features are weighed against that.
 
@@ -15,7 +15,7 @@ Everything is synthesized. No samples, no third-party audio content.
 - Platforms: Linux and Windows
 - License: open source, free (same approach as SubForge)
 - Build: CMake
-- Parameters via AudioProcessorValueTreeState, full state save/restore (projects saved with the sequencer version load, their grid is ignored)
+- Parameters via AudioProcessorValueTreeState, full state save/restore
 
 ## 3. Hard constraints
 
@@ -112,7 +112,7 @@ Each note is rendered by one of three engines, selectable per preset:
 4. **Chaos**
 5. **Effects**
 6. **Presets, state save/restore, polish**
-7. **MIDI input instead of the built-in sequencer** (2026-10-19)
+7. **MIDI input** (2026-10-19)
 8. **Testing and release** (README, license, build artifacts)
 
 ## 10. Open for later

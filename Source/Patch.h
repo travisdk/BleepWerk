@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-// A sound patch: every parameter except the sequencer's. The table below is the one place
+// A sound patch: every parameter except the pitch bend range. The table below is the one place
 // their ranges and defaults are set; the plug-in builds its parameters from it and the tests
 // check the factory presets against it. readPatch() turns parameter values into the engines'
 // settings, for the plug-in and for rendering a patch offline (tests, loudness matching).
