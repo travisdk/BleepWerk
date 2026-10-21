@@ -2,11 +2,14 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 # JUCE-free unit tests for the DSP, MIDI input and dice. Run with ctest.
-# Add a name here for each tests/test_<name>.cpp.
+# Add a name here for each tests/test_<name>.cpp. BleepForge_Tests builds them all, so CI needs
+# no list of its own.
 set(BLEEPFORGE_TESTS bleep note_input foley machine effects presets randomizer themes)
+add_custom_target (BleepForge_Tests)
 foreach (name ${BLEEPFORGE_TESTS})
     add_executable (test_${name} test_${name}.cpp)
     target_include_directories (test_${name} PRIVATE ${PROJECT_SOURCE_DIR}/Source)
     target_compile_features (test_${name} PRIVATE cxx_std_17)
     add_test (NAME ${name} COMMAND test_${name})
+    add_dependencies (BleepForge_Tests test_${name})
 endforeach()

@@ -15,7 +15,6 @@ on:
 env:
   JUCE_VERSION: "8.0.15"
   CLAP_JUCE_EXTENSIONS_COMMIT: 7adee3a1bd4684d4caa5601100e364abccff4b4d
-  TEST_TARGETS: "test_bleep test_note_input test_foley"   # test_<name> targets from tests/CMakeLists.txt, space-separated
 
 jobs:
   build:
@@ -70,11 +69,10 @@ jobs:
       - name: Build
         run: >
           cmake --build build --config Release --parallel
-          --target BleepForge_CLAP BleepForge_VST3
-          ${{ env.TEST_TARGETS }}
+          --target BleepForge_CLAP BleepForge_VST3 BleepForge_Tests
 
       - name: Unit tests
-        run: ctest --no-tests=ignore --test-dir build -C Release --output-on-failure
+        run: ctest --no-tests=error --test-dir build -C Release --output-on-failure
 
       - name: Third-party notices match the licence files
         run: python scripts/generate-third-party-notices.py --check --juce _sdks/JUCE --cje _sdks/clap-juce-extensions
