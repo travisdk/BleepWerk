@@ -69,6 +69,7 @@ public:
     static constexpr float kMaxModeSpread = 0.015f; // mode detuning at full Chaos pitch depth
     static constexpr float kHitRing = 1.0f;         // how loud a struck mode rings
     static constexpr float kPuffSeconds = 0.03f;    // Hiss's opening puff dies away over this
+    static constexpr float kSoftDarkening = 0.3f;   // how far Tone drops for a note at velocity 0
     static constexpr float kGrindLevel = 1.15f;     // Grind's comb output, at about the level it had
     static constexpr float kClick = 2.0f;           // the strike's click, which alone rings the low modes
 
@@ -164,7 +165,9 @@ public:
         const int holdUntil = (int) (0.5f * lengthSamples);
         const float fadeCoef = std::exp (-9.21f / std::max (1.0f, 0.5f * lengthSamples)); // -80 dB at Length
 
-        const float tone = std::clamp (p.tone + 0.5f * variation.tone, 0.0f, 1.0f);
+        // a softer note is darker, and its Hiss puffs less; full velocity is as set
+        const float velocity = std::clamp (gain, 0.0f, 1.0f);
+        const float tone = std::clamp (p.tone + 0.5f * variation.tone - kSoftDarkening * (1.0f - velocity), 0.0f, 1.0f);
         const float focus = std::clamp (p.focus, 0.0f, 1.0f);
         const float metal = std::clamp (p.metal, 0.0f, 1.0f);
         const float lfoInc = machineMotionHz (p.motion) / fs;
@@ -201,7 +204,7 @@ public:
 
             // Hiss: a puff as the valve opens, brighter and louder for the first tens of ms;
             // Motion lowers the band as the pressure drops, and back
-            const float puff = std::exp (-(float) elapsed / (kPuffSeconds * fs));
+            const float puff = velocity * std::exp (-(float) elapsed / (kPuffSeconds * fs));
             hissShift = 12.0f * puff - 9.0f * lfo;
 
             if (needsCoefs || i % kCoefInterval == 0)

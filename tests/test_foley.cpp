@@ -214,6 +214,19 @@ static void velocityScalesTheLevel()
     CHECK (std::abs (peak (hard) / peak (soft) - 4.0f) < 0.2f);
 }
 
+// A softer strike is darker, not only quieter.
+static void softerIsDarker()
+{
+    for (auto exciter : { FoleyExciter::Mallet, FoleyExciter::Noise })
+    {
+        FoleyParams p;
+        p.exciter = exciter;
+        const double soft = brightness (strike (p, 60, 300, 0.3f)), hard = brightness (strike (p, 60, 300, 1.0f));
+        std::printf ("%s brightness soft %.4f hard %.4f\n", kFoleyExciterNames[(int) exciter], soft, hard);
+        CHECK (soft < hard * 0.85);
+    }
+}
+
 // With Chaos off, a note struck again sounds the same, also with the noisy exciters (a looped
 // bar mustn't change from pass to pass); any Chaos makes each hit different.
 static void repeatedHitsMatchWithoutChaos()
@@ -253,6 +266,7 @@ int main()
     sweepSlidesIntoTheNote();
     everyExciterAndMaterialIsSane();
     velocityScalesTheLevel();
+    softerIsDarker();
     repeatedHitsMatchWithoutChaos();
     return finish ("foley");
 }

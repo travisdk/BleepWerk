@@ -143,7 +143,9 @@ public:
 
         if (exciterLeft < 0)
         {
-            int length = std::max (1, (int) (p.exciterMs * 0.001f * fs));
+            // a softer strike is a longer, gentler touch (up to twice as long at velocity 0)
+            const float touch = p.exciter == FoleyExciter::Crackle ? 1.0f : 1.0f + kSoftTouch * softness();
+            int length = std::max (1, (int) (p.exciterMs * touch * 0.001f * fs));
             // a mallet pulse longer than half the note's period would barely sound the note
             if (p.exciter == FoleyExciter::Mallet)
                 length = std::min (length, std::max (1, (int) (0.4f * fs / (440.0f * std::exp2 ((targetPitch - 69.0f) / 12.0f)))));
@@ -193,8 +195,16 @@ public:
     }
 
 private:
-    // the patch's brightness moved by this note's Chaos tone
-    float brightnessOf (const FoleyParams& p) const { return std::clamp (p.brightness + 0.5f * variation.tone, 0.0f, 1.0f); }
+    // A softer note is darker, not only quieter: it strikes with less brightness, a longer
+    // touch, and rings a little shorter. Full velocity is as set.
+    static constexpr float kSoftDarkening = 0.35f, kSoftTouch = 1.0f, kSoftRing = 0.2f;
+    float softness() const { return 1.0f - std::clamp (strength, 0.0f, 1.0f); }
+
+    // the patch's brightness moved by this note's Chaos tone and how soft it is
+    float brightnessOf (const FoleyParams& p) const
+    {
+        return std::clamp (p.brightness + 0.5f * variation.tone - kSoftDarkening * softness(), 0.0f, 1.0f);
+    }
 
     struct Mode
     {
@@ -240,7 +250,8 @@ private:
 
         // ring time of the fundamental: 3 s .. 20 ms, longer for big objects and metal
         const float baseT60 = std::exp (std::log (3.0f) + std::clamp (p.damping, 0.0f, 1.0f) * (std::log (0.02f) - std::log (3.0f)))
-                            * material.decayScale * std::exp2 (2.0f * size - 1.0f) * variation.decayScale;
+                            * material.decayScale * std::exp2 (2.0f * size - 1.0f) * variation.decayScale
+                            * (1.0f - kSoftRing * softness());
         const float tilt = 1.6f - 1.3f * brightnessOf (p); // high modes quieter when dark
 
         float total = 0.0f;
