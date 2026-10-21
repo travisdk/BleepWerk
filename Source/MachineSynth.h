@@ -67,6 +67,7 @@ public:
     static constexpr float kLowestHz = 20.0f; // the comb's longest delay
     static constexpr float kMaxModeSpread = 0.015f; // mode detuning at full Chaos pitch depth
     static constexpr float kHitRing = 1.0f;         // how loud a struck mode rings
+    static constexpr float kClick = 2.0f;           // the strike's click, which alone rings the low modes
 
     // The comb's delay line is sized here, off the audio thread.
     void prepare (float sampleRate, uint32_t noiseSeed)
@@ -75,6 +76,7 @@ public:
         bendCoef = bendCoefFor (fs);
         noise.seed (noiseSeed);
         comb.assign ((size_t) (fs / kLowestHz) + 4, 0.0f);
+        strikeHighpassCoef = 1.0f - std::exp (-kTwoPi * 2000.0f / fs);
         // Hit's hiss layer: a fixed bandpass around 7 kHz, about two octaves wide
         const float g = std::tan (kPi * std::min (7000.0f, 0.4f * fs) / fs);
         airK = 1.0f / 1.2f;
@@ -122,7 +124,7 @@ public:
         stage = Stage::Attack;
         elapsed = 0;
         struck = 0;
-        hitLowpass = 0.0f;
+        hitLowpass = hitHighpass = 0.0f;
         for (auto& m : modes)
             m.spread = noise.next() * kMaxModeSpread * v.modeSpread;
         needsCoefs = true;
@@ -310,7 +312,11 @@ private:
         return s;
     }
 
-    // Hit's strike: one click and 3 ms of decaying noise, lowpassed by Tone (600 Hz .. 16 kHz).
+    // Hit's strike: one click and 3 ms of decaying noise, lowpassed by Tone (600 Hz .. 16 kHz)
+    // and highpassed at 2 kHz. A 3 ms burst of full-range noise holds a random amount of low end,
+    // and with Chaos off every note keeps its own noise, so the low modes rang up to 19 dB louder
+    // or softer from one note to the next. Now the click alone rings them, the same on every note,
+    // and the noise only adds the bite on top.
     // Motion adds knocks while the note lasts, up to about 25 a second, each a different
     // strength, like a part that rattles.
     float strike (float tone, float motion)
@@ -321,7 +327,8 @@ private:
         {
             const float lpCoef = 1.0f - std::exp (-kTwoPi * 600.0f * std::exp2 (tone * 4.74f) / fs);
             hitLowpass += lpCoef * (noise.next() - hitLowpass);
-            x = (struck == 0 ? 1.0f : 0.0f) + 0.6f * hitLowpass * (1.0f - (float) struck / (float) burst);
+            hitHighpass += strikeHighpassCoef * (hitLowpass - hitHighpass);
+            x = (struck == 0 ? kClick : 0.0f) + 0.6f * (hitLowpass - hitHighpass) * (1.0f - (float) struck / (float) burst);
             ++struck;
         }
         else if (motion > 0.0f && stage != Stage::Fade && 0.5f + 0.5f * noise.next() < 25.0f * motion * motion / fs)
@@ -408,7 +415,7 @@ private:
     float x1 = 0.0f, x2 = 0.0f;
     float dryPower = 0.0f, wetPower = 0.0f, wetGain = 1.0f; // the ring matched to the source
     int struck = 0;                                                         // Hit
-    float hitLowpass = 0.0f, subPhase = 0.0f, rumble1 = 0.0f, rumble2 = 0.0f;
+    float hitLowpass = 0.0f, hitHighpass = 0.0f, strikeHighpassCoef = 0.2f, subPhase = 0.0f, rumble1 = 0.0f, rumble2 = 0.0f;
     float air1 = 0.0f, air2 = 0.0f, airK = 1.0f, airA1 = 0.0f, airA2 = 0.0f, airA3 = 0.0f;
     float ic1 = 0.0f, ic2 = 0.0f, svfG = 0.1f, svfK = 1.0f, svfGain = 1.0f; // Hiss
     std::vector<float> comb;                                                 // Grind
