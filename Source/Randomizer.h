@@ -71,7 +71,7 @@ inline std::vector<PresetValue> randomSound (Engine engine, DiceRng& rng)
 
     if (engine == Engine::Bleep)
     {
-        constexpr float waves[] = { 3, 2.5f, 2, 2.5f }; // sine, triangle, pulse, FM
+        constexpr float waves[] = { 3, 1.5f, 2, 2.5f }; // sine, saw (harsh, so rarer), pulse, FM
         set ("bleepWave", (float) rng.pick (waves));
         set ("bleepPulseWidth", round (rng.between (0.1f, 0.9f), 0.01f));
         // mostly harmonic ratios, sometimes an inharmonic, metallic one

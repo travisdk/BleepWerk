@@ -8,10 +8,12 @@
 // The controls the sound panels are built from, each tied to one parameter.
 
 // A rotary control for one parameter: name above, value below; double-click resets it.
+// Faded while disabled, when it has no effect on the current sound.
 struct Knob : juce::Component
 {
     Knob (juce::AudioProcessorValueTreeState&, const juce::String& parameterId, const juce::String& name, bool bipolar = false);
     void resized() override;
+    void enablementChanged() override { setAlpha (isEnabled() ? 1.0f : 0.35f); }
 
     juce::Slider slider { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Label label;

@@ -64,11 +64,17 @@ EngineView::~EngineView()
     stopTimer();
 }
 
-// Follows the engine and voice parameters, which automation or the host can change too.
+// Follows the engine, voice and wave parameters, which automation or the host can change too.
 void EngineView::timerCallback()
 {
     engine.update();
     voices.update();
+
+    // Pulse W and the FM knobs only shape their own wave; for the others they do nothing
+    const auto wave = (bleepforge::BleepWave) (int) processor.apvts.getRawParameterValue ("bleepWave")->load();
+    pulseWidth.setEnabled (wave == bleepforge::BleepWave::Pulse);
+    fmRatio.setEnabled (wave == bleepforge::BleepWave::FM);
+    fmAmount.setEnabled (wave == bleepforge::BleepWave::FM);
     const int selected = (int) processor.apvts.getRawParameterValue ("engine")->load();
     if (selected != shownEngine)
     {

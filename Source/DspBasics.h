@@ -46,22 +46,6 @@ inline float stepResidualAtWrap (float phase, float dt)
     return 0.0f;
 }
 
-// Integrated band-limited step, smooths slope discontinuities (triangle corners).
-inline float polyBlamp (float t, float dt)
-{
-    if (t < dt)
-    {
-        t = t / dt - 1.0f;
-        return -t * t * t / 3.0f;
-    }
-    if (t > 1.0f - dt)
-    {
-        t = (t - 1.0f) / dt + 1.0f;
-        return t * t * t / 3.0f;
-    }
-    return 0.0f;
-}
-
 inline float wrapPhase (float phase)
 {
     return phase - std::floor (phase);
