@@ -12,11 +12,13 @@ BleepForgeEditor::BleepForgeEditor (BleepForgeProcessor& p)
     : AudioProcessorEditor (&p), processor (p), view (p)
 {
     // the saved theme, before the look is set: setting it tells every component to re-read
-    // its colours
+    // its colours. The view goes in first, since only children present then hear of it (adding
+    // one later doesn't): the knobs' value boxes kept JUCE's default white outline and the
+    // toggles the default theme.
+    addAndMakeVisible (view);
     bleepforge::theme::currentIndex() = bleepforge::theme::indexOf (p.getSettings().getValue ("theme"));
     lookAndFeel.applyTheme();
     setLookAndFeel (&lookAndFeel);
-    addAndMakeVisible (view);
 
     setResizable (true, true);
     setResizeLimits (juce::roundToInt (MainView::kWidth * kMinScale), juce::roundToInt (MainView::kHeight * kMinScale),
