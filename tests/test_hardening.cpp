@@ -198,6 +198,18 @@ void typedNumbers()
     CHECK (juce::approximatelyEqual (bendRange->getValueForText ("12 st"), bendRange->convertTo0to1 (12.0f)));
     CHECK (juce::approximatelyEqual (bendRange->getValueForText ("Off"), 0.0f));
 }
+// A name of only characters a file name can't hold is not saved as a hidden, nameless file.
+void namelessPreset()
+{
+   #if JUCE_LINUX
+    BleepForgeProcessor processor;
+    auto& presets = processor.getSoundPresets();
+    CHECK (! presets.save ("///"));
+    CHECK (! SoundPresets::folder().getChildFile (SoundPresets::kExtension).exists());
+    CHECK (presets.save ("Blip/2"));
+    CHECK (SoundPresets::folder().getChildFile ("Blip2.bfpreset").existsAsFile());
+   #endif
+}
 } // namespace
 
 int main (int argc, char* argv[])
@@ -207,6 +219,7 @@ int main (int argc, char* argv[])
         { "open-folder", openFolder },
         { "huge-xml", hugeXml },
         { "typed-numbers", typedNumbers },
+        { "nameless-preset", namelessPreset },
     };
     const juce::String name = argc > 1 ? argv[1] : "";
     const auto testCase = cases.find (name);

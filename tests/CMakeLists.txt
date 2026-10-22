@@ -23,6 +23,6 @@ target_include_directories (test_hardening PRIVATE ${PROJECT_SOURCE_DIR}/Source 
 target_compile_definitions (test_hardening PRIVATE $<TARGET_PROPERTY:BleepForge,COMPILE_DEFINITIONS>)
 target_link_libraries (test_hardening PRIVATE BleepForge)
 add_dependencies (BleepForge_Tests test_hardening)
-foreach (case not-numbers open-folder huge-xml typed-numbers)
+foreach (case not-numbers open-folder huge-xml typed-numbers nameless-preset)
     add_test (NAME hardening-${case} COMMAND test_hardening ${case})
 endforeach()
