@@ -1,0 +1,35 @@
+# Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# Checks the CI workflow (cmake -DWORKFLOW=<file> -P check_ci_pins.cmake): every GitHub action
+# is pinned to a full commit and JUCE's tag is checked against one, as a tag can be moved to
+# other code later, and the workflow token is read-only.
+file(STRINGS "${WORKFLOW}" lines)
+set(juceCommit FALSE)
+set(juceChecked FALSE)
+set(readOnly FALSE)
+foreach (line IN LISTS lines)
+    if (line MATCHES "uses: *([^ ]+)")
+        set(action "${CMAKE_MATCH_1}")
+        string(REGEX MATCH "@[0-9a-f]+$" commit "${action}")
+        string(LENGTH "${commit}" length)
+        if (NOT length EQUAL 41)
+            message(SEND_ERROR "${action} is not pinned to a full commit")
+        endif()
+    endif()
+    if (line MATCHES "^ +JUCE_COMMIT: *[0-9a-f]+")
+        set(juceCommit TRUE)
+    endif()
+    if (line MATCHES "rev-parse HEAD.*JUCE_COMMIT")
+        set(juceChecked TRUE)
+    endif()
+    if (line MATCHES "^ +contents: *read")
+        set(readOnly TRUE)
+    endif()
+endforeach()
+if (NOT juceCommit OR NOT juceChecked)
+    message(SEND_ERROR "JUCE's tag is not checked against JUCE_COMMIT")
+endif()
+if (NOT readOnly)
+    message(SEND_ERROR "the workflow token is not read-only (permissions: contents: read)")
+endif()

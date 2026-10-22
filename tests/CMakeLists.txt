@@ -26,3 +26,7 @@ add_dependencies (BleepForge_Tests test_hardening)
 foreach (case not-numbers open-folder huge-xml typed-numbers nameless-preset)
     add_test (NAME hardening-${case} COMMAND test_hardening ${case})
 endforeach()
+
+# The CI workflow pins its dependencies to exact commits.
+add_test (NAME ci-pins COMMAND ${CMAKE_COMMAND} -DWORKFLOW=${PROJECT_SOURCE_DIR}/.github/workflows/build.yml
+                               -P ${CMAKE_CURRENT_SOURCE_DIR}/check_ci_pins.cmake)
