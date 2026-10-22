@@ -6,6 +6,7 @@
 // command line, so ctest shows one test per case. On Linux HOME points at a temporary folder,
 // so presets and settings never touch the user's; elsewhere the cases with files are skipped.
 #include "PluginProcessor.h"
+#include "PresetFiles.h"
 #include "TestUtils.h"
 
 #include <cmath>
@@ -127,12 +128,39 @@ void notNumbers()
     }
    #endif
 }
+// A folder name with "$(...)" is opened, not run as a command. A stand-in xdg-open records the
+// folder it was given; PATH holds only it, so no real program can start.
+void openFolder()
+{
+   #if JUCE_LINUX
+    const auto root = juce::File::getSpecialLocation (juce::File::userHomeDirectory);
+    const auto bin = root.getChildFile ("bin");
+    const auto opened = root.getChildFile ("opened"), injected = root.getChildFile ("injected");
+    CHECK (bin.createDirectory());
+    const auto opener = bin.getChildFile ("xdg-open");
+    CHECK (opener.replaceWithText ("#!/bin/sh\nprintf '%s' \"$1\" > \"" + opened.getFullPathName() + ".tmp\" && /bin/mv \""
+                                       + opened.getFullPathName() + ".tmp\" \"" + opened.getFullPathName() + "\"\n",
+                                   false, false, "\n"));
+    CHECK (opener.setExecutePermission (true));
+    setenv ("PATH", bin.getFullPathName().toRawUTF8(), 1);
+    root.setAsCurrentWorkingDirectory();
+
+    const auto folder = root.getChildFile ("Bleeps $(: >injected)");
+    CHECK (folder.createDirectory());
+    CHECK (bleepforge::files::openFolder (folder));
+    for (int waited = 0; waited < 5000 && ! opened.existsAsFile(); waited += 10)
+        juce::Thread::sleep (10);
+    CHECK (opened.loadFileAsString() == folder.getFullPathName());
+    CHECK (! injected.exists());
+   #endif
+}
 } // namespace
 
 int main (int argc, char* argv[])
 {
     const std::map<juce::String, void (*)()> cases {
         { "not-numbers", notNumbers },
+        { "open-folder", openFolder },
     };
     const juce::String name = argc > 1 ? argv[1] : "";
     const auto testCase = cases.find (name);

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "MainView.h"
+#include "PresetFiles.h"
 #include "Theme.h"
 #include "BleepForgeVersion.h"
 
@@ -95,7 +96,7 @@ void MainView::showSettingsMenu()
                   {
                       auto folder = SoundPresets::folder();
                       folder.createDirectory();
-                      folder.startAsProcess();
+                      bleepforge::files::openFolder (folder);
                   });
     menu.addItem ("Rescan presets", [&presets] { presets.rescan(); });
     menu.addItem ("Delete \"" + (onUserPreset ? presets.entryName (entry) : juce::String ("user preset")) + "\"", onUserPreset, false,
