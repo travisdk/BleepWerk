@@ -376,6 +376,18 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
             // a reloaded state saves byte for byte the same.
             for (auto id : { "stateVersion", "presetName", "presetIndex" })
                 state.removeProperty (id, nullptr);
+            // A value that is not a number (a damaged project) loads as the parameter's default,
+            // as its range only clamps numbers; an old delay time like that is dropped.
+            for (int i = state.getNumChildren(); --i >= 0;)
+            {
+                auto child = state.getChild (i);
+                if (! std::isnan ((double) child.getProperty ("value")))
+                    continue;
+                if (auto* param = apvts.getParameter (child.getProperty ("id").toString()))
+                    child.setProperty ("value", param->convertFrom0to1 (param->getDefaultValue()), nullptr);
+                else
+                    state.removeChild (i, nullptr);
+            }
             // before version 3 the delay time was one list; it becomes a time and a feel
             if (auto old = state.getChildWithProperty ("id", "delayTime"); old.isValid())
             {
