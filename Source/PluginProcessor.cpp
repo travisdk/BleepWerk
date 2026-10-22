@@ -3,6 +3,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "PresetFiles.h"
 
 namespace
 {
@@ -170,7 +171,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
         ParameterID { "bendRange", 1 }, "Bend Range", 0, 24, 2,
         AudioParameterIntAttributes()
             .withStringFromValueFunction ([] (int v, int) { return v == 0 ? String ("Off") : String::charToString (0xb1) + String (v) + " st"; })
-            .withValueFromStringFunction ([] (const String& t) { return t.retainCharacters ("0123456789").getIntValue(); })));
+            // read as a double and limited first: an int would wrap around on an absurd number
+            .withValueFromStringFunction ([] (const String& t)
+                                          { return roundToInt (jlimit (0.0, 24.0, t.retainCharacters ("0123456789").getDoubleValue())); })));
 
     // Effects, in signal order. Bits and Rate read "Off" at the top of their values, where they
     // do nothing; their knobs run backwards so that is fully left.
@@ -366,6 +369,9 @@ void BleepForgeProcessor::getStateInformation (juce::MemoryBlock& destData)
 
 void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
+    if (! bleepforge::files::isPlausibleXml (data, (size_t) juce::jmax (0, sizeInBytes)))
+        return;
+
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
     {
         if (xml->hasTagName (apvts.state.getType()))
@@ -376,6 +382,18 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
             // a reloaded state saves byte for byte the same.
             for (auto id : { "stateVersion", "presetName", "presetIndex" })
                 state.removeProperty (id, nullptr);
+            // A value that is not a number (a damaged project) loads as the parameter's default,
+            // as its range only clamps numbers; an old delay time like that is dropped.
+            for (int i = state.getNumChildren(); --i >= 0;)
+            {
+                auto child = state.getChild (i);
+                if (! std::isnan ((double) child.getProperty ("value")))
+                    continue;
+                if (auto* param = apvts.getParameter (child.getProperty ("id").toString()))
+                    child.setProperty ("value", param->convertFrom0to1 (param->getDefaultValue()), nullptr);
+                else
+                    state.removeChild (i, nullptr);
+            }
             // before version 3 the delay time was one list; it becomes a time and a feel
             if (auto old = state.getChildWithProperty ("id", "delayTime"); old.isValid())
             {

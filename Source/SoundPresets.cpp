@@ -54,6 +54,8 @@ void SoundPresets::rescan()
 bool SoundPresets::save (const juce::String& presetName)
 {
     const auto file = files::fileFor (folder(), presetName, kExtension);
+    if (file.getFileName() == kExtension) // nothing of the name is legal in a file name
+        return false;
     if (! file.getParentDirectory().createDirectory())
         return false;
 
@@ -79,16 +81,17 @@ bool SoundPresets::save (const juce::String& presetName)
     return true;
 }
 
-// Sound parameters missing from older files fall back to their defaults.
+// Sound parameters missing from older files, or not numbers in a damaged one, fall back to
+// their defaults.
 bool SoundPresets::loadFile (const juce::File& file)
 {
-    const auto xml = juce::parseXML (file);
+    const auto xml = files::parseXmlFile (file);
     if (xml == nullptr || ! xml->hasTagName ("BleepForgePreset"))
         return false;
 
     // files saved before 0.11 have one delay time list instead of a time and a feel
     int oldDelayNote = -1, oldDelayFeel = -1;
-    if (auto* old = xml->getChildByAttribute ("id", "delayTime"))
+    if (auto* old = xml->getChildByAttribute ("id", "delayTime"); old != nullptr && ! std::isnan (old->getDoubleAttribute ("value")))
         bleepforge::splitOldDelayTime (juce::roundToInt (old->getDoubleAttribute ("value")), oldDelayNote, oldDelayFeel);
 
     for (auto* p : state.processor.getParameters())
@@ -96,7 +99,10 @@ bool SoundPresets::loadFile (const juce::File& file)
         {
             float value = param->convertFrom0to1 (param->getDefaultValue());
             if (auto* element = xml->getChildByAttribute ("id", param->paramID))
-                value = (float) element->getDoubleAttribute ("value", value);
+            {
+                if (const auto loaded = (float) element->getDoubleAttribute ("value", value); ! std::isnan (loaded))
+                    value = loaded;
+            }
             else if (oldDelayNote >= 0 && param->paramID == "delayNote")
                 value = (float) oldDelayNote;
             else if (oldDelayFeel >= 0 && param->paramID == "delayFeel")

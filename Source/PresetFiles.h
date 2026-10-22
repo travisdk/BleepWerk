@@ -23,12 +23,45 @@ inline juce::File fileFor (const juce::File& folder, const juce::String& name, c
     return folder.getChildFile (juce::File::createLegalFileName (name.trim()) + extension);
 }
 
+// JUCE's XML parser goes one level deeper on the stack for each nested element, so a damaged or
+// hostile file nested tens of thousands deep crashes the host, and a huge one stalls it. Real
+// projects and presets are a few kB with about sixty elements; far beyond that is refused.
+constexpr size_t kMaxXmlBytes = 1 << 20;
+constexpr int kMaxXmlElements = 1000; // each element starts with '<', so this also limits the nesting
+
+inline bool isPlausibleXml (const void* data, size_t numBytes)
+{
+    const auto* text = static_cast<const char*> (data);
+    return numBytes <= kMaxXmlBytes && std::count (text, text + numBytes, '<') <= kMaxXmlElements;
+}
+
+// juce::parseXML for preset files, or nullptr if the file is not plausible.
+inline std::unique_ptr<juce::XmlElement> parseXmlFile (const juce::File& file)
+{
+    juce::MemoryBlock data;
+    if (file.getSize() > (juce::int64) kMaxXmlBytes || ! file.loadFileAsData (data) || ! isPlausibleXml (data.getData(), data.getSize()))
+        return nullptr;
+    return juce::parseXML (juce::String::createStringFromData (data.getData(), (int) data.getSize()));
+}
+
 // Sets a parameter as one host-visible gesture.
 inline void setParameterValue (juce::RangedAudioParameter& param, float value)
 {
     param.beginChangeGesture();
     param.setValueNotifyingHost (param.convertTo0to1 (value));
     param.endChangeGesture();
+}
+
+// Shows a folder in the file manager. On Linux, JUCE's File::startAsProcess() hands the path to
+// a shell, which runs "$(...)" in a folder name; here xdg-open gets it as an argument.
+inline bool openFolder (const juce::File& folder)
+{
+   #if JUCE_LINUX
+    juce::ChildProcess opener; // xdg-open keeps running after this goes
+    return folder.isDirectory() && opener.start (juce::StringArray { "xdg-open", folder.getFullPathName() }, 0);
+   #else
+    return folder.startAsProcess();
+   #endif
 }
 
 // JUCE's Linux File::moveToTrash() skips the .trashinfo file, so file managers
