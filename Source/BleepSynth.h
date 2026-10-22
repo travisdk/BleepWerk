@@ -40,6 +40,9 @@ class BleepVoice
 {
 public:
     static constexpr float kLevel = 0.5f; // headroom for several voices at full velocity
+    // A softer note is darker, not only quieter: at velocity 0 the highs above 1.5 kHz drop by
+    // this much, the pitch envelope and the FM index by these fractions. Full velocity is as set.
+    static constexpr float kSoftDarkening = 0.6f, kSoftPitchEnv = 0.5f, kSoftFm = 0.5f;
 
     void prepare (float sampleRate, uint32_t noiseSeed)
     {
@@ -104,25 +107,28 @@ public:
     {
         amp.set (fs, p.attackMs, p.decayMs * variation.decayScale, 0.0f, p.releaseMs * variation.decayScale);
         const float pitchCoef = std::exp (-4.6f / std::max (1.0f, p.pitchEnvDecayMs * 0.001f * fs)); // -40 dB
-        const float fmIndex = p.fmAmount * kMaxFmIndex;
+        const float softness = 1.0f - std::clamp (gain, 0.0f, 1.0f);
+        const float fmIndex = p.fmAmount * kMaxFmIndex * (1.0f - kSoftFm * softness);
+        const float pitchEnvSemis = p.pitchEnvSemis * (1.0f - kSoftPitchEnv * softness);
+        const float tone = std::max (-1.0f, variation.tone - kSoftDarkening * softness);
         const float pw = std::clamp (p.pulseWidth, 0.05f, 0.95f);
 
         for (int i = 0; i < numSamples && amp.isActive(); ++i)
         {
             currentPitch = targetPitch + (currentPitch - targetPitch) * glideCoef;
             bend += bendCoef * (bendTarget - bend);
-            const float pitch = currentPitch + bend + variation.pitchSemis + p.pitchEnvSemis * pitchEnv;
+            const float pitch = currentPitch + bend + variation.pitchSemis + pitchEnvSemis * pitchEnv;
             pitchEnv *= pitchCoef;
             const float inc = std::min (0.45f, 440.0f * std::exp2 ((pitch - 69.0f) / 12.0f) / fs);
 
             float s = oscillator (inc, p, pw, fmIndex);
             if (p.noise > 0.0f)
                 s += p.noise * (noise.next() - s);
-            if (std::abs (variation.tone) > 1.0e-3f)
+            if (std::abs (tone) > 1.0e-3f)
             {
                 // a tilt around 1.5 kHz: the highs go down to none or up to double
                 tiltLowpass += tiltCoef * (s - tiltLowpass);
-                s = tiltLowpass + (1.0f + variation.tone) * (s - tiltLowpass);
+                s = tiltLowpass + (1.0f + tone) * (s - tiltLowpass);
             }
             out[i] += s * gain * amp.next() * kLevel;
         }

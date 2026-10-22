@@ -278,6 +278,18 @@ static void chaosVariesTheResonator()
     CHECK (with > 0.006);
 }
 
+// A softer note is darker, not only quieter.
+static void softerIsDarker()
+{
+    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Grind })
+    {
+        const auto p = params (type, 0.5f, 0.5f, 0.0f, 400.0f, 0.5f);
+        const double soft = brightness (play (p, 48, 400, 0.3f)), hard = brightness (play (p, 48, 400, 1.0f));
+        std::printf ("%s brightness soft %.4f hard %.4f\n", kMachineTypeNames[(int) type], soft, hard);
+        CHECK (soft < hard * 0.85);
+    }
+}
+
 int main()
 {
     everyTypeFollowsTheNote();
@@ -288,5 +300,6 @@ int main()
     everySettingIsSane();
     velocityScalesTheLevel();
     chaosVariesTheResonator();
+    softerIsDarker();
     return finish ("machine");
 }

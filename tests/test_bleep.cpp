@@ -359,6 +359,23 @@ static void chaosVariesDecay()
     CHECK (shortOnes > 1 && longOnes > 1);
 }
 
+// A softer note is darker, not only quieter: the highs drop, and FM loses some of its index.
+static void softerIsDarker()
+{
+    for (auto wave : { BleepWave::Saw, BleepWave::FM })
+    {
+        auto play = [wave] (float velocity)
+        {
+            auto synth = makeSynth (steady (wave));
+            synth.noteOn (57, velocity);
+            return render (synth, ms (300));
+        };
+        const double soft = brightness (play (0.3f)), hard = brightness (play (1.0f));
+        std::printf ("%s brightness soft %.4f hard %.4f\n", kBleepWaveNames[(int) wave], soft, hard);
+        CHECK (soft < hard * 0.85);
+    }
+}
+
 int main()
 {
     pitchIsRight();
@@ -376,5 +393,6 @@ int main()
     chaosVariesVelocity();
     chaosPansNotes();
     chaosVariesDecay();
+    softerIsDarker();
     return finish ("bleep");
 }
