@@ -187,6 +187,17 @@ void hugeXml()
     }
    #endif
 }
+// A bend range typed in the host with an absurd number lands on the top of the range, not
+// wherever the number wrapped around to.
+void typedNumbers()
+{
+    BleepForgeProcessor processor;
+    auto* bendRange = processor.apvts.getParameter ("bendRange");
+    CHECK (juce::approximatelyEqual (bendRange->getValueForText ("4294967298"), 1.0f));
+    CHECK (juce::approximatelyEqual (bendRange->getValueForText ("99999999999999999999999 st"), 1.0f));
+    CHECK (juce::approximatelyEqual (bendRange->getValueForText ("12 st"), bendRange->convertTo0to1 (12.0f)));
+    CHECK (juce::approximatelyEqual (bendRange->getValueForText ("Off"), 0.0f));
+}
 } // namespace
 
 int main (int argc, char* argv[])
@@ -195,6 +206,7 @@ int main (int argc, char* argv[])
         { "not-numbers", notNumbers },
         { "open-folder", openFolder },
         { "huge-xml", hugeXml },
+        { "typed-numbers", typedNumbers },
     };
     const juce::String name = argc > 1 ? argv[1] : "";
     const auto testCase = cases.find (name);

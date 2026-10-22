@@ -171,7 +171,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
         ParameterID { "bendRange", 1 }, "Bend Range", 0, 24, 2,
         AudioParameterIntAttributes()
             .withStringFromValueFunction ([] (int v, int) { return v == 0 ? String ("Off") : String::charToString (0xb1) + String (v) + " st"; })
-            .withValueFromStringFunction ([] (const String& t) { return t.retainCharacters ("0123456789").getIntValue(); })));
+            // read as a double and limited first: an int would wrap around on an absurd number
+            .withValueFromStringFunction ([] (const String& t)
+                                          { return roundToInt (jlimit (0.0, 24.0, t.retainCharacters ("0123456789").getDoubleValue())); })));
 
     // Effects, in signal order. Bits and Rate read "Off" at the top of their values, where they
     // do nothing; their knobs run backwards so that is fully left.
