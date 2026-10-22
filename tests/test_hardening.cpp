@@ -154,6 +154,39 @@ void openFolder()
     CHECK (! injected.exists());
    #endif
 }
+// Elements nested far deeper than any real file would overflow the stack in JUCE's parser, and a
+// huge file would stall the host: both are refused and change nothing.
+void hugeXml()
+{
+    constexpr int deep = 100000;
+    const auto nested = juce::String::repeatedString ("<a>", deep) + juce::String::repeatedString ("</a>", deep);
+    const auto huge = juce::String::repeatedString ("x", 2 << 20);
+
+    BleepForgeProcessor processor;
+    auto& presets = processor.getSoundPresets();
+    juce::MemoryOutputStream deepState;
+    deepState.writeInt (0x21324356); // copyXmlToBinary's format: magic, size, text
+    const auto text = "<PARAMS>" + nested + "</PARAMS>";
+    deepState.writeInt ((int) text.getNumBytesAsUTF8() + 1);
+    deepState.write (text.toRawUTF8(), text.getNumBytesAsUTF8() + 1);
+    processor.setStateInformation (deepState.getData(), (int) deepState.getDataSize());
+
+    auto xml = savedState (processor);
+    xml->setAttribute ("presetName", huge);
+    setState (processor, *xml);
+    CHECK (presets.name() == "Init");
+
+   #if JUCE_LINUX
+    CHECK (SoundPresets::folder().createDirectory());
+    CHECK (SoundPresets::folder().getChildFile ("Deep.bfpreset").replaceWithText ("<BleepForgePreset>" + nested + "</BleepForgePreset>"));
+    CHECK (SoundPresets::folder().getChildFile ("Huge.bfpreset").replaceWithText ("<BleepForgePreset name=\"" + huge + "\"/>"));
+    for (auto* name : { "Deep", "Huge" })
+    {
+        CHECK (loadUserPreset (presets, name));
+        CHECK (presets.name() == "Init");
+    }
+   #endif
+}
 } // namespace
 
 int main (int argc, char* argv[])
@@ -161,6 +194,7 @@ int main (int argc, char* argv[])
     const std::map<juce::String, void (*)()> cases {
         { "not-numbers", notNumbers },
         { "open-folder", openFolder },
+        { "huge-xml", hugeXml },
     };
     const juce::String name = argc > 1 ? argv[1] : "";
     const auto testCase = cases.find (name);

@@ -3,6 +3,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "PresetFiles.h"
 
 namespace
 {
@@ -366,6 +367,9 @@ void BleepForgeProcessor::getStateInformation (juce::MemoryBlock& destData)
 
 void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
+    if (! bleepforge::files::isPlausibleXml (data, (size_t) juce::jmax (0, sizeInBytes)))
+        return;
+
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
     {
         if (xml->hasTagName (apvts.state.getType()))

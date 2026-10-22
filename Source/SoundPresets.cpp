@@ -83,7 +83,7 @@ bool SoundPresets::save (const juce::String& presetName)
 // their defaults.
 bool SoundPresets::loadFile (const juce::File& file)
 {
-    const auto xml = juce::parseXML (file);
+    const auto xml = files::parseXmlFile (file);
     if (xml == nullptr || ! xml->hasTagName ("BleepForgePreset"))
         return false;
 
