@@ -374,6 +374,16 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Rusted Reverb", "Drive", { Machine, { "machineType", Hit }, { "machineLength", 500 }, { "machineTone", 0.4f }, { "machineFocus", 0.3f },
                                       { "machineMetal", 0.85f }, { "roomSize", 0.8f }, { "roomDecay", 2.5f }, { "roomTone", 0.6f }, { "roomMix", 0.5f },
                                       { "driveType", Fold }, { "drivePost", Post }, { "driveAmount", 0.5f }, { "driveMix", 0.55f } } },
+        { "Screech Fold", "Drive", { Machine, { "machineType", Screech }, { "machineLength", 900 }, { "machineTone", 0.6f }, { "machineFocus", 0.6f },
+                                     { "machineMotion", 0.45f }, { "machineMetal", 0.8f }, { "driveType", Fold }, { "drivePost", Pre }, { "driveAmount", 0.5f },
+                                     { "driveMix", 0.75f }, { "chaosAmount", 0.3f }, { "chaosPitch", 0.3f } } },
+        { "Scream Wall", "Drive", { Machine, { "machineType", Screech }, { "machineLength", 1400 }, { "machineTone", 0.7f }, { "machineFocus", 0.5f },
+                                    { "machineMotion", 0.5f }, { "machineMetal", 0.7f }, { "delayNote", N8 }, { "delayFeel", Dotted }, { "delayFeedback", 0.5f },
+                                    { "delayMix", 0.35f }, { "roomSize", 0.8f }, { "roomDecay", 2.0f }, { "roomMix", 0.4f },
+                                    { "driveType", Hard }, { "drivePost", Post }, { "driveAmount", 0.7f }, { "driveMix", 0.65f } } },
+        { "Folded Squeal", "Drive", { Machine, { "machineType", Screech }, { "machineLength", 700 }, { "machineTone", 0.5f }, { "machineFocus", 0.8f },
+                                      { "machineMotion", 0.3f }, { "machineMetal", 0.9f }, { "roomSize", 0.6f }, { "roomDecay", 1.5f }, { "roomMix", 0.35f },
+                                      { "driveType", Fold }, { "drivePost", Post }, { "driveAmount", 0.6f }, { "driveMix", 0.6f } } },
     };
     return presets;
 }
