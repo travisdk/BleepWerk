@@ -289,8 +289,9 @@ void MainView::resized()
     // the sound: the engine, then Chaos, then the effects in two rows
     area.removeFromTop (kGap);
     engineView.setBounds (area.removeFromTop (kEngineHeight));
-    area.removeFromTop (kGap);
+    // Chaos is part of the sound's making, so it sits right against the engine; the effects
+    // come after, with a gap
     chaosView.setBounds (area.removeFromTop (kChaosHeight).removeFromLeft (kChaosWidth));
-    area.removeFromTop (kGap);
+    area.removeFromTop (2 * kGap);
     effectsView.setBounds (area.removeFromTop (EffectsView::kHeight));
 }

@@ -36,7 +36,7 @@ void ChaosView::paint (juce::Graphics& g)
 
     g.setColour (theme::primary().withAlpha (0.8f));
     g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-    g.drawText ("CHAOS", juce::Rectangle<float> ((float) kPadding, 4.0f, 120.0f, 14.0f), juce::Justification::centredLeft);
+    g.drawText (juce::String::fromUTF8 ("CHAOS  \xc2\xb7  PER NOTE"), juce::Rectangle<float> ((float) kPadding, 4.0f, 200.0f, 14.0f), juce::Justification::centredLeft);
 }
 
 void ChaosView::resized()
