@@ -36,6 +36,8 @@ inline constexpr float N32 = 0, N16 = 1, N8 = 2, N4 = 3, N2 = 4;
 inline constexpr float Straight = 0, Triplet = 1, Dotted = 2;
 inline constexpr float Hit = 0, Hiss = 1, Grind = 2;
 inline constexpr float Mono = 0;
+inline constexpr float Warm = 0, Hard = 1, Fold = 2;
+inline constexpr float Pre = 0, Post = 1;
 
 inline constexpr PresetValue Foley { "engine", 1 };
 inline constexpr PresetValue Machine { "engine", 2 };
@@ -346,6 +348,24 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Rattle Echo", "Textures", { Foley, { "foleyExciter", Crackle }, { "foleyLength", 50 }, { "foleyMaterial", 0.4f }, { "foleySize", 0.3f },
                                        { "foleyDamping", 0.7f }, { "foleyBrightness", 0.7f }, { "delayNote", N16 }, { "delayFeel", Dotted }, { "delayFeedback", 0.5f },
                                        { "delayMix", 0.35f } } },
+
+        // ---- Drive: the distortion before the filter (Pre) and after the reverb (Post)
+        { "Tape Blip", "Drive", { { "bleepPitchAmount", 7 }, { "bleepPitchDecay", 30 }, { "bleepDecay", 220 }, { "driveType", Warm }, { "drivePost", Pre },
+                                  { "driveAmount", 0.45f }, { "driveMix", 0.7f }, { "filterType", LP }, { "filterCutoff", 4000 } } },
+        { "Fold Clang", "Drive", { Machine, { "machineType", Hit }, { "machineLength", 800 }, { "machineTone", 0.5f }, { "machineFocus", 0.5f },
+                                   { "machineMetal", 0.8f }, { "driveType", Fold }, { "drivePost", Pre }, { "driveAmount", 0.55f }, { "driveMix", 0.8f },
+                                   { "filterType", BP }, { "filterCutoff", 2500 }, { "filterResonance", 0.4f }, { "chaosAmount", 0.4f }, { "chaosPitch", 0.4f } } },
+        { "Fuzz Grind", "Drive", { Machine, { "machineType", Grind }, { "machineLength", 600 }, { "machineTone", 0.6f }, { "machineFocus", 0.7f },
+                                   { "machineMotion", 0.5f }, { "machineMetal", 0.7f }, { "driveType", Hard }, { "drivePost", Pre }, { "driveAmount", 0.6f },
+                                   { "driveMix", 0.65f }, { "filterType", LP }, { "filterCutoff", 3500 } } },
+        // the echoes and the room go through the distortion too, and fold into a dense wall
+        { "Industrial Wall", "Drive", { Machine, { "machineType", Grind }, { "machineLength", 900 }, { "machineTone", 0.45f }, { "machineFocus", 0.6f },
+                                        { "machineMotion", 0.4f }, { "machineMetal", 0.75f }, { "delayNote", N8 }, { "delayFeel", Dotted },
+                                        { "delayFeedback", 0.55f }, { "delayMix", 0.4f }, { "roomSize", 0.7f }, { "roomDecay", 1.8f }, { "roomMix", 0.4f },
+                                        { "driveType", Hard }, { "drivePost", Post }, { "driveAmount", 0.75f }, { "driveMix", 0.7f } } },
+        { "Rusted Reverb", "Drive", { Machine, { "machineType", Hit }, { "machineLength", 500 }, { "machineTone", 0.4f }, { "machineFocus", 0.3f },
+                                      { "machineMetal", 0.85f }, { "roomSize", 0.8f }, { "roomDecay", 2.5f }, { "roomTone", 0.6f }, { "roomMix", 0.5f },
+                                      { "driveType", Fold }, { "drivePost", Post }, { "driveAmount", 0.5f }, { "driveMix", 0.55f } } },
     };
     return presets;
 }

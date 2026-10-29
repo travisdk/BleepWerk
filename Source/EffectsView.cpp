@@ -6,7 +6,7 @@
 
 namespace
 {
-constexpr int kPadding = 10, kTitleHeight = 12, kKnobWidth = 50, kChoiceWidth = 58, kFeelWidth = 36, kGroupGap = 13;
+constexpr int kPadding = 10, kTitleHeight = 12, kKnobWidth = 48, kChoiceWidth = 54, kFeelWidth = 36, kGroupGap = 11;
 } // namespace
 
 EffectsView::EffectsView (BleepForgeProcessor& p)
@@ -24,10 +24,15 @@ EffectsView::EffectsView (BleepForgeProcessor& p)
       roomTone (p.apvts, "roomTone", "Tone"),
       roomMix (p.apvts, "roomMix", "Mix"),
       roomDuck (p.apvts, "roomDuck", "Duck"),
-      delayFeel (p.apvts, "delayFeel", "", true, { "Str", "Tri", "Dot" })
+      driveType (p.apvts, "driveType", "Type"),
+      driveAmount (p.apvts, "driveAmount", "Drive"),
+      driveMix (p.apvts, "driveMix", "Mix"),
+      delayFeel (p.apvts, "delayFeel", "", true, { "Str", "Tri", "Dot" }),
+      drivePost (p.apvts, "drivePost", "", true, { "Pre", "Post" })
 {
     for (auto* c : std::initializer_list<juce::Component*> { &filterType, &cutoff, &resonance, &bits, &rate, &delayTime,
-                                                             &delayFeel, &feedback, &delayMix, &roomSize, &roomDecay, &roomTone, &roomMix, &roomDuck })
+                                                             &delayFeel, &feedback, &delayMix, &roomSize, &roomDecay, &roomTone, &roomMix, &roomDuck,
+                                                             &driveType, &drivePost, &driveAmount, &driveMix })
         addAndMakeVisible (c);
 
     timerCallback();
@@ -39,10 +44,11 @@ EffectsView::~EffectsView()
     stopTimer();
 }
 
-// Follows the filter type and the delay feel, which automation or the host can change too.
+// Follows the filter type, the delay feel and the drive place, which automation or the host can change too.
 void EffectsView::timerCallback()
 {
     delayFeel.update();
+    drivePost.update();
     const bool filterOn = (int) processor.apvts.getRawParameterValue ("filterType")->load() != (int) bleepforge::FilterType::Off;
     cutoff.setEnabled (filterOn);
     resonance.setEnabled (filterOn);
@@ -93,5 +99,14 @@ void EffectsView::resized()
            {
                for (auto* knob : { &roomSize, &roomDecay, &roomTone, &roomMix, &roomDuck })
                    place (*knob, kKnobWidth);
+           });
+    group (4, [&]
+           {
+               driveType.setBounds (area.removeFromLeft (kChoiceWidth).withTrimmedTop (10));
+               area.removeFromLeft (4);
+               place (drivePost, kFeelWidth);
+               area.removeFromLeft (4);
+               place (driveAmount, kKnobWidth);
+               place (driveMix, kKnobWidth);
            });
 }

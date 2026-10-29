@@ -8,7 +8,8 @@
 #include "Controls.h"
 
 // The effects in signal order, each a small group with its name above: Filter, Crush, Delay
-// and Room. Cutoff and Resonance grey out while the filter is Off.
+// and Reverb, then Drive, which sits first or last in the chain depending on its Pre/Post
+// switch. Cutoff and Resonance grey out while the filter is Off.
 class EffectsView : public juce::Component, private juce::Timer
 {
 public:
@@ -24,11 +25,14 @@ private:
     BleepForgeProcessor& processor;
     Choice filterType;
     Knob cutoff, resonance, bits, rate, delayTime, feedback, delayMix, roomSize, roomDecay, roomTone, roomMix, roomDuck;
+    Choice driveType;
+    Knob driveAmount, driveMix;
     Toggle delayFeel; // straight, triplet or dotted, stacked beside Time
+    Toggle drivePost; // before the filter or after the reverb, stacked beside Type
 
     // the groups as laid out, for paint() to put the names and dividers on
     struct Group { const char* name; juce::Rectangle<int> area; };
-    std::array<Group, 4> groups { { { "FILTER", {} }, { "CRUSH", {} }, { "DELAY", {} }, { "REVERB", {} } } };
+    std::array<Group, 5> groups { { { "FILTER", {} }, { "CRUSH", {} }, { "DELAY", {} }, { "REVERB", {} }, { "DRIVE", {} } } };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EffectsView)
 };

@@ -83,6 +83,10 @@ inline constexpr SoundParam kSoundParams[] = {
     { "roomTone", 0, 1, 0.5f },
     { "roomMix", 0, 1, 0 },
     { "roomDuck", 0, 1, 0 },
+    { "driveType", 0, kNumDriveTypes - 1, 0 },
+    { "drivePost", 0, 1, 1 }, // Pre, Post
+    { "driveAmount", 0, 1, 0.5f },
+    { "driveMix", 0, 1, 0 },
 
     { "outputGain", -48, 12, 0 },
 };
@@ -178,6 +182,10 @@ Patch readPatch (Get&& get)
     e.roomTone = get ("roomTone");
     e.roomMix = get ("roomMix");
     e.roomDuck = get ("roomDuck");
+    e.driveType = (DriveType) index ("driveType", kNumDriveTypes);
+    e.drivePost = index ("drivePost", 2) == 1;
+    e.driveAmount = get ("driveAmount");
+    e.driveMix = get ("driveMix");
 
     patch.outputDb = get ("outputGain");
     return patch;

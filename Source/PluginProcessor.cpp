@@ -215,6 +215,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     sound ("roomTone", "Reverb Tone", linear ("roomTone"));
     sound ("roomMix", "Reverb Mix", linear ("roomMix"));
     sound ("roomDuck", "Reverb Duck", linear ("roomDuck"));
+    // Drive sits first or last in the chain, so it is the one effect not in signal order here
+    choice ("driveType", "Drive Type", namesOf (bleepforge::kDriveTypeNames));
+    choice ("drivePost", "Drive Place", namesOf (bleepforge::kDrivePlaceNames));
+    sound ("driveAmount", "Drive", linear ("driveAmount"));
+    sound ("driveMix", "Drive Mix", linear ("driveMix"));
 
     sound ("outputGain", "Output Gain", linear ("outputGain", 0.1f), "dB");
 

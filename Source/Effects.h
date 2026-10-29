@@ -10,9 +10,10 @@
 #include <vector>
 
 // The effects after the engines, in a fixed order: filter, bitcrush, tempo-synced delay and a
-// plate reverb. Each one is transparent at its default (filter Off, Bits and Rate Off, mixes at
-// 0), so a patch that doesn't use them sounds as before. Buffers are sized in prepare(); the
-// audio thread never allocates. JUCE-free.
+// plate reverb, with a distortion (Drive) that sits either first or last. Each one is
+// transparent at its default (filter Off, Bits and Rate Off, mixes at 0), so a patch that
+// doesn't use them sounds as before. Buffers are sized in prepare(); the audio thread never
+// allocates. JUCE-free.
 namespace bleepforge
 {
 enum class FilterType { Off, LowPass, BandPass, HighPass };
@@ -46,6 +47,13 @@ inline void splitOldDelayTime (int oldIndex, int& note, int& feel)
     feel = feels[i];
 }
 
+// Warm is a soft tape-like saturation, Hard clips like a fuzz pedal and Fold is a wavefolder,
+// whose overtones are the inharmonic, metallic kind that suits Machine and Screech.
+enum class DriveType { Warm, Hard, Fold };
+inline constexpr const char* kDriveTypeNames[] = { "Warm", "Hard", "Fold" };
+inline constexpr int kNumDriveTypes = (int) std::size (kDriveTypeNames);
+inline constexpr const char* kDrivePlaceNames[] = { "Pre", "Post" };
+
 inline constexpr float kCrushBitsOff = 16.0f;    // at the top of the Bits range the crusher is out
 inline constexpr float kCrushRateOff = 48000.0f; // and at the top of the Rate range there is no hold
 
@@ -65,6 +73,10 @@ struct EffectParams
     float roomTone = 0.5f;       // 0..1, dark to bright
     float roomMix = 0.0f;        // 0..1
     float roomDuck = 0.0f;       // 0..1
+    DriveType driveType = DriveType::Warm;
+    bool drivePost = true;       // false: before the filter, true: after the reverb
+    float driveAmount = 0.5f;    // 0..1, nearly clean to wrecked
+    float driveMix = 0.0f;       // 0..1
 };
 
 // Dry stays at full level up to the middle and the wet signal reaches full level there, so
@@ -543,6 +555,288 @@ private:
     bool primed = false;
 };
 
+// One half-band FIR for a factor-two change of sample rate, so two of them in a row give four
+// times. A half-band filter has every second tap zero apart from the centre, which halves the
+// work. Linear phase, so the only cost is a fixed delay, which Drive makes up for in its dry
+// path. The taps are a Blackman-windowed sinc computed in prepare().
+class HalfBand
+{
+public:
+    void prepare (int length) // length is 4m + 3
+    {
+        half = (length - 1) / 2;
+        taps.assign ((size_t) half + 1, 0.0f);
+        for (int d = 1; d <= half; d += 2)
+        {
+            const double t = (double) d * 0.5;
+            const double window = 0.42 + 0.5 * std::cos (kPi * (double) d / (double) (half + 1))
+                                + 0.08 * std::cos (2.0 * kPi * (double) d / (double) (half + 1));
+            taps[(size_t) d] = (float) (std::sin (kPi * t) / (kPi * t) * 0.5 * window);
+        }
+        taps[0] = 0.5f;
+        history.assign ((size_t) (2 * half + 1), 0.0f);
+        reset();
+    }
+
+    void reset()
+    {
+        std::fill (history.begin(), history.end(), 0.0f);
+        pos = 0;
+    }
+
+    int delay() const { return half; } // in samples at the faster rate, up and down alike
+
+    // one sample in at the faster rate; the filtered one out (the caller keeps every second)
+    float push (float x)
+    {
+        const int size = (int) history.size();
+        if (--pos < 0)
+            pos = size - 1;
+        history[(size_t) pos] = x;
+        auto at = [this, size] (int ago) { return history[(size_t) ((pos + ago) % size)]; };
+        float sum = taps[0] * at (half);
+        for (int d = 1; d <= half; d += 2)
+            sum += taps[(size_t) d] * (at (half - d) + at (half + d));
+        return sum;
+    }
+
+private:
+    std::vector<float> taps, history;
+    int half = 0, pos = 0;
+};
+
+// A stereo distortion with four times oversampling, so the sharp corners of Hard and the
+// folds of Fold don't alias into notes that aren't there. Drive sets the gain into the
+// shaper, and a level compensation worked out in prepare() (the shaper's output level for a
+// sine, against its input) brings it back down as the drive goes up, so a high setting is
+// denser rather than just louder. Mix is a dry/wet, with the dry path delayed to match the
+// oversampling filters. Moving between the first and last place in the chain fades the wet
+// signal out where it was and back in at the new place, so there is no click, and at Mix 0
+// the signal isn't touched at all.
+class Drive
+{
+public:
+    void prepare (float sampleRate)
+    {
+        fs = sampleRate;
+        for (auto& ch : channels)
+        {
+            ch.up1.prepare (kLongFilter);
+            ch.up2.prepare (kShortFilter);
+            ch.down2.prepare (kShortFilter);
+            ch.down1.prepare (kLongFilter);
+            ch.dry.assign (kDryRing, 0.0f);
+        }
+        // the round trip in samples at the base rate: the first pair of filters runs at twice
+        // that rate and the second at four times, and the kept sample is two quarter-samples in
+        dryDelay = std::max (1, (int) std::lround ((4.0 * channels[0].up1.delay() + 2.0 * channels[0].up2.delay() - 2.0) / 4.0));
+        amount.prepare (fs);
+        mix.prepare (fs);
+        place.prepare (fs, 4.0f);
+        bypass.prepare (fs, 5.0f);
+        dcCoef = 1.0f - std::exp (-kTwoPi * 15.0f / fs);
+        buildCompensation();
+        reset();
+    }
+
+    void reset()
+    {
+        for (auto& ch : channels)
+        {
+            ch.up1.reset();
+            ch.up2.reset();
+            ch.down2.reset();
+            ch.down1.reset();
+            std::fill (ch.dry.begin(), ch.dry.end(), 0.0f);
+            ch.dc = 0.0f;
+        }
+        writePos = 0;
+        primed = false;
+    }
+
+    void setParams (DriveType newType, bool post, float newAmount, float newMix)
+    {
+        type = newType;
+        wantPost = post;
+        amount.target = std::clamp (newAmount, 0.0f, 1.0f);
+        mix.target = std::clamp (newMix, 0.0f, 1.0f);
+        if (! primed)
+        {
+            amount.jump (amount.target);
+            mix.jump (mix.target);
+            place.jump (1.0f);
+            bypass.jump (mix.target <= 0.0f ? 1.0f : 0.0f);
+            placedPost = wantPost;
+            primed = true;
+        }
+        if (isIdle())
+            placedPost = wantPost; // nothing is heard, so move without a fade
+    }
+
+    // where in the chain it sits at the moment; follows the setting once the wet signal has faded
+    bool isPost() const { return placedPost; }
+
+    void process (float* left, float* right, int numSamples)
+    {
+        if (channels[0].dry.empty())
+            return;
+        float* io[2] = { left, right };
+        const int numChannels = right != nullptr ? 2 : 1;
+
+        if (isIdle())
+        {
+            // not heard, but the dry delay is kept filled so it is ready when Mix goes up
+            for (int i = 0; i < numSamples; ++i)
+            {
+                for (int c = 0; c < numChannels; ++c)
+                    channels[(size_t) c].dry[(size_t) ((writePos + i) & kDryMask)] = io[c][i];
+            }
+            writePos = (writePos + numSamples) & kDryMask;
+            mix.value = mix.target;
+            return;
+        }
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            const float a = amount.next();
+            const bool settled = mix.target <= 0.0f && mix.value < 1.0e-3f;
+            bypass.target = settled ? 1.0f : 0.0f;
+            place.target = wantPost == placedPost ? 1.0f : 0.0f;
+            float dry, wet;
+            mixGains (mix.next() * place.next(), dry, wet);
+            const float b = bypass.next();
+
+            const float gain = preGain (type, a), makeUp = compensation (a);
+            for (int c = 0; c < numChannels; ++c)
+            {
+                auto& ch = channels[(size_t) c];
+                const float in = io[c][i];
+                ch.dry[(size_t) writePos] = in;
+                const float delayed = ch.dry[(size_t) ((writePos - dryDelay) & kDryMask)];
+
+                // up to four times the rate, shape, and back down. Each filter delays by its half
+                // length, and the sample kept at the end is picked (the second of the four) so
+                // that the whole round trip comes to a whole number of samples.
+                float shaped = 0.0f;
+                for (int k = 0; k < 2; ++k)
+                {
+                    const float u1 = ch.up1.push (k == 0 ? 2.0f * in : 0.0f);
+                    float y = 0.0f;
+                    for (int j = 0; j < 2; ++j)
+                    {
+                        const float v = ch.down2.push (shape (ch.up2.push (j == 0 ? 2.0f * u1 : 0.0f) * gain));
+                        if (j == 0)
+                            y = v;
+                    }
+                    const float d = ch.down1.push (y);
+                    if (k == 1)
+                        shaped = d;
+                }
+                // the shapers aren't symmetric, so take the DC they make out of the wet signal
+                ch.dc += dcCoef * (shaped - ch.dc);
+                const float wetSignal = (shaped - ch.dc) * makeUp;
+
+                const float heard = dry * delayed + wet * wetSignal;
+                io[c][i] = in * b + heard * (1.0f - b);
+            }
+            writePos = (writePos + 1) & kDryMask;
+        }
+
+        // the fade is done: now it can change place
+        if (wantPost != placedPost && place.value < 1.0e-3f)
+        {
+            placedPost = wantPost;
+            place.value = 0.0f;
+        }
+        if (bypass.value > 0.9999f && mix.target <= 0.0f && mix.value < 1.0e-3f)
+        {
+            bypass.value = 1.0f;
+            mix.value = 0.0f;
+            for (auto& ch : channels)
+            {
+                ch.up1.reset();
+                ch.up2.reset();
+                ch.down2.reset();
+                ch.down1.reset();
+                ch.dc = 0.0f;
+            }
+        }
+    }
+
+private:
+    static constexpr int kLongFilter = 47, kShortFilter = 15; // taps of the pair at 2x and at 4x
+    static constexpr int kDryRing = 128, kDryMask = kDryRing - 1;
+    static constexpr int kTable = 33;
+    static constexpr float kReferenceLevel = 0.3f; // the sine the compensation is worked out for
+    // Fold stops sooner: past about 30 dB its folds are so many that the overtones run well past
+    // what four times oversampling can carry, and what is left in band is less than it was worked out for
+    static constexpr float kMaxDriveDb[] = { 48.0f, 48.0f, 30.0f };
+
+    struct Channel
+    {
+        HalfBand up1, up2, down2, down1;
+        std::vector<float> dry;
+        float dc = 0.0f;
+    };
+
+    bool isIdle() const { return primed && bypass.target >= 1.0f && bypass.value >= 0.9999f && mix.target <= 0.0f; }
+
+    static float preGain (DriveType t, float a) { return std::pow (10.0f, a * kMaxDriveDb[(size_t) t] / 20.0f); }
+
+    float shape (float x) const { return shapeOf (type, x); }
+
+    static float shapeOf (DriveType t, float x)
+    {
+        switch (t)
+        {
+            case DriveType::Warm: return std::tanh (x);
+            case DriveType::Hard: return std::clamp (x, -0.85f, 1.0f); // the lower edge sooner: even harmonics, like a fuzz
+            case DriveType::Fold: return std::sin (kPi * 0.5f * x);
+        }
+        return x;
+    }
+
+    float compensation (float a) const
+    {
+        const float at = std::clamp (a, 0.0f, 1.0f) * (float) (kTable - 1);
+        const int i = std::min ((int) at, kTable - 2);
+        const auto& row = makeUpTable[(size_t) type];
+        return row[(size_t) i] + (row[(size_t) i + 1] - row[(size_t) i]) * (at - (float) i);
+    }
+
+    // For each type and drive, the gain that gives the shaper the same RMS out as in for the
+    // reference sine; the tails and quiet notes come out relatively louder, which is the point.
+    void buildCompensation()
+    {
+        constexpr int points = 256;
+        for (int t = 0; t < kNumDriveTypes; ++t)
+            for (int i = 0; i < kTable; ++i)
+            {
+                const float g = preGain ((DriveType) t, (float) i / (float) (kTable - 1));
+                double in = 0.0, out = 0.0, mean = 0.0;
+                for (int n = 0; n < points; ++n)
+                {
+                    const float x = kReferenceLevel * std::sin (kTwoPi * (float) n / (float) points);
+                    const float y = shapeOf ((DriveType) t, x * g);
+                    in += (double) x * x;
+                    out += (double) y * y;
+                    mean += y;
+                }
+                mean /= points;
+                out = out / points - mean * mean; // without the DC, which is taken out later
+                makeUpTable[(size_t) t][(size_t) i] = (float) std::sqrt (in / points / std::max (1.0e-12, out));
+            }
+    }
+
+    float fs = 48000.0f, dcCoef = 0.0f;
+    DriveType type = DriveType::Warm;
+    bool wantPost = true, placedPost = true, primed = false;
+    int writePos = 0, dryDelay = 1;
+    std::array<Channel, 2> channels;
+    std::array<std::array<float, kTable>, kNumDriveTypes> makeUpTable {};
+    Smoothed amount, mix, place, bypass;
+};
+
 // The chain in the order the brief sets.
 class Effects
 {
@@ -554,6 +848,7 @@ public:
         crusher.prepare (fs);
         delay.prepare (fs);
         room.prepare (fs);
+        drive.prepare (fs);
     }
 
     void reset()
@@ -562,6 +857,7 @@ public:
         crusher.reset();
         delay.reset();
         room.reset();
+        drive.reset();
     }
 
     void setParams (const EffectParams& p, double bpm)
@@ -570,15 +866,21 @@ public:
         crusher.setParams (p.crushBits, p.crushRateHz);
         delay.setParams (p.delayNote, p.delayFeel, bpm, p.delayFeedback, p.delayMix);
         room.setParams (p.roomSize, p.roomDecay, p.roomTone, p.roomMix, p.roomDuck);
+        drive.setParams (p.driveType, p.drivePost, p.driveAmount, p.driveMix);
     }
 
     // right may be null for a mono output
     void process (float* left, float* right, int numSamples)
     {
+        const bool post = drive.isPost(); // may change while it fades, so asked once
+        if (! post)
+            drive.process (left, right, numSamples);
         filter.process (left, right, numSamples);
         crusher.process (left, right, numSamples);
         delay.process (left, right, numSamples);
         room.process (left, right, numSamples);
+        if (post)
+            drive.process (left, right, numSamples);
     }
 
 private:
@@ -586,5 +888,6 @@ private:
     Crusher crusher;
     Delay delay;
     Plate room;
+    Drive drive;
 };
 } // namespace bleepforge
