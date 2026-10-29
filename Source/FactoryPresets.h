@@ -34,7 +34,7 @@ inline constexpr float Noise = 0, Mallet = 1, Crackle = 2;
 inline constexpr float LP = 1, BP = 2, HP = 3;
 inline constexpr float N32 = 0, N16 = 1, N8 = 2, N4 = 3, N2 = 4;
 inline constexpr float Straight = 0, Triplet = 1, Dotted = 2;
-inline constexpr float Hit = 0, Hiss = 1, Grind = 2;
+inline constexpr float Hit = 0, Hiss = 1, Grind = 2, Screech = 3;
 inline constexpr float Mono = 0;
 inline constexpr float Warm = 0, Hard = 1, Fold = 2;
 inline constexpr float Pre = 0, Post = 1;
@@ -254,7 +254,7 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Press Stamp", "Metal", { Foley, { "foleyExciter", Noise }, { "foleyLength", 1.5f }, { "foleyMaterial", 0.45f }, { "foleySize", 0.8f },
                                     { "foleyDamping", 0.7f }, { "foleyBrightness", 0.4f }, { "foleySweep", -5 } } },
 
-        // ---- Machine: struck parts, steam and grinders, tuned to the note
+        // ---- Machine: struck parts, steam, grinders and screeching metal, tuned to the note
         { "Press Clonk", "Machine", { Machine, { "machineType", Hit }, { "machineLength", 900 }, { "machineTone", 0.45f },
                                       { "machineFocus", 0.4f }, { "machineMetal", 0.75f }, { "chaosAmount", 0.5f }, { "chaosPitch", 0.6f },
                                       { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
@@ -283,6 +283,14 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Conveyor", "Machine", { Machine, { "machineType", Grind }, { "machineLength", 1500 }, { "machineTone", 0.35f },
                                    { "machineFocus", 0.6f }, { "machineMotion", 0.55f }, { "machineMetal", 0.55f }, { "delayNote", N8 }, { "delayFeel", Dotted },
                                    { "delayFeedback", 0.4f }, { "delayMix", 0.2f } } },
+        { "Rail Squeal", "Machine", { Machine, { "machineType", Screech }, { "machineLength", 1500 }, { "machineTone", 0.75f },
+                                      { "machineFocus", 0.7f }, { "machineMotion", 0.2f }, { "machineMetal", 0.6f },
+                                      { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
+        { "Brake Squeal", "Machine", { Machine, { "machineType", Screech }, { "machineLength", 1200 }, { "machineTone", 0.85f },
+                                       { "machineFocus", 0.85f }, { "machineMotion", 0.75f }, { "machineMetal", 0.4f },
+                                       { "chaosAmount", 0.3f }, { "chaosPitch", 0.3f } } },
+        { "Metal Scrape", "Machine", { Machine, { "machineType", Screech }, { "machineLength", 600 }, { "machineTone", 0.45f },
+                                       { "machineFocus", 0.3f }, { "machineMotion", 0.5f }, { "machineMetal", 0.5f } } },
 
         // ---- Glass and ceramic
         { "Glass Ping", "Glass", { Foley, { "foleyLength", 0.1f }, { "foleyMaterial", 1 }, { "foleySize", 0.4f }, { "foleyDamping", 0.2f },

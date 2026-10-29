@@ -17,21 +17,24 @@
 //   Hiss   steam: noise through a bandpass that sits on the note (or octaves above it),
 //          opening with a brighter puff
 //   Grind  noise through a comb filter tuned to the note, which slides when it moves
+//   Screech metal rubbing on metal: a bright tone two octaves above the note (where metal
+//          squeals), which slides up into the note and has friction hiss around it
 // Five controls, the same for every type:
 //   Length how long the sound lasts, fade included (a voice ends by itself, note-offs don't
 //          stop it, so a short step can start a hiss that lasts for bars)
 //   Tone   dark to bright
 //   Motion how fast it moves: 0 is still, then a slow wave up to a fast rattle. It sweeps the
-//          comb and rasps it (Grind), makes the hiss flutter and drop (Hiss) or rattles the
-//          struck part with small knocks (Hit)
+//          comb and rasps it (Grind), makes the hiss flutter and drop (Hiss), rattles the
+//          struck part with small knocks (Hit) or makes the screech waver and chatter as the
+//          metal sticks and slips, and above half way jump to other vibration modes (Screech)
 //   Focus  from wide, airy noise to a clear tone; on Hit, how much rumble and hiss there is
 //   Metal  how much the resonator rings: 0 the dry source, 1 ringing metal for about a second
 // Chaos moves the resonator's modes a little on every note, so no two hits ring the same.
 // JUCE-free.
 namespace bleepforge
 {
-enum class MachineType { Hit, Hiss, Grind };
-inline constexpr const char* kMachineTypeNames[] = { "Hit", "Hiss", "Grind" };
+enum class MachineType { Hit, Hiss, Grind, Screech };
+inline constexpr const char* kMachineTypeNames[] = { "Hit", "Hiss", "Grind", "Screech" };
 inline constexpr int kNumMachineTypes = (int) std::size (kMachineTypeNames);
 
 struct MachineParams
@@ -72,6 +75,18 @@ public:
     static constexpr float kSoftDarkening = 0.3f;   // how far Tone drops for a note at velocity 0
     static constexpr float kGrindLevel = 1.15f;     // Grind's comb output, at about the level it had
     static constexpr float kClick = 2.0f;           // the strike's click, which alone rings the low modes
+    static constexpr float kScreechSemis = 24.0f;   // Screech sounds this far above the note
+    static constexpr float kScreechSlideSemis = -1.0f; // it starts this far below and slides up
+    static constexpr float kScreechSlideSeconds = 0.15f;
+    static constexpr float kScreechWaver = 0.025f;  // pitch wobble at full Motion, as a fraction
+
+    // Screech's partials (odd and even, so it is bright rather than hollow), at full Tone;
+    // the 4th, 6th and 7th make it rasp rather than whistle on low notes
+    static constexpr std::array<float, 7> kScreechPartials { 1.0f, 0.5f, 0.35f, 0.32f, 0.15f, 0.24f, 0.2f };
+    static constexpr std::array<float, 7> kScreechPartialPhases { 0.0f, 0.3f, 0.0f, 1.1f, 0.0f, 0.0f, 0.5f };
+    // the vibration modes a screech jumps between: the note, a fourth and a minor seventh up,
+    // so the jumps still fit the note
+    static constexpr std::array<float, 3> kScreechHopRatios { 1.0f, 1.3348f, 1.7818f };
 
     // The comb's delay line is sized here, off the audio thread.
     void prepare (float sampleRate, uint32_t noiseSeed)
@@ -87,6 +102,9 @@ public:
         airA1 = 1.0f / (1.0f + g * (g + airK));
         airA2 = g * airA1;
         airA3 = g * airA2;
+        waverCoef = 1.0f - std::exp (-kTwoPi * 9.0f / fs);
+        jitterCoef = 1.0f - std::exp (-kTwoPi * 25.0f / fs);
+        hopCoef = 1.0f - std::exp (-kTwoPi * 60.0f / fs);
         reset();
     }
 
@@ -104,6 +122,8 @@ public:
         dryPower = wetPower = 0.0f;
         wetGain = 1.0f;
         lfoPhase = subPhase = 0.0f;
+        sc1 = sc2 = 0.0f;
+        waver = jitter = SlowNoise {};
         note = -1;
     }
 
@@ -130,6 +150,10 @@ public:
         elapsed = 0;
         struck = 0;
         hitLowpass = hitHighpass = 0.0f;
+        hopMode = 0;
+        hopRatio = 1.0f;
+        hopCountdown = (int) (0.1f * fs);
+        chatterPhase = 0.0f;
         for (auto& m : modes)
             m.spread = noise.next() * kMaxModeSpread * v.modeSpread;
         needsCoefs = true;
@@ -161,7 +185,10 @@ public:
         // silence that ends at Length
         const bool hit = p.type == MachineType::Hit;
         const float lengthSamples = std::max (1.0f, std::clamp (p.lengthMs, 5.0f, 6000.0f) * 0.001f * fs * variation.decayScale);
-        const float attackSamples = hit ? 1.0f : std::clamp (0.1f * lengthSamples, 0.001f * fs, 0.02f * fs);
+        // a screech takes a moment to bite
+        const float attackSamples = hit ? 1.0f
+                                  : p.type == MachineType::Screech ? std::clamp (0.15f * lengthSamples, 0.01f * fs, 0.08f * fs)
+                                                                   : std::clamp (0.1f * lengthSamples, 0.001f * fs, 0.02f * fs);
         const int holdUntil = (int) (0.5f * lengthSamples);
         const float fadeCoef = std::exp (-9.21f / std::max (1.0f, 0.5f * lengthSamples)); // -80 dB at Length
 
@@ -219,6 +246,7 @@ public:
                     break;
                 case MachineType::Hiss: dry = hiss (lfo, puff); break;
                 case MachineType::Grind: dry = grind (tone, focus, lfo, p.motion); break;
+                case MachineType::Screech: dry = screech (tone, focus, p.motion); break;
             }
 
             float wet = resonate (dry);
@@ -249,6 +277,19 @@ public:
 private:
     enum class Stage { Idle, Attack, Hold, Fade };
 
+    // Noise smoothed by two one-poles, so it changes about as often as their cutoff: for
+    // wavering and jitter. Scaled to roughly unit spread whatever the rate.
+    struct SlowNoise
+    {
+        float lp1 = 0.0f, lp2 = 0.0f;
+        float next (float white, float coef)
+        {
+            lp1 += coef * (white - lp1);
+            lp2 += coef * (lp1 - lp2);
+            return lp2 * 2.0f / std::sqrt (coef);
+        }
+    };
+
     struct Mode
     {
         float a1 = 0.0f, a2 = 0.0f, gain = 0.0f, spread = 0.0f;
@@ -266,7 +307,9 @@ private:
     void updateCoefs (MachineType type, float tone, float focus, float metal)
     {
         needsCoefs = false;
-        const float f0 = pitchHz (0.0f);
+        // Screech's resonator follows the note it sounds, not its wavering, so the squeal
+        // swells and fades as it passes the modes
+        const float f0 = pitchHz (type == MachineType::Screech ? kScreechSemis : 0.0f);
         const float ring = machineRingSeconds (metal) * variation.decayScale;
         const float tilt = 1.6f - 1.3f * tone; // high modes quieter when dark
 
@@ -304,6 +347,19 @@ private:
             svfK = 1.0f / q;
             // a narrower band lets less noise through; this keeps the level about the same
             svfGain = std::min (120.0f, 0.7f * std::sqrt (fs / (kPi * centre / q)));
+        }
+
+        if (type == MachineType::Screech)
+        {
+            // Tone rolls the upper partials off when dark; the sum is kept at the same level
+            float sumSquares = 0.0f;
+            for (size_t k = 0; k < screechAmps.size(); ++k)
+            {
+                screechAmps[k] = kScreechPartials[k] * std::pow ((float) k + 1.0f, -2.0f * (1.0f - tone) * (1.0f - tone));
+                sumSquares += screechAmps[k] * screechAmps[k];
+            }
+            for (auto& a : screechAmps)
+                a /= std::sqrt (sumSquares);
         }
     }
 
@@ -426,6 +482,69 @@ private:
         return combLowpass * level * rasp;
     }
 
+    // Friction: metal sticks and slips against metal. A bright tone two octaves above the note
+    // slides up into it over 150 ms (the part straining), with friction hiss around it (a
+    // bandpass on or above the tone, more of it as Focus goes down), driven so it rasps instead of
+    // whistling: harder as Tone goes up, cleaner when dark. Motion makes the pitch waver and the level chatter, from a slow stutter to
+    // 30 times a second; above half way the screech jumps to another mode now and then (a
+    // fourth or a seventh up) and back, like a brake squeal. Motion 0 holds it still.
+    float screech (float tone, float focus, float motion)
+    {
+        const float t = (float) elapsed / fs;
+        const float x = std::min (1.0f, t / kScreechSlideSeconds);
+        const float slide = kScreechSlideSemis * (1.0f - x * x * (3.0f - 2.0f * x));
+
+        // a jump away from the note goes back to it at the next one
+        if (motion <= 0.5f)
+            hopMode = 0;
+        else if (--hopCountdown <= 0)
+        {
+            hopMode = hopMode != 0 ? 0 : (noise.next() < 0.0f ? 1 : 2);
+            const float rate = std::max (0.05f, 2.0f * (motion - 0.5f));
+            hopCountdown = (int) ((0.08f + 0.11f * (1.0f + noise.next())) * fs / rate);
+        }
+        hopRatio += hopCoef * (kScreechHopRatios[(size_t) hopMode] - hopRatio); // a jump slides over a few ms
+
+        const float f = pitchHz (kScreechSemis + slide) * hopRatio * (1.0f + kScreechWaver * motion * waver.next (noise.next(), waverCoef));
+        screechPhase = wrapPhase (screechPhase + std::min (0.45f, f / fs));
+        const float w = kTwoPi * screechPhase;
+        float partials = 0.0f;
+        for (size_t k = 0; k < screechAmps.size(); ++k)
+            if ((float) (k + 1) * f < 0.45f * fs)
+                partials += screechAmps[k] * std::sin ((float) (k + 1) * w + kScreechPartialPhases[k]);
+
+        // the friction hiss: noise through a bandpass (Q 6) from the tone (dark) up to two
+        // octaves above it (bright), kept at about the same level whatever the pitch
+        if (elapsed % kCoefInterval == 1)
+        {
+            const float centre = std::clamp (f * (1.0f + 3.0f * tone), 20.0f, 0.45f * fs);
+            screechG = std::tan (kPi * centre / fs);
+            screechHissGain = 0.7f * std::sqrt (fs / (kPi * centre / 6.0f));
+        }
+        const float k = 1.0f / 6.0f;
+        const float a1 = 1.0f / (1.0f + screechG * (screechG + k)), a2 = screechG * a1, a3 = screechG * a2;
+        const float v3 = noise.next() - sc2;
+        const float v1 = a1 * sc1 + a2 * v3;
+        const float v2 = sc2 + a2 * sc1 + a3 * v3;
+        sc1 = 2.0f * v1 - sc1;
+        sc2 = 2.0f * v2 - sc2;
+        const float hiss = v1 * k * screechHissGain;
+
+        // stick-slip chatter: the level stutters, unevenly; it takes about half the level away
+        // at full Motion, which is given back
+        const float wobble = jitter.next (noise.next(), jitterCoef);
+        chatterPhase = wrapPhase (chatterPhase + (5.0f + 25.0f * motion) * (1.0f + 0.2f * wobble) / fs);
+        const float depth = std::min (1.0f, 3.0f * motion);
+        const float stick = std::pow (0.5f + 0.5f * std::sin (kTwoPi * chatterPhase), 3.0f);
+        const float chatter = (1.0f - 0.85f * depth * (1.0f - stick)) / (1.0f - 0.58f * depth);
+        const float level = std::max (0.0f, 1.0f + 0.25f * motion * wobble);
+
+        // the chatter comes after the drive, which would otherwise flatten it
+        const float rough = 0.7f * (1.0f - std::clamp (focus, 0.0f, 1.0f));
+        const float drive = 1.0f + 4.0f * tone;
+        return 0.8f * std::tanh (drive * ((1.0f - rough) * partials + rough * hiss)) / std::tanh (drive) * chatter * level;
+    }
+
     float fs = 48000.0f;
     WhiteNoise noise;
     Stage stage = Stage::Idle;
@@ -445,6 +564,12 @@ private:
     size_t combWrite = 0;
     float combLowpass = 0.0f, grindNoise = 0.0f, teethPhase = 0.0f;
     float hissShift = 0.0f; // semitones the puff and Motion move Hiss's band
+    std::array<float, kScreechPartials.size()> screechAmps {};               // Screech
+    float screechPhase = 0.0f, chatterPhase = 0.0f, hopRatio = 1.0f;
+    int hopMode = 0, hopCountdown = 0;
+    float sc1 = 0.0f, sc2 = 0.0f, screechG = 0.1f, screechHissGain = 1.0f;
+    float waverCoef = 0.01f, jitterCoef = 0.01f, hopCoef = 0.01f;
+    SlowNoise waver, jitter;
     Variation variation;
     int note = -1;
 };
