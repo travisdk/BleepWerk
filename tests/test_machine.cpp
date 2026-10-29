@@ -130,13 +130,18 @@ static void everyTypeFollowsTheNote()
         const auto hit = play (params (MachineType::Hit, 0.3f, 1.0f, 0.0f, 1000.0f, 1.0f), note, 600);
         const double hitHz = strongestHz (hit, ms (20), ms (400), hz * 0.85, hz * 1.15);
         CHECK (std::abs (hitHz / hz - 1.0) < 0.01);
+
+        // a still screech, once it has slid up, sounds two octaves above the note
+        const auto screech = play (params (MachineType::Screech, 0.5f, 1.0f, 0.0f, 1000.0f, 0.5f), note, 600);
+        const double screechHz = strongestHz (screech, ms (200), ms (450), hz * 4.0 * 0.85, hz * 4.0 * 1.15);
+        CHECK (std::abs (screechHz / (hz * 4.0) - 1.0) < 0.01);
     }
 }
 
 static void lengthSetsHowLongItLasts()
 {
     // a hit dies away by itself before its Length; the rest hold until their fade
-    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Grind })
+    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Grind, MachineType::Screech })
         for (float lengthMs : { 100.0f, 1500.0f })
         {
             const auto out = play (params (type, 0.5f, 0.5f, 0.0f, lengthMs, 0.5f), 48, lengthMs + 300.0);
@@ -190,12 +195,19 @@ static void motionMovesTheSound()
     const int start = bestLag (grind, ms (60), ms (110), (int) (period * 0.6), (int) (period * 1.1));
     const int later = bestLag (grind, ms (1100), ms (1150), (int) (period * 0.6), (int) (period * 1.1));
     CHECK (later < start - 3);
+
+    // a moving screech chatters: its level stutters where a still one holds
+    const auto stillScreech = play (params (MachineType::Screech, 0.5f, 1.0f, 0.0f, 3000.0f), 57, 1200);
+    const auto chattering = play (params (MachineType::Screech, 0.5f, 1.0f, 0.4f, 3000.0f), 57, 1200);
+    std::printf ("screech level spread: still %.2f, moving %.2f\n", spread (stillScreech), spread (chattering));
+    CHECK (spread (stillScreech) < 1.3);
+    CHECK (spread (chattering) > 1.6);
 }
 
 static void everySettingIsSane()
 {
     float loudest = 0.0f, quietest = 1.0e9f;
-    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Grind })
+    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Grind, MachineType::Screech })
         for (float tone : { 0.0f, 0.5f, 1.0f })
             for (float focus : { 0.0f, 0.5f, 1.0f })
                 for (float motion : { 0.0f, 1.0f })
@@ -281,7 +293,7 @@ static void chaosVariesTheResonator()
 // A softer note is darker, not only quieter.
 static void softerIsDarker()
 {
-    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Grind })
+    for (auto type : { MachineType::Hit, MachineType::Hiss, MachineType::Grind, MachineType::Screech })
     {
         const auto p = params (type, 0.5f, 0.5f, 0.0f, 400.0f, 0.5f);
         const double soft = brightness (play (p, 48, 400, 0.3f)), hard = brightness (play (p, 48, 400, 1.0f));
