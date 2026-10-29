@@ -6,7 +6,8 @@
 
 namespace
 {
-constexpr int kPadding = 10, kTitleHeight = 12, kKnobWidth = 48, kChoiceWidth = 54, kFeelWidth = 36, kGroupGap = 11;
+constexpr int kPadding = 10, kTitleHeight = 12, kKnobWidth = 48, kChoiceWidth = 72, kFeelWidth = 42, kGroupGap = 11,
+              kRowHeight = 106; // a title and a row of knobs; two rows make up the panel
 } // namespace
 
 EffectsView::EffectsView (BleepForgeProcessor& p)
@@ -63,35 +64,46 @@ void EffectsView::paint (juce::Graphics& g)
     g.setColour (theme::outline);
     g.drawRect (area, 1.0f);
 
+    // a line between the two rows
+    g.fillRect (juce::Rectangle<float> ((float) kPadding, (float) (kPadding + kRowHeight - 8), area.getWidth() - 2.0f * kPadding, 1.0f));
+
     g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
     for (size_t i = 0; i < groups.size(); ++i)
     {
         const auto& group = groups[i];
-        if (i > 0)
+        if (i > 0 && groups[i - 1].area.getY() == group.area.getY())
         {
             g.setColour (theme::outline);
             const float x = (float) group.area.getX() - (float) kGroupGap * 0.5f;
-            g.fillRect (juce::Rectangle<float> (x, (float) kPadding + kTitleHeight, 1.0f, area.getHeight() - 2.0f * kPadding - kTitleHeight));
+            g.fillRect (juce::Rectangle<float> (x, (float) group.area.getY() + kTitleHeight, 1.0f, (float) kRowHeight - kTitleHeight - 12.0f));
         }
         g.setColour (theme::primary().withAlpha (0.8f));
-        g.drawText (group.name, juce::Rectangle<float> ((float) group.area.getX(), 4.0f, 100.0f, 14.0f), juce::Justification::centredLeft);
+        g.drawText (group.name, juce::Rectangle<float> ((float) group.area.getX(), (float) group.area.getY() - 6.0f, 100.0f, 14.0f), juce::Justification::centredLeft);
     }
 }
 
+// Two rows: the chain in order on the first, Drive on the second, since it sits first or last.
 void EffectsView::resized()
 {
-    auto area = getLocalBounds().reduced (kPadding);
-    area.removeFromTop (kTitleHeight);
+    const auto inner = getLocalBounds().reduced (kPadding);
+    juce::Rectangle<int> area;
+    int rowTop = 0;
 
+    auto startRow = [&] (int row)
+    {
+        rowTop = inner.getY() + row * kRowHeight;
+        area = juce::Rectangle<int> (inner.getX(), rowTop + kTitleHeight, inner.getWidth(), kRowHeight - kTitleHeight - 6);
+    };
     auto place = [&area] (juce::Component& c, int width) { c.setBounds (area.removeFromLeft (width)); };
-    auto group = [this, &area] (size_t index, auto&& layOut)
+    auto group = [&] (size_t index, auto&& layOut)
     {
         const int start = area.getX();
         layOut();
-        groups[index].area = juce::Rectangle<int> (start, 0, area.getX() - start, getHeight());
+        groups[index].area = juce::Rectangle<int> (start, rowTop, area.getX() - start, kRowHeight);
         area.removeFromLeft (kGroupGap);
     };
 
+    startRow (0);
     group (0, [&] { filterType.setBounds (area.removeFromLeft (kChoiceWidth).withTrimmedTop (10)); place (cutoff, kKnobWidth); place (resonance, kKnobWidth); });
     group (1, [&] { place (bits, kKnobWidth); place (rate, kKnobWidth); });
     group (2, [&] { place (delayTime, kKnobWidth); place (delayFeel, kFeelWidth); area.removeFromLeft (6); place (feedback, kKnobWidth); place (delayMix, kKnobWidth); });
@@ -100,6 +112,8 @@ void EffectsView::resized()
                for (auto* knob : { &roomSize, &roomDecay, &roomTone, &roomMix, &roomDuck })
                    place (*knob, kKnobWidth);
            });
+
+    startRow (1);
     group (4, [&]
            {
                driveType.setBounds (area.removeFromLeft (kChoiceWidth).withTrimmedTop (10));

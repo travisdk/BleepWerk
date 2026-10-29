@@ -8,7 +8,7 @@
 
 namespace
 {
-constexpr int kMargin = 16, kHeaderHeight = 40, kEngineHeight = 150, kBottomHeight = 120, kGap = 10, kChaosWidth = 350;
+constexpr int kMargin = 16, kHeaderHeight = 40, kEngineHeight = 150, kChaosHeight = 120, kGap = 10, kChaosWidth = 350;
 } // namespace
 
 MainView::MainView (BleepForgeProcessor& p)
@@ -286,12 +286,11 @@ void MainView::resized()
     for (auto [button, width] : { std::pair { &presetNext, 26 }, { &presetButton, 200 }, { &presetPrev, 26 } })
         button->setBounds (header.removeFromRight (width).withSizeKeepingCentre (width, 26));
 
-    // the sound: the engine, then Chaos and the effects side by side
+    // the sound: the engine, then Chaos, then the effects in two rows
     area.removeFromTop (kGap);
     engineView.setBounds (area.removeFromTop (kEngineHeight));
     area.removeFromTop (kGap);
-    auto bottom = area.removeFromTop (kBottomHeight);
-    chaosView.setBounds (bottom.removeFromLeft (kChaosWidth));
-    bottom.removeFromLeft (kGap);
-    effectsView.setBounds (bottom);
+    chaosView.setBounds (area.removeFromTop (kChaosHeight).removeFromLeft (kChaosWidth));
+    area.removeFromTop (kGap);
+    effectsView.setBounds (area.removeFromTop (EffectsView::kHeight));
 }

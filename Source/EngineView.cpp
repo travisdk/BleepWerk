@@ -8,7 +8,7 @@
 
 namespace
 {
-constexpr int kPadding = 10, kLeftWidth = 312, kKnobWidth = 62, kChoiceWidth = 104;
+constexpr int kPadding = 10, kLeftWidth = 280, kKnobWidth = 50, kChoiceWidth = 90;
 } // namespace
 
 EngineView::EngineView (BleepForgeProcessor& p)

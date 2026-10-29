@@ -15,7 +15,7 @@
 class MainView : public juce::Component, private juce::Timer
 {
 public:
-    static constexpr int kWidth = 1324, kHeight = 362; // wide enough for the effects row, Drive included
+    static constexpr int kWidth = 860, kHeight = 604; // 16 + 40 + 10 + 150 + 10 + 120 + 10 + 232 + 16
 
     explicit MainView (BleepForgeProcessor&);
     ~MainView() override;

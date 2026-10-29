@@ -8,8 +8,8 @@
 #include "Controls.h"
 
 // The effects in signal order, each a small group with its name above: Filter, Crush, Delay
-// and Reverb, then Drive, which sits first or last in the chain depending on its Pre/Post
-// switch. Cutoff and Resonance grey out while the filter is Off.
+// and Reverb on the first row, then Drive on the second, which sits first or last in the chain
+// depending on its Pre/Post switch. Cutoff and Resonance grey out while the filter is Off.
 class EffectsView : public juce::Component, private juce::Timer
 {
 public:
@@ -30,6 +30,10 @@ private:
     Toggle delayFeel; // straight, triplet or dotted, stacked beside Time
     Toggle drivePost; // before the filter or after the reverb, stacked beside Type
 
+public:
+    static constexpr int kHeight = 232; // two rows and the padding round them
+
+private:
     // the groups as laid out, for paint() to put the names and dividers on
     struct Group { const char* name; juce::Rectangle<int> area; };
     std::array<Group, 5> groups { { { "FILTER", {} }, { "CRUSH", {} }, { "DELAY", {} }, { "REVERB", {} }, { "DRIVE", {} } } };
