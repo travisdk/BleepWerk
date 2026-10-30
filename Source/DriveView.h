@@ -7,8 +7,8 @@
 #include "PluginProcessor.h"
 #include "Controls.h"
 
-// Drive, the distortion, in a panel of its own with larger knobs and its own accent colour, so it
-// stands out from the rest of the effects. It sits first or last in the chain by the Pre/Post
+// Drive, the distortion, in a panel of its own with larger knobs, so it stands out from the rest
+// of the effects. It sits first or last in the chain by the Pre/Post
 // switch, which says where; the panel itself stays where it is.
 class DriveView : public juce::Component, private juce::Timer
 {
@@ -20,7 +20,6 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
-    void lookAndFeelChanged() override;
 
 private:
     void timerCallback() override;

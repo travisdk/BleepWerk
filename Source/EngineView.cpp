@@ -8,7 +8,7 @@
 
 namespace
 {
-constexpr int kPadding = 10, kLeftWidth = 280, kKnobWidth = 50, kChoiceWidth = 90, kDiameter = 47;
+constexpr int kPadding = 10, kLeftWidth = 280, kKnobWidth = 50, kChoiceWidth = 90, kDiameter = 47, kKeyDiameter = 62;
 } // namespace
 
 EngineView::EngineView (BleepForgeProcessor& p)
@@ -48,15 +48,21 @@ EngineView::EngineView (BleepForgeProcessor& p)
     back.onClick = [this] { undoRoll(); };
     back.setEnabled (false);
 
+    // the ones that matter most for each sound, drawn larger: pitch envelope and decay for the
+    // bleep, material and damping for the foley, length and metal for the machine
+    bleepKeys = { 4, 7 };
+    foleyKeys = { 2, 4 };
+    machineKeys = { 1, 5 };
     bleepControls = { &bleepWave, &pulseWidth, &fmRatio, &fmAmount, &pitchAmount, &pitchDecay, &attack, &decay, &release, &noise };
     foleyControls = { &foleyExciter, &foleyLength, &material, &size, &damping, &brightness, &sweep };
     machineControls = { &machineType, &machineLength, &machineTone, &motion, &focus, &metal };
     for (auto* list : { &bleepControls, &foleyControls, &machineControls })
-        for (auto* c : *list)
+        for (size_t i = 0; i < list->size(); ++i)
         {
+            auto* c = (*list)[i];
             addChildComponent (c);
             if (auto* knob = dynamic_cast<Knob*> (c))
-                knob->setMaxDiameter (kDiameter);
+                knob->setMaxDiameter (isKey (list, i) ? kKeyDiameter : kDiameter);
         }
     for (auto* knob : { &glide, &bend, &output })
         knob->setMaxDiameter (kDiameter);
@@ -87,6 +93,12 @@ void EngineView::timerCallback()
         shownEngine = selected;
         showEngine (selected);
     }
+}
+
+bool EngineView::isKey (const std::vector<juce::Component*>* list, size_t index) const
+{
+    const auto& keys = list == &bleepControls ? bleepKeys : list == &foleyControls ? foleyKeys : machineKeys;
+    return std::find (keys.begin(), keys.end(), index) != keys.end();
 }
 
 void EngineView::showEngine (int engineIndex)
@@ -152,7 +164,7 @@ void EngineView::paint (juce::Graphics& g)
     g.fillRect (juce::Rectangle<float> ((float) kLeftWidth, (float) kPadding, 1.0f, area.getHeight() - 2.0f * kPadding));
 
     g.setColour (theme::primary().withAlpha (0.8f));
-    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    g.setFont (fonts::title (14.0f));
     g.drawText (juce::String (kEngineNames[juce::jlimit (0, kNumEngines - 1, shownEngine)]).toUpperCase(),
                 juce::Rectangle<float> ((float) kLeftWidth + kPadding, 4.0f, 120.0f, 14.0f), juce::Justification::centredLeft);
 }
@@ -180,16 +192,24 @@ void EngineView::resized()
     dice.setBounds (nameRow.removeFromRight (18));
     nameRow.removeFromRight (4);
     back.setBounds (nameRow.removeFromRight (18));
-    auto lay = [area, knobHeight] (const std::vector<juce::Component*>& controls)
+    // the key knobs are larger and stand with their values on the same line as the rest, the
+    // others share what is left
+    auto lay = [area] (const std::vector<juce::Component*>& controls, const std::vector<size_t>& keys)
     {
-        auto row = area.withTrimmedTop (area.getHeight() - knobHeight);
-        controls.front()->setBounds (row.removeFromLeft (kChoiceWidth).withTrimmedBottom (Knob::kValueHeight));
+        auto row = area.withTrimmedTop (area.getHeight() - Knob::heightFor (kKeyDiameter));
+        controls.front()->setBounds (row.removeFromLeft (kChoiceWidth).withTrimmedBottom (Knob::kValueHeight + kKeyDiameter - kDiameter));
         row.removeFromLeft (8);
-        const int width = juce::jmin (kKnobWidth + 8, row.getWidth() / ((int) controls.size() - 1));
+        const int keyWidth = kKeyDiameter + 4;
+        const int others = (int) controls.size() - 1 - (int) keys.size();
+        const int width = juce::jmin (kKnobWidth + 14, (row.getWidth() - keyWidth * (int) keys.size()) / juce::jmax (1, others));
         for (size_t i = 1; i < controls.size(); ++i)
-            controls[i]->setBounds (row.removeFromLeft (width));
+        {
+            const bool key = std::find (keys.begin(), keys.end(), i) != keys.end();
+            auto slot = row.removeFromLeft (key ? keyWidth : width);
+            controls[i]->setBounds (slot.removeFromBottom (Knob::heightFor (key ? kKeyDiameter : kDiameter)));
+        }
     };
-    lay (bleepControls);
-    lay (foleyControls);
-    lay (machineControls);
+    lay (bleepControls, bleepKeys);
+    lay (foleyControls, foleyKeys);
+    lay (machineControls, machineKeys);
 }

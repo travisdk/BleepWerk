@@ -70,6 +70,7 @@ target_sources(BleepForge PRIVATE
     Source/MainView.cpp
     Source/EngineView.cpp
     Source/Controls.cpp
+    Source/Fonts.cpp
     Source/ChaosView.cpp
     Source/DriveView.cpp
     Source/EffectsView.cpp
@@ -95,8 +96,16 @@ target_compile_definitions(BleepForge PUBLIC
     JUCE_DISPLAY_SPLASH_SCREEN=0
     JUCE_VST3_CAN_REPLACE_VST2=0)  # no VST2 SDK; VST3 only
 
+# The typefaces, embedded (licences in THIRD-PARTY-NOTICES.txt)
+juce_add_binary_data(BleepForgeAssets SOURCES
+    Resources/Fonts/BarlowSemiCondensed/BarlowSemiCondensed-SemiBold.ttf
+    Resources/Fonts/BarlowSemiCondensed/BarlowSemiCondensed-Bold.ttf
+    Resources/Fonts/IBMPlexMono/IBMPlexMono-Medium.ttf)
+set_target_properties(BleepForgeAssets PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
 target_link_libraries(BleepForge
     PRIVATE
+        BleepForgeAssets
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC

@@ -16,12 +16,7 @@ DriveView::DriveView (BleepForgeProcessor& p)
       mix (p.apvts, "driveMix", "Mix")
 {
     for (auto* knob : { &amount, &mix })
-    {
         knob->setMaxDiameter (kDiameter);
-        knob->useAccent();
-    }
-    place.accentColour = [] { return bleepforge::theme::driveAccent(); };
-    place.lookAndFeelChanged();
     for (auto* c : std::initializer_list<juce::Component*> { &type, &place, &amount, &mix })
         addAndMakeVisible (c);
 
@@ -39,22 +34,17 @@ void DriveView::timerCallback()
     place.update();
 }
 
-void DriveView::lookAndFeelChanged()
-{
-    repaint(); // the accent depends on the theme
-}
-
 void DriveView::paint (juce::Graphics& g)
 {
     using namespace bleepforge;
     const auto area = getLocalBounds().toFloat();
     g.setColour (theme::panel);
     g.fillRect (area);
-    g.setColour (theme::driveAccent().withAlpha (0.55f));
+    g.setColour (theme::outline);
     g.drawRect (area, 1.0f);
 
-    g.setColour (theme::driveAccent());
-    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    g.setColour (theme::primary().withAlpha (0.8f));
+    g.setFont (fonts::title (14.0f));
     g.drawText ("DRIVE", juce::Rectangle<float> ((float) kPadding, 4.0f, 120.0f, 14.0f), juce::Justification::centredLeft);
 }
 

@@ -57,7 +57,7 @@ void EffectsView::paint (juce::Graphics& g)
     g.setColour (theme::outline);
     g.drawRect (area, 1.0f);
 
-    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    g.setFont (fonts::title (14.0f));
     for (size_t i = 0; i < groups.size(); ++i)
     {
         const auto& group = groups[i];

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
+#include "Fonts.h"
 #include "Themes.h"
 
 // BleepForge's colours and the look of the standard JUCE controls it uses. The two theme
@@ -15,8 +16,8 @@ inline const juce::Colour background { 0xff000000 | kBackgroundRgb };
 inline const juce::Colour panel { 0xff000000 | kPanelRgb };
 inline const juce::Colour panelAlt { 0xff000000 | kPanelAltRgb }; // tooltips
 inline const juce::Colour outline { 0xff2b3039 };
-inline const juce::Colour text { 0xffd8dce4 };
-inline const juce::Colour dimText { 0xff7a8190 };
+inline const juce::Colour text { 0xffe9ecf1 };
+inline const juce::Colour dimText { 0xff9ba4b3 }; // names; light enough to read at a glance
 
 inline int& currentIndex()
 {
@@ -29,15 +30,6 @@ inline const ThemeChoice& current() { return kThemes[(size_t) juce::jlimit (0, k
 inline juce::Colour primary() { return juce::Colour (0xff000000 | current().primary); }
 // The deeper shade: velocity and ratchets.
 inline juce::Colour secondary() { return juce::Colour (0xff000000 | current().secondary); }
-
-// Drive's own colour, a signal orange, or an icy blue when the theme is itself orange or red, so
-// that it always stands apart from the knobs around it.
-inline juce::Colour driveAccent()
-{
-    const float hue = primary().getHue();
-    const float distance = std::min (std::abs (hue - 0.03f), 1.0f - std::abs (hue - 0.03f));
-    return distance < 0.1f ? juce::Colour (0xff3dc8ff) : juce::Colour (0xffff6a3d);
-}
 
 inline int indexOf (const juce::String& name)
 {
@@ -52,6 +44,7 @@ class LookAndFeel : public juce::LookAndFeel_V4
 public:
     LookAndFeel()
     {
+        setDefaultSansSerifTypeface (fonts::labelTypeface());
         setColour (juce::ResizableWindow::backgroundColourId, background);
         setColour (juce::ComboBox::backgroundColourId, panel);
         setColour (juce::ComboBox::outlineColourId, outline);
@@ -106,7 +99,7 @@ public:
         const juce::PathStrokeType stroke (thickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
         g.setColour (outline);
         g.strokePath (track, stroke);
-        g.setColour (! slider.isEnabled() ? dimText : slider.getProperties()["accent"] ? driveAccent() : primary());
+        g.setColour (slider.isEnabled() ? primary() : dimText);
         g.strokePath (value, stroke);
 
         const float body = radius - thickness * 2.4f;
@@ -149,10 +142,14 @@ public:
         g.strokePath (path, juce::PathStrokeType (2.0f));
     }
 
+    juce::Font getComboBoxFont (juce::ComboBox&) override { return fonts::label (15.0f); }
+    juce::Font getPopupMenuFont() override { return fonts::label (16.0f); }
+    juce::Font getTextButtonFont (juce::TextButton&, int) override { return fonts::label (14.5f); }
+
     juce::Label* createSliderTextBox (juce::Slider& slider) override
     {
         auto* label = LookAndFeel_V4::createSliderTextBox (slider);
-        label->setFont (juce::FontOptions (11.0f));
+        label->setFont (fonts::value (12.0f));
         label->setColour (juce::Label::outlineColourId, juce::Colours::transparentBlack);
         label->setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
         return label;

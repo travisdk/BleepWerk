@@ -5,8 +5,6 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
-#include <functional>
-
 // The controls the sound panels are built from, each tied to one parameter.
 
 // A rotary control for one parameter: name above, value just under the knob; double-click
@@ -21,7 +19,6 @@ struct Knob : juce::Component
     Knob (juce::AudioProcessorValueTreeState&, const juce::String& parameterId, const juce::String& name, bool bipolar = false);
     void resized() override;
     void setMaxDiameter (int diameter) { maxDiameter = diameter; resized(); }
-    void useAccent(); // drawn in the accent colour (Drive's) instead of the theme's
     void enablementChanged() override { setAlpha (isEnabled() ? 1.0f : 0.35f); }
 
     juce::Slider slider { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
@@ -57,7 +54,6 @@ struct Toggle : juce::Component
     juce::Label label;
     juce::OwnedArray<juce::TextButton> buttons;
     bool stacked;
-    std::function<juce::Colour()> accentColour; // the colour of the selected button's text, if not the theme's
 };
 
 // A small icon button drawn without fonts or images: a die (roll random values) or a back

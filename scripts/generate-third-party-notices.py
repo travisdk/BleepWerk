@@ -71,6 +71,10 @@ def components(juce, cje):
          jm / "juce_core" / "zip" / "zlib" / "LICENSE", whole_file, None),
         ("VST3 SDK", "bundled with JUCE 8.0.15", "VST3 plug-in format",
          jm / "juce_audio_processors_headless" / "format_types" / "VST3_SDK" / "LICENSE.txt", whole_file, None),
+        ("Barlow Semi Condensed", "SemiBold and Bold", "Typeface for names, titles and menus",
+         ROOT / "Resources" / "Fonts" / "BarlowSemiCondensed" / "OFL.txt", whole_file, None),
+        ("IBM Plex Mono", "Medium", "Typeface for values",
+         ROOT / "Resources" / "Fonts" / "IBMPlexMono" / "OFL.txt", whole_file, None),
     ]
 
 

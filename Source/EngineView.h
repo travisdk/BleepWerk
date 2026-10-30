@@ -49,7 +49,10 @@ private:
     };
     std::optional<SoundBefore> beforeRoll;
 
+    bool isKey (const std::vector<juce::Component*>* list, size_t index) const;
+
     std::vector<juce::Component*> bleepControls, foleyControls, machineControls;
+    std::vector<size_t> bleepKeys, foleyKeys, machineKeys; // indices of the larger knobs
     int shownEngine = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EngineView)

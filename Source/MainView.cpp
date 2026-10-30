@@ -264,13 +264,36 @@ void MainView::paint (juce::Graphics& g)
     using namespace bleepforge;
     g.fillAll (theme::background);
 
+    // the wordmark: a little square pulse, the bleep itself, then BLEEP in the theme colour and
+    // FORGE in white
     auto header = headerArea().toFloat();
+    const float midY = header.getCentreY();
+    juce::Path pulse;
+    const float x0 = header.getX() + 1.0f;
+    pulse.startNewSubPath (x0, midY + 9.0f);
+    for (auto [dx, y] : { std::pair { 6.0f, 9.0f }, { 6.0f, -9.0f }, { 14.0f, -9.0f }, { 14.0f, 9.0f }, { 20.0f, 9.0f },
+                          { 20.0f, 1.0f }, { 26.0f, 1.0f }, { 26.0f, 9.0f }, { 32.0f, 9.0f } })
+        pulse.lineTo (x0 + dx, midY + y);
     g.setColour (theme::primary());
-    g.setFont (juce::FontOptions (22.0f, juce::Font::bold));
-    g.drawText ("BleepForge", header, juce::Justification::centredLeft);
+    g.strokePath (pulse, juce::PathStrokeType (2.6f, juce::PathStrokeType::mitered, juce::PathStrokeType::butt));
+
+    const auto wordmark = fonts::title (30.0f);
+    auto widthOf = [&wordmark] (const juce::String& text)
+    {
+        juce::GlyphArrangement glyphs;
+        glyphs.addLineOfText (wordmark, text, 0.0f, 0.0f);
+        return glyphs.getBoundingBox (0, -1, true).getWidth() + 2.0f;
+    };
+    const float textX = x0 + 44.0f, bleepWidth = widthOf ("BLEEP"), forgeWidth = widthOf ("FORGE");
+    g.setFont (wordmark);
+    g.setColour (theme::primary());
+    g.drawText ("BLEEP", juce::Rectangle<float> (textX, header.getY(), bleepWidth, header.getHeight()), juce::Justification::centredLeft);
+    g.setColour (theme::text);
+    g.drawText ("FORGE", juce::Rectangle<float> (textX + bleepWidth, header.getY(), forgeWidth, header.getHeight()), juce::Justification::centredLeft);
+
     g.setColour (theme::dimText);
-    g.setFont (juce::FontOptions (11.0f));
-    g.drawText (BLEEPFORGE_VERSION_STRING, header.withTrimmedLeft (128.0f).withTrimmedTop (6.0f),
+    g.setFont (fonts::value (11.0f));
+    g.drawText (BLEEPFORGE_VERSION_STRING, header.withTrimmedLeft (textX + bleepWidth + forgeWidth + 12.0f - header.getX()).withTrimmedTop (8.0f),
                 juce::Justification::centredLeft);
 }
 

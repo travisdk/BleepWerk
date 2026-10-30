@@ -9,7 +9,7 @@ namespace
 void styleName (juce::Label& label, const juce::String& name)
 {
     label.setText (name, juce::dontSendNotification);
-    label.setFont (juce::FontOptions (12.0f));
+    label.setFont (bleepforge::fonts::label (14.0f));
     label.setJustificationType (juce::Justification::centred);
     label.setColour (juce::Label::textColourId, bleepforge::theme::dimText);
     label.setInterceptsMouseClicks (false, false);
@@ -25,12 +25,6 @@ Knob::Knob (juce::AudioProcessorValueTreeState& apvts, const juce::String& param
     if (auto* parameter = apvts.getParameter (parameterId))
         slider.setDoubleClickReturnValue (true, parameter->convertFrom0to1 (parameter->getDefaultValue()));
     addAndMakeVisible (slider);
-}
-
-void Knob::useAccent()
-{
-    slider.getProperties().set ("accent", true);
-    slider.repaint();
 }
 
 void Knob::resized()
@@ -96,7 +90,7 @@ Toggle::Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& p
 void Toggle::lookAndFeelChanged()
 {
     for (auto* button : buttons)
-        button->setColour (juce::TextButton::textColourOnId, accentColour ? accentColour() : bleepforge::theme::primary());
+        button->setColour (juce::TextButton::textColourOnId, bleepforge::theme::primary());
 }
 
 void Toggle::update()
