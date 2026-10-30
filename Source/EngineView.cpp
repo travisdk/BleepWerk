@@ -18,6 +18,7 @@ EngineView::EngineView (BleepForgeProcessor& p)
       glide (p.apvts, "glide", "Glide"),
       bend (p.apvts, "bendRange", "Bend"),
       output (p.apvts, "outputGain", "Output"),
+      picture (p),
       bleepWave (p.apvts, "bleepWave", "Wave"),
       pulseWidth (p.apvts, "bleepPulseWidth", "Pulse W"),
       fmRatio (p.apvts, "bleepFmRatio", "FM Ratio"),
@@ -42,8 +43,9 @@ EngineView::EngineView (BleepForgeProcessor& p)
       focus (p.apvts, "machineFocus", "Focus"),
       metal (p.apvts, "machineMetal", "Metal")
 {
-    for (auto* c : std::initializer_list<juce::Component*> { &engine, &voices, &glide, &bend, &output, &dice, &back })
+    for (auto* c : std::initializer_list<juce::Component*> { &engine, &voices, &glide, &bend, &output, &dice, &back, &picture })
         addAndMakeVisible (c);
+    engine.buttonHeight = 40; // the main choice, so larger buttons
     dice.onClick = [this] { rollSound(); };
     back.onClick = [this] { undoRoll(); };
     back.setEnabled (false);
@@ -155,18 +157,15 @@ void EngineView::paint (juce::Graphics& g)
 {
     using namespace bleepforge;
     const auto area = getLocalBounds().toFloat();
-    g.setColour (theme::panel);
-    g.fillRect (area);
-    g.setColour (theme::outline);
-    g.drawRect (area, 1.0f);
+    theme::paintPanel (g, area);
 
     // divider between the shared controls and the engine's own
-    g.fillRect (juce::Rectangle<float> ((float) kLeftWidth, (float) kPadding, 1.0f, area.getHeight() - 2.0f * kPadding));
+    theme::paintEngravedLine (g, (float) kLeftWidth, (float) kPadding + 4.0f, area.getHeight() - 2.0f * kPadding - 4.0f);
 
     g.setColour (theme::primary().withAlpha (0.8f));
     g.setFont (fonts::title (14.0f));
     g.drawText (juce::String (kEngineNames[juce::jlimit (0, kNumEngines - 1, shownEngine)]).toUpperCase(),
-                juce::Rectangle<float> ((float) kLeftWidth + kPadding, 4.0f, 120.0f, 14.0f), juce::Justification::centredLeft);
+                juce::Rectangle<float> ((float) kLeftWidth + kPadding, 6.0f, 120.0f, 14.0f), juce::Justification::centredLeft);
 }
 
 void EngineView::resized()
@@ -177,7 +176,7 @@ void EngineView::resized()
     // shared: the engine across the full width, so all three names fit, then Voices, Glide,
     // Bend and Output below it, on the same lines as the engine's own knobs
     auto left = area.removeFromLeft (kLeftWidth - kPadding * 2);
-    engine.setBounds (left.removeFromTop (44));
+    engine.setBounds (left.removeFromTop (Knob::kLabelHeight + 40));
     auto leftRow = left.removeFromBottom (knobHeight);
     voices.setBounds (leftRow.removeFromLeft (leftRow.getWidth() - 3 * kKnobWidth - 6).withTrimmedBottom (Knob::kValueHeight));
     leftRow.removeFromLeft (6);
@@ -188,7 +187,7 @@ void EngineView::resized()
     // the engine's own: its choice first, then the knobs
     area.removeFromLeft (kPadding * 2);
     // the engine's name, with the dice and back arrow at the right
-    auto nameRow = juce::Rectangle<int> (area.getX(), 2, area.getWidth(), 18);
+    auto nameRow = juce::Rectangle<int> (area.getX(), 5, area.getWidth(), 18);
     dice.setBounds (nameRow.removeFromRight (18));
     nameRow.removeFromRight (4);
     back.setBounds (nameRow.removeFromRight (18));
@@ -209,6 +208,8 @@ void EngineView::resized()
             controls[i]->setBounds (slot.removeFromBottom (Knob::heightFor (key ? kKeyDiameter : kDiameter)));
         }
     };
+    // the picture takes what the key knobs leave above the row
+    picture.setBounds (area.getX(), 27, area.getWidth(), area.getBottom() - Knob::heightFor (kKeyDiameter) - 4 - 27);
     lay (bleepControls, bleepKeys);
     lay (foleyControls, foleyKeys);
     lay (machineControls, machineKeys);

@@ -16,7 +16,7 @@
 class MainView : public juce::Component, private juce::Timer
 {
 public:
-    static constexpr int kWidth = 860, kHeight = 504; // 16 + 40 + 10 + 148 + 10 + 128 + 10 + 120 + 16
+    static constexpr int kWidth = 860, kHeight = 532; // 16 + 40 + 10 + 176 + 10 + 128 + 10 + 120 + 16
 
     explicit MainView (BleepForgeProcessor&);
     ~MainView() override;

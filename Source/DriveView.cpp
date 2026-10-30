@@ -38,14 +38,11 @@ void DriveView::paint (juce::Graphics& g)
 {
     using namespace bleepforge;
     const auto area = getLocalBounds().toFloat();
-    g.setColour (theme::panel);
-    g.fillRect (area);
-    g.setColour (theme::outline);
-    g.drawRect (area, 1.0f);
+    theme::paintPanel (g, area);
 
     g.setColour (theme::primary().withAlpha (0.8f));
     g.setFont (fonts::title (14.0f));
-    g.drawText ("DRIVE", juce::Rectangle<float> ((float) kPadding, 4.0f, 120.0f, 14.0f), juce::Justification::centredLeft);
+    g.drawText ("DRIVE", juce::Rectangle<float> ((float) kPadding, 6.0f, 120.0f, 14.0f), juce::Justification::centredLeft);
 }
 
 // Spread over the width, all on the lines of the knobs.

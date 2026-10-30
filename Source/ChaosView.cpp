@@ -29,18 +29,15 @@ void ChaosView::paint (juce::Graphics& g)
 {
     using namespace bleepforge;
     const auto area = getLocalBounds().toFloat();
-    g.setColour (theme::panel);
-    g.fillRect (area);
-    g.setColour (theme::outline);
-    g.drawRect (area, 1.0f);
+    theme::paintPanel (g, area);
 
     // Amount stands apart: it scales the others
     const float divider = (float) (kPadding + kKnobWidth + 8);
-    g.fillRect (juce::Rectangle<float> (divider, (float) kPadding + kTitleHeight, 1.0f, area.getHeight() - 2.0f * kPadding - kTitleHeight));
+    theme::paintEngravedLine (g, divider, (float) kPadding + kTitleHeight, area.getHeight() - 2.0f * kPadding - kTitleHeight);
 
     g.setColour (theme::primary().withAlpha (0.8f));
     g.setFont (fonts::title (14.0f));
-    g.drawText (juce::String::fromUTF8 ("CHAOS  \xc2\xb7  PER NOTE"), juce::Rectangle<float> ((float) kPadding, 4.0f, 200.0f, 14.0f), juce::Justification::centredLeft);
+    g.drawText (juce::String::fromUTF8 ("CHAOS  \xc2\xb7  PER NOTE"), juce::Rectangle<float> ((float) kPadding, 6.0f, 200.0f, 14.0f), juce::Justification::centredLeft);
 }
 
 void ChaosView::resized()

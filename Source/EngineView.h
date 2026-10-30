@@ -6,6 +6,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
 #include "Controls.h"
+#include "SoundView.h"
 
 #include <optional>
 
@@ -30,6 +31,7 @@ private:
     BleepForgeProcessor& processor;
     Toggle engine, voices;
     Knob glide, bend, output;
+    SoundView picture; // the sound drawn, above the engine's knobs
 
     Choice bleepWave;
     Knob pulseWidth, fmRatio, fmAmount, pitchAmount, pitchDecay, attack, decay, release, noise;

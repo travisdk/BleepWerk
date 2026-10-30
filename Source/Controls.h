@@ -54,6 +54,7 @@ struct Toggle : juce::Component
     juce::Label label;
     juce::OwnedArray<juce::TextButton> buttons;
     bool stacked;
+    int buttonHeight = 26; // of a side-by-side row
 };
 
 // A small icon button drawn without fonts or images: a die (roll random values) or a back

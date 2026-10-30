@@ -71,6 +71,7 @@ target_sources(BleepForge PRIVATE
     Source/EngineView.cpp
     Source/Controls.cpp
     Source/Fonts.cpp
+    Source/SoundView.cpp
     Source/ChaosView.cpp
     Source/DriveView.cpp
     Source/EffectsView.cpp

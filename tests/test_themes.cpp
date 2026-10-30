@@ -34,6 +34,6 @@ int main()
             ++testFailures();
         }
     }
-    CHECK (std::strcmp (kThemes[0].name, "Mint") == 0); // the default
+    CHECK (std::strcmp (kThemes[0].name, "Hazard") == 0); // the default
     return finish ("themes");
 }

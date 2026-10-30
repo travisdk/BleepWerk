@@ -31,8 +31,8 @@ void Knob::resized()
 {
     auto area = getLocalBounds();
     label.setBounds (area.removeFromTop (kLabelHeight));
-    // the value box takes the knob's full width, so narrow knobs still show their value
-    slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, getWidth(), kValueHeight);
+    // the value readout is nearly as wide as the knob, so narrow knobs still show their value
+    slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, juce::jmax (20, getWidth() - 8), kValueHeight);
     const int diameter = juce::jmax (0, juce::jmin (area.getWidth(), area.getHeight() - kValueHeight, maxDiameter));
     slider.setBounds (area.removeFromTop (diameter + kValueHeight));
 }
@@ -111,7 +111,7 @@ void Toggle::resized()
             buttons[i]->setBounds (i == buttons.size() - 1 ? area : area.removeFromTop (height));
         return;
     }
-    area = area.withSizeKeepingCentre (area.getWidth(), 26);
+    area = area.withSizeKeepingCentre (area.getWidth(), buttonHeight);
     const int width = area.getWidth() / juce::jmax (1, buttons.size());
     for (int i = 0; i < buttons.size(); ++i)
         buttons[i]->setBounds (i == buttons.size() - 1 ? area : area.removeFromLeft (width));

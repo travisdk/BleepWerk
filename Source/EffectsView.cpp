@@ -52,10 +52,7 @@ void EffectsView::paint (juce::Graphics& g)
 {
     using namespace bleepforge;
     const auto area = getLocalBounds().toFloat();
-    g.setColour (theme::panel);
-    g.fillRect (area);
-    g.setColour (theme::outline);
-    g.drawRect (area, 1.0f);
+    theme::paintPanel (g, area);
 
     g.setFont (fonts::title (14.0f));
     for (size_t i = 0; i < groups.size(); ++i)
@@ -63,12 +60,11 @@ void EffectsView::paint (juce::Graphics& g)
         const auto& group = groups[i];
         if (i > 0)
         {
-            g.setColour (theme::outline);
             const float x = (float) group.area.getX() - (float) kGroupGap * 0.5f;
-            g.fillRect (juce::Rectangle<float> (x, (float) kPadding + kTitleHeight, 1.0f, area.getHeight() - 2.0f * kPadding - kTitleHeight));
+            theme::paintEngravedLine (g, x, (float) kPadding + kTitleHeight, area.getHeight() - 2.0f * kPadding - kTitleHeight);
         }
         g.setColour (theme::primary().withAlpha (0.8f));
-        g.drawText (group.name, juce::Rectangle<float> ((float) group.area.getX(), 4.0f, 100.0f, 14.0f), juce::Justification::centredLeft);
+        g.drawText (group.name, juce::Rectangle<float> ((float) group.area.getX(), 6.0f, 100.0f, 14.0f), juce::Justification::centredLeft);
     }
 }
 

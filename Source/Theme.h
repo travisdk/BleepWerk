@@ -15,7 +15,7 @@ namespace bleepforge::theme
 inline const juce::Colour background { 0xff000000 | kBackgroundRgb };
 inline const juce::Colour panel { 0xff000000 | kPanelRgb };
 inline const juce::Colour panelAlt { 0xff000000 | kPanelAltRgb }; // tooltips
-inline const juce::Colour outline { 0xff2b3039 };
+inline const juce::Colour outline { 0xff3a3e46 };
 inline const juce::Colour text { 0xffe9ecf1 };
 inline const juce::Colour dimText { 0xff9ba4b3 }; // names; light enough to read at a glance
 
@@ -37,6 +37,60 @@ inline int indexOf (const juce::String& name)
         if (name == kThemes[i].name)
             return i;
     return 0;
+}
+
+// A panel of the control-panel look: brushed dark metal with a lit top-left edge and a shaded
+// bottom-right one, a thin hazard stripe along the top in the theme's colour, and two screws
+// at the bottom corners. The panels' own controls are laid out inside it.
+inline void paintPanel (juce::Graphics& g, juce::Rectangle<float> area)
+{
+    g.setGradientFill (juce::ColourGradient (panelAlt, 0.0f, area.getY(), panel.darker (0.2f), 0.0f, area.getBottom(), false));
+    g.fillRect (area);
+    g.setColour (juce::Colours::white.withAlpha (0.016f)); // the brushing
+    for (float y = area.getY() + 2.0f; y < area.getBottom(); y += 3.0f)
+        g.fillRect (area.getX(), y, area.getWidth(), 1.0f);
+
+    g.setColour (juce::Colours::white.withAlpha (0.09f));
+    g.fillRect (area.getX(), area.getY(), area.getWidth(), 1.0f);
+    g.fillRect (area.getX(), area.getY(), 1.0f, area.getHeight());
+    g.setColour (juce::Colours::black.withAlpha (0.55f));
+    g.fillRect (area.getX(), area.getBottom() - 1.0f, area.getWidth(), 1.0f);
+    g.fillRect (area.getRight() - 1.0f, area.getY(), 1.0f, area.getHeight());
+
+    // the hazard stripe
+    const auto strip = juce::Rectangle<float> (area.getX() + 1.0f, area.getY() + 1.0f, area.getWidth() - 2.0f, 3.0f);
+    g.saveState();
+    g.reduceClipRegion (strip.toNearestInt());
+    g.setColour (primary().withAlpha (0.85f));
+    g.fillRect (strip);
+    g.setColour (juce::Colour (0xff17181b));
+    for (float x = strip.getX() - 4.0f; x < strip.getRight(); x += 8.0f)
+    {
+        juce::Path bar;
+        bar.addQuadrilateral (x, strip.getBottom(), x + 4.0f, strip.getBottom(), x + 7.0f, strip.getY(), x + 3.0f, strip.getY());
+        g.fillPath (bar);
+    }
+    g.restoreState();
+
+    // screws, each with its slot turned a different way
+    int turn = 0;
+    for (auto centre : { juce::Point<float> (area.getX() + 6.0f, area.getBottom() - 6.0f), juce::Point<float> (area.getRight() - 6.0f, area.getBottom() - 6.0f) })
+    {
+        g.setGradientFill (juce::ColourGradient (juce::Colour (0xff6b717b), centre.x - 1.5f, centre.y - 1.5f, juce::Colour (0xff23262b), centre.x + 2.5f, centre.y + 2.5f, true));
+        g.fillEllipse (juce::Rectangle<float> (6.0f, 6.0f).withCentre (centre));
+        g.setColour (juce::Colour (0xff111214));
+        const float angle = 0.6f + 1.1f * (float) turn++;
+        g.drawLine (juce::Line<float> (centre.getPointOnCircumference (2.4f, angle), centre.getPointOnCircumference (2.4f, angle + juce::MathConstants<float>::pi)), 1.2f);
+    }
+}
+
+// A divider cut into the metal: a dark line with a light one beside it.
+inline void paintEngravedLine (juce::Graphics& g, float x, float y, float height)
+{
+    g.setColour (juce::Colours::black.withAlpha (0.6f));
+    g.fillRect (x, y, 1.0f, height);
+    g.setColour (juce::Colours::white.withAlpha (0.08f));
+    g.fillRect (x + 1.0f, y, 1.0f, height);
 }
 
 class LookAndFeel : public juce::LookAndFeel_V4
@@ -102,9 +156,14 @@ public:
         g.setColour (slider.isEnabled() ? primary() : dimText);
         g.strokePath (value, stroke);
 
+        // the cap: metal, lit from the top left
         const float body = radius - thickness * 2.4f;
-        g.setColour (background);
-        g.fillEllipse (juce::Rectangle<float> (body * 2.0f, body * 2.0f).withCentre (centre));
+        const auto cap = juce::Rectangle<float> (body * 2.0f, body * 2.0f).withCentre (centre);
+        g.setGradientFill (juce::ColourGradient (juce::Colour (0xff50555e), centre.x - body * 0.5f, centre.y - body * 0.6f,
+                                                 juce::Colour (0xff17181b), centre.x + body * 0.7f, centre.y + body * 0.8f, true));
+        g.fillEllipse (cap);
+        g.setColour (juce::Colours::black.withAlpha (0.7f));
+        g.drawEllipse (cap, 1.0f);
         g.setColour (text);
         g.drawLine (juce::Line<float> (centre.getPointOnCircumference (body * 0.25f, angle),
                                        centre.getPointOnCircumference (body * 0.9f, angle)), 2.0f);
@@ -150,8 +209,9 @@ public:
     {
         auto* label = LookAndFeel_V4::createSliderTextBox (slider);
         label->setFont (fonts::value (12.0f));
-        label->setColour (juce::Label::outlineColourId, juce::Colours::transparentBlack);
-        label->setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
+        // a small readout cut into the panel
+        label->setColour (juce::Label::outlineColourId, juce::Colours::black.withAlpha (0.55f));
+        label->setColour (juce::Label::backgroundColourId, juce::Colour (0xff0e0f11));
         return label;
     }
 };

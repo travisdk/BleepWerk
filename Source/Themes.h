@@ -14,7 +14,7 @@
 // contrast ratio. JUCE-free so the tests can read it; colours are 0xRRGGBB.
 namespace bleepforge
 {
-inline constexpr uint32_t kBackgroundRgb = 0x111317, kPanelRgb = 0x1a1d23, kPanelAltRgb = 0x20242c;
+inline constexpr uint32_t kBackgroundRgb = 0x121315, kPanelRgb = 0x1c1f24, kPanelAltRgb = 0x20242c;
 
 struct ThemeChoice
 {
@@ -23,6 +23,7 @@ struct ThemeChoice
 };
 
 inline constexpr ThemeChoice kThemes[] = {
+    { "Hazard", 0xf5c518, 0xd9780f }, // warning yellow and orange: the control-panel look, the default
     { "Mint", 0x4fe0b0, 0x1ba477 },   { "Lime", 0x97d912, 0x6e9e0d },   { "Amber", 0xffb92e, 0xc48300 },
     { "Orange", 0xff9d57, 0xeb6200 }, { "Coral", 0xfc9a8f, 0xfa4e3b },  { "Pink", 0xfc94c8, 0xfa3d9c },
     { "Violet", 0xcaa5fd, 0xa96ffb }, { "Blue", 0x8db5fc, 0x4789fa },   { "Cyan", 0x40d7f5, 0x0a9dbb },
