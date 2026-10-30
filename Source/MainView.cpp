@@ -8,11 +8,11 @@
 
 namespace
 {
-constexpr int kMargin = 16, kHeaderHeight = 40, kEngineHeight = 150, kChaosHeight = 120, kGap = 10, kChaosWidth = 350;
+constexpr int kMargin = 16, kHeaderHeight = 40, kEngineHeight = 148, kChaosHeight = 128, kGap = 10, kChaosWidth = 420;
 } // namespace
 
 MainView::MainView (BleepForgeProcessor& p)
-    : processor (p), engineView (p), chaosView (p), effectsView (p)
+    : processor (p), engineView (p), chaosView (p), driveView (p), effectsView (p)
 {
     setSize (kWidth, kHeight);
     using namespace bleepforge;
@@ -40,6 +40,7 @@ MainView::MainView (BleepForgeProcessor& p)
     // the sound
     addAndMakeVisible (engineView);
     addAndMakeVisible (chaosView);
+    addAndMakeVisible (driveView);
     addAndMakeVisible (effectsView);
 
     refreshPreset();
@@ -286,12 +287,14 @@ void MainView::resized()
     for (auto [button, width] : { std::pair { &presetNext, 26 }, { &presetButton, 200 }, { &presetPrev, 26 } })
         button->setBounds (header.removeFromRight (width).withSizeKeepingCentre (width, 26));
 
-    // the sound: the engine, then Chaos, then the effects in two rows
+    // the sound: the engine; Chaos and Drive side by side across the whole width; the effects
     area.removeFromTop (kGap);
     engineView.setBounds (area.removeFromTop (kEngineHeight));
-    // Chaos is part of the sound's making, so it sits right against the engine; the effects
-    // come after, with a gap
-    chaosView.setBounds (area.removeFromTop (kChaosHeight).removeFromLeft (kChaosWidth));
-    area.removeFromTop (2 * kGap);
+    area.removeFromTop (kGap);
+    auto middle = area.removeFromTop (kChaosHeight);
+    chaosView.setBounds (middle.removeFromLeft (kChaosWidth));
+    middle.removeFromLeft (kGap);
+    driveView.setBounds (middle);
+    area.removeFromTop (kGap);
     effectsView.setBounds (area.removeFromTop (EffectsView::kHeight));
 }

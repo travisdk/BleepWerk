@@ -7,6 +7,7 @@
 #include "PluginProcessor.h"
 #include "EngineView.h"
 #include "ChaosView.h"
+#include "DriveView.h"
 #include "EffectsView.h"
 
 // Everything in the editor, laid out at a fixed design size; the editor scales it as a whole.
@@ -15,7 +16,7 @@
 class MainView : public juce::Component, private juce::Timer
 {
 public:
-    static constexpr int kWidth = 860, kHeight = 604; // 16 + 40 + 10 + 150 + 10 + 120 + 10 + 232 + 16
+    static constexpr int kWidth = 860, kHeight = 504; // 16 + 40 + 10 + 148 + 10 + 128 + 10 + 120 + 16
 
     explicit MainView (BleepForgeProcessor&);
     ~MainView() override;
@@ -45,6 +46,7 @@ private:
     BleepForgeProcessor& processor;
     EngineView engineView;
     ChaosView chaosView;
+    DriveView driveView;
     EffectsView effectsView;
     GearButton settingsButton;
     juce::TextButton presetPrev { "<" }, presetButton, presetNext { ">" }, saveButton { "Save" };

@@ -8,7 +8,7 @@
 
 namespace
 {
-constexpr int kPadding = 10, kLeftWidth = 280, kKnobWidth = 50, kChoiceWidth = 90;
+constexpr int kPadding = 10, kLeftWidth = 280, kKnobWidth = 50, kChoiceWidth = 90, kDiameter = 47;
 } // namespace
 
 EngineView::EngineView (BleepForgeProcessor& p)
@@ -53,7 +53,13 @@ EngineView::EngineView (BleepForgeProcessor& p)
     machineControls = { &machineType, &machineLength, &machineTone, &motion, &focus, &metal };
     for (auto* list : { &bleepControls, &foleyControls, &machineControls })
         for (auto* c : *list)
+        {
             addChildComponent (c);
+            if (auto* knob = dynamic_cast<Knob*> (c))
+                knob->setMaxDiameter (kDiameter);
+        }
+    for (auto* knob : { &glide, &bend, &output })
+        knob->setMaxDiameter (kDiameter);
 
     timerCallback();
     startTimerHz (10);
@@ -154,30 +160,30 @@ void EngineView::paint (juce::Graphics& g)
 void EngineView::resized()
 {
     auto area = getLocalBounds().reduced (kPadding);
+    const int knobHeight = Knob::heightFor (kDiameter);
 
     // shared: the engine across the full width, so all three names fit, then Voices, Glide,
-    // Bend and Output below it
+    // Bend and Output below it, on the same lines as the engine's own knobs
     auto left = area.removeFromLeft (kLeftWidth - kPadding * 2);
     engine.setBounds (left.removeFromTop (44));
-    left.removeFromTop (4);
-    voices.setBounds (left.removeFromLeft (left.getWidth() - 3 * kKnobWidth - 6).withTrimmedTop (8));
-    left.removeFromLeft (6);
-    glide.setBounds (left.removeFromLeft (kKnobWidth));
-    bend.setBounds (left.removeFromLeft (kKnobWidth));
-    output.setBounds (left.removeFromLeft (kKnobWidth));
+    auto leftRow = left.removeFromBottom (knobHeight);
+    voices.setBounds (leftRow.removeFromLeft (leftRow.getWidth() - 3 * kKnobWidth - 6).withTrimmedBottom (Knob::kValueHeight));
+    leftRow.removeFromLeft (6);
+    glide.setBounds (leftRow.removeFromLeft (kKnobWidth));
+    bend.setBounds (leftRow.removeFromLeft (kKnobWidth));
+    output.setBounds (leftRow.removeFromLeft (kKnobWidth));
 
     // the engine's own: its choice first, then the knobs
     area.removeFromLeft (kPadding * 2);
     // the engine's name, with the dice and back arrow at the right
     auto nameRow = juce::Rectangle<int> (area.getX(), 2, area.getWidth(), 18);
-    area.removeFromTop (12);
     dice.setBounds (nameRow.removeFromRight (18));
     nameRow.removeFromRight (4);
     back.setBounds (nameRow.removeFromRight (18));
-    auto lay = [area] (const std::vector<juce::Component*>& controls) mutable
+    auto lay = [area, knobHeight] (const std::vector<juce::Component*>& controls)
     {
-        auto row = area;
-        controls.front()->setBounds (row.removeFromLeft (kChoiceWidth).withTrimmedTop (10));
+        auto row = area.withTrimmedTop (area.getHeight() - knobHeight);
+        controls.front()->setBounds (row.removeFromLeft (kChoiceWidth).withTrimmedBottom (Knob::kValueHeight));
         row.removeFromLeft (8);
         const int width = juce::jmin (kKnobWidth + 8, row.getWidth() / ((int) controls.size() - 1));
         for (size_t i = 1; i < controls.size(); ++i)

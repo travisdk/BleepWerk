@@ -27,13 +27,20 @@ Knob::Knob (juce::AudioProcessorValueTreeState& apvts, const juce::String& param
     addAndMakeVisible (slider);
 }
 
+void Knob::useAccent()
+{
+    slider.getProperties().set ("accent", true);
+    slider.repaint();
+}
+
 void Knob::resized()
 {
     auto area = getLocalBounds();
-    label.setBounds (area.removeFromTop (16));
+    label.setBounds (area.removeFromTop (kLabelHeight));
     // the value box takes the knob's full width, so narrow knobs still show their value
-    slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, getWidth(), 16);
-    slider.setBounds (area);
+    slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, getWidth(), kValueHeight);
+    const int diameter = juce::jmax (0, juce::jmin (area.getWidth(), area.getHeight() - kValueHeight, maxDiameter));
+    slider.setBounds (area.removeFromTop (diameter + kValueHeight));
 }
 
 Choice::Choice (juce::AudioProcessorValueTreeState& apvts, const juce::String& parameterId, const juce::String& name)
@@ -54,7 +61,7 @@ void Choice::resized()
 {
     auto area = getLocalBounds();
     label.setBounds (area.removeFromTop (16));
-    box.setBounds (area.removeFromTop (28).reduced (2, 0));
+    box.setBounds (area.withSizeKeepingCentre (area.getWidth() - 4, 28));
 }
 
 Toggle::Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& parameterId, const juce::String& name,
@@ -89,7 +96,7 @@ Toggle::Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& p
 void Toggle::lookAndFeelChanged()
 {
     for (auto* button : buttons)
-        button->setColour (juce::TextButton::textColourOnId, bleepforge::theme::primary());
+        button->setColour (juce::TextButton::textColourOnId, accentColour ? accentColour() : bleepforge::theme::primary());
 }
 
 void Toggle::update()
@@ -110,7 +117,7 @@ void Toggle::resized()
             buttons[i]->setBounds (i == buttons.size() - 1 ? area : area.removeFromTop (height));
         return;
     }
-    area = area.removeFromTop (26);
+    area = area.withSizeKeepingCentre (area.getWidth(), 26);
     const int width = area.getWidth() / juce::jmax (1, buttons.size());
     for (int i = 0; i < buttons.size(); ++i)
         buttons[i]->setBounds (i == buttons.size() - 1 ? area : area.removeFromLeft (width));

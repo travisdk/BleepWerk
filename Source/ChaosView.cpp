@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "ChaosView.h"
+#include "DriveView.h"
 #include "Theme.h"
 
 namespace
 {
-constexpr int kPadding = 10, kTitleHeight = 12, kKnobWidth = 52;
+constexpr int kPadding = 10, kTitleHeight = 12, kKnobWidth = 64;
 } // namespace
 
 ChaosView::ChaosView (BleepForgeProcessor& p)
@@ -18,7 +19,10 @@ ChaosView::ChaosView (BleepForgeProcessor& p)
       velocity (p.apvts, "chaosVelocity", "Velocity")
 {
     for (auto* knob : { &amount, &pitch, &decay, &tone, &pan, &velocity })
+    {
+        knob->setMaxDiameter (DriveView::kDiameter);
         addAndMakeVisible (knob);
+    }
 }
 
 void ChaosView::paint (juce::Graphics& g)

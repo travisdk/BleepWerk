@@ -30,6 +30,15 @@ inline juce::Colour primary() { return juce::Colour (0xff000000 | current().prim
 // The deeper shade: velocity and ratchets.
 inline juce::Colour secondary() { return juce::Colour (0xff000000 | current().secondary); }
 
+// Drive's own colour, a signal orange, or an icy blue when the theme is itself orange or red, so
+// that it always stands apart from the knobs around it.
+inline juce::Colour driveAccent()
+{
+    const float hue = primary().getHue();
+    const float distance = std::min (std::abs (hue - 0.03f), 1.0f - std::abs (hue - 0.03f));
+    return distance < 0.1f ? juce::Colour (0xff3dc8ff) : juce::Colour (0xffff6a3d);
+}
+
 inline int indexOf (const juce::String& name)
 {
     for (int i = 0; i < kNumThemes; ++i)
@@ -82,7 +91,7 @@ public:
     void drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height, float position,
                            float startAngle, float endAngle, juce::Slider& slider) override
     {
-        const auto bounds = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height).reduced (4.0f);
+        const auto bounds = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height).reduced (2.0f);
         const float radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
         const auto centre = bounds.getCentre();
         const float angle = startAngle + position * (endAngle - startAngle);
@@ -97,7 +106,7 @@ public:
         const juce::PathStrokeType stroke (thickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
         g.setColour (outline);
         g.strokePath (track, stroke);
-        g.setColour (slider.isEnabled() ? primary() : dimText);
+        g.setColour (! slider.isEnabled() ? dimText : slider.getProperties()["accent"] ? driveAccent() : primary());
         g.strokePath (value, stroke);
 
         const float body = radius - thickness * 2.4f;
