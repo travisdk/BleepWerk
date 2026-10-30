@@ -46,7 +46,7 @@ EffectsView::~EffectsView()
 }
 
 // Follows the filter type, the delay feel and the drive place, which automation or the host can
-// change too. Drive moves in the layout with its place.
+// change too.
 void EffectsView::timerCallback()
 {
     delayFeel.update();
@@ -54,11 +54,6 @@ void EffectsView::timerCallback()
     const bool filterOn = (int) processor.apvts.getRawParameterValue ("filterType")->load() != (int) bleepforge::FilterType::Off;
     cutoff.setEnabled (filterOn);
     resonance.setEnabled (filterOn);
-    if (const bool post = processor.apvts.getRawParameterValue ("drivePost")->load() > 0.5f; post != drivePlacedPost)
-    {
-        resized();
-        repaint();
-    }
 }
 
 void EffectsView::paint (juce::Graphics& g)
@@ -88,14 +83,13 @@ void EffectsView::paint (juce::Graphics& g)
     }
 }
 
-// The chain reads like text, left to right and then on to the next row, in the order the sound
-// goes through it. Drive moves: first when it is Pre, last when it is Post.
+// Filter, Crush and Delay on the first row, Reverb and Drive on the second. Drive keeps its
+// place whichever way its Pre/Post switch is set; the switch says where it sits in the chain.
 void EffectsView::resized()
 {
     const auto inner = getLocalBounds().reduced (kPadding);
     juce::Rectangle<int> area;
     int rowTop = 0;
-    drivePlacedPost = processor.apvts.getRawParameterValue ("drivePost")->load() > 0.5f;
 
     auto place = [&area] (juce::Component& c, int width) { c.setBounds (area.removeFromLeft (width)); };
     auto layOut = [&] (size_t index)
@@ -121,8 +115,7 @@ void EffectsView::resized()
     };
 
     // indices into groups: 0 filter, 1 crush, 2 delay, 3 reverb, 4 drive
-    const std::vector<std::vector<size_t>> rows = drivePlacedPost ? std::vector<std::vector<size_t>> { { 0, 1, 2 }, { 3, 4 } }
-                                                                  : std::vector<std::vector<size_t>> { { 4, 0, 1, 2 }, { 3 } };
+    const std::vector<std::vector<size_t>> rows { { 0, 1, 2 }, { 3, 4 } };
     for (size_t row = 0; row < rows.size(); ++row)
     {
         rowTop = inner.getY() + (int) row * kRowHeight;

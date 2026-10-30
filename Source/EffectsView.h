@@ -7,9 +7,9 @@
 #include "PluginProcessor.h"
 #include "Controls.h"
 
-// The effects in signal order, each a small group with its name above, reading left to right and
-// on to the second row: Filter, Crush, Delay and Reverb, with Drive first when it sits before the
-// filter and last when it sits after the reverb, so the layout never shows a wrong order. Cutoff and Resonance grey out while the filter is Off.
+// The effects, each a small group with its name above: Filter, Crush and Delay on the first row,
+// Reverb and Drive on the second. Drive sits first or last in the chain depending on its Pre/Post
+// switch, but keeps its place here. Cutoff and Resonance grey out while the filter is Off.
 class EffectsView : public juce::Component, private juce::Timer
 {
 public:
@@ -37,7 +37,6 @@ private:
     // the groups as laid out, for paint() to put the names and dividers on
     struct Group { const char* name; juce::Rectangle<int> area; bool divider = false; };
     std::array<Group, 5> groups { { { "FILTER", {} }, { "CRUSH", {} }, { "DELAY", {} }, { "REVERB", {} }, { "DRIVE", {} } } };
-    bool drivePlacedPost = true; // where Drive was laid out
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EffectsView)
 };
