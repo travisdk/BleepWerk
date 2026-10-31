@@ -34,14 +34,14 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto& pattern = processor.getPatternBank().activePattern();
-        const int length = pattern.groove().length;
-        const int root = (int) processor.apvts.getRawParameterValue ("seqRoot")->load();
+        const int patternLength = pattern.groove().length; // not "length" and "root", the view's own members
+        const int rootNote = (int) processor.apvts.getRawParameterValue ("seqRoot")->load();
         constexpr float noteSpan = (float) (kMaxStepNote - kMinStepNote);
 
         for (int i = 0; i < kMaxSteps; ++i)
         {
             const auto step = pattern.get (i);
-            const bool inPattern = i < length, playing = i == playhead;
+            const bool inPattern = i < patternLength, playing = i == playhead;
             const float fade = inPattern ? 1.0f : 0.35f;
 
             // the accent: a filled dot, or an empty ring
@@ -77,7 +77,7 @@ public:
             // the note name
             g.setFont (fonts::value (11.0f));
             g.setColour (step.gate ? theme::text.withMultipliedAlpha (fade) : theme::dimText.withMultipliedAlpha (fade));
-            g.drawText (step.gate ? juce::MidiMessage::getMidiNoteName (juce::jlimit (0, 127, root + step.note), true, true, 3) : juce::String ("-"),
+            g.drawText (step.gate ? juce::MidiMessage::getMidiNoteName (juce::jlimit (0, 127, rootNote + step.note), true, true, 3) : juce::String ("-"),
                         cell (i, Row::Note), juce::Justification::centred);
 
             // the octave arrows: up on the left, down on the right

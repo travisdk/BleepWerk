@@ -395,8 +395,8 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         {
             const int key = data[1] & 0x7f;
             const bool down = (data[0] & 0xf0) == 0x90 && (data[2] & 0x7f) != 0;
-            auto* end = heldKeys.begin() + numHeldKeys;
-            numHeldKeys = (int) (std::remove (heldKeys.begin(), end, key) - heldKeys.begin());
+            int* const keys = heldKeys.data(); // a pointer: an array's iterator is a class in MSVC
+            numHeldKeys = (int) (std::remove (keys, keys + numHeldKeys, key) - keys);
             if (down && numHeldKeys < (int) heldKeys.size())
                 heldKeys[(size_t) numHeldKeys++] = key;
             continue;
