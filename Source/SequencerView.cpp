@@ -10,8 +10,8 @@ using namespace bleepforge;
 
 namespace
 {
-constexpr int kPadding = 10, kTopRow = 24, kGridTop = 54, kSlotWidth = 26, kKnobWidth = 56, kDiameter = 40;
-constexpr int kLedHeight = 8, kNoteHeight = 14, kLevelHeight = 10, kGap = 3;
+constexpr int kPadding = 10, kTopRow = 24, kGridTop = 66, kSlotWidth = 26, kKnobWidth = 50, kDiameter = 36, kNumKnobs = 7;
+constexpr int kLedHeight = 10, kNoteHeight = 14, kOctaveHeight = 12, kGap = 3;
 constexpr int kPixelsPerSemitone = 4;
 } // namespace
 
@@ -44,10 +44,14 @@ public:
             const bool inPattern = i < length, playing = i == playhead;
             const float fade = inPattern ? 1.0f : 0.35f;
 
-            // the playhead
-            const auto led = juce::Rectangle<float> (5.0f, 5.0f).withCentre (cell (i, Row::Led).getCentre());
-            g.setColour (playing ? theme::primary() : theme::outline.withMultipliedAlpha (fade));
-            g.fillEllipse (led);
+            // the accent: a filled dot, or an empty ring
+            const auto dot = juce::Rectangle<float> (7.0f, 7.0f).withCentre (cell (i, Row::Accent).getCentre());
+            const bool accented = step.level == kAccentLevel;
+            g.setColour ((accented ? theme::primary() : theme::dimText).withMultipliedAlpha (fade));
+            if (accented)
+                g.fillEllipse (dot);
+            else
+                g.drawEllipse (dot.reduced (0.5f), 1.0f);
 
             // the bar box: a plain outline, brighter while the step plays
             const auto box = cell (i, Row::Bar);
@@ -58,10 +62,10 @@ public:
             const auto inner = box.reduced (4.0f);
             if (step.gate)
             {
-                // the higher the note, the taller the bar; the velocity sets its strength
+                // the higher the note, the taller the bar; an accent is brighter
                 const float height = 0.08f + 0.92f * (float) (step.note - kMinStepNote) / noteSpan;
                 const auto bar = inner.withTop (inner.getBottom() - juce::jmax (3.0f, inner.getHeight() * height));
-                g.setColour (theme::primary().withAlpha ((0.45f + 0.275f * (float) step.level) * fade));
+                g.setColour (theme::primary().withAlpha ((accented ? 1.0f : 0.6f) * fade));
                 g.fillRect (bar);
             }
             else
@@ -76,15 +80,18 @@ public:
             g.drawText (step.gate ? juce::MidiMessage::getMidiNoteName (juce::jlimit (0, 127, root + step.note), true, true, 3) : juce::String ("-"),
                         cell (i, Row::Note), juce::Justification::centred);
 
-            // the velocity: one to three pips
-            const auto levelCell = cell (i, Row::Level);
-            const float pip = (levelCell.getWidth() - 2.0f * 2.0f) / 3.0f;
-            for (int k = 0; k < kNumStepLevels; ++k)
+            // the octave arrows: up on the left, down on the right
+            const auto octave = cell (i, Row::Octave);
+            auto arrow = [&] (juce::Rectangle<float> r, bool up, bool possible)
             {
-                const bool on = step.gate && k <= step.level;
-                g.setColour (on ? theme::primary().withMultipliedAlpha (fade) : theme::outline.withMultipliedAlpha (fade));
-                g.fillRect (levelCell.getX() + (float) k * (pip + 2.0f), levelCell.getCentreY() - 2.0f, pip, 4.0f);
-            }
+                juce::Path triangle;
+                const auto c = r.getCentre();
+                triangle.addTriangle (c.x - 3.5f, up ? c.y + 2.5f : c.y - 2.5f, c.x + 3.5f, up ? c.y + 2.5f : c.y - 2.5f, c.x, up ? c.y - 3.0f : c.y + 3.0f);
+                g.setColour (theme::dimText.withMultipliedAlpha (fade * (possible ? 1.0f : 0.35f)));
+                g.fillPath (triangle);
+            };
+            arrow (octave.withWidth (octave.getWidth() * 0.5f), true, step.note + 12 <= kMaxStepNote);
+            arrow (octave.withTrimmedLeft (octave.getWidth() * 0.5f), false, step.note - 12 >= kMinStepNote);
         }
     }
 
@@ -95,10 +102,19 @@ public:
         dragged = false;
         auto& pattern = processor.getPatternBank().activePattern();
         dragStartNote = pattern.get (dragStep).note;
-        if (dragRow == Row::Level)
+        auto step = pattern.get (dragStep);
+        if (dragRow == Row::Accent)
         {
-            auto step = pattern.get (dragStep);
-            step.level = (step.level + 1) % kNumStepLevels;
+            step.level = step.level == kAccentLevel ? kNormalLevel : kAccentLevel;
+            pattern.set (dragStep, step);
+            edited();
+        }
+        else if (dragRow == Row::Octave)
+        {
+            // the left half moves the note up an octave, the right half down; a rest comes on
+            const bool up = e.x - dragStep * getWidth() / kMaxSteps < getWidth() / kMaxSteps / 2;
+            step.note = juce::jlimit (kMinStepNote, kMaxStepNote, step.note + (up ? 12 : -12));
+            step.gate = true;
             pattern.set (dragStep, step);
             edited();
         }
@@ -166,22 +182,22 @@ public:
     }
 
 private:
-    enum class Row { Led, Bar, Note, Level, None };
+    enum class Row { Accent, Bar, Note, Octave, None };
 
     juce::Rectangle<float> cell (int step, Row row) const
     {
         const float columnWidth = (float) getWidth() / (float) kMaxSteps;
         const float x = (float) step * columnWidth + 2.0f, w = columnWidth - 4.0f;
         const float h = (float) getHeight();
-        const float levelTop = h - (float) kLevelHeight;
-        const float noteTop = levelTop - (float) (kGap + kNoteHeight);
+        const float octaveTop = h - (float) kOctaveHeight;
+        const float noteTop = octaveTop - (float) kNoteHeight;
         const float barTop = (float) (kLedHeight + kGap);
         switch (row)
         {
-            case Row::Led: return { x, 0.0f, w, (float) kLedHeight };
+            case Row::Accent: return { x, 0.0f, w, (float) kLedHeight };
             case Row::Bar: return { x, barTop, w, noteTop - (float) kGap - barTop };
             case Row::Note: return { x, noteTop, w, (float) kNoteHeight };
-            case Row::Level: return { x, levelTop, w, (float) kLevelHeight };
+            case Row::Octave: return { x, octaveTop, w, (float) kOctaveHeight };
             case Row::None: break;
         }
         return {};
@@ -191,7 +207,7 @@ private:
 
     Row rowAt (int y) const
     {
-        for (auto row : { Row::Bar, Row::Note, Row::Level })
+        for (auto row : { Row::Accent, Row::Bar, Row::Note, Row::Octave })
         {
             const auto r = cell (0, row);
             if ((float) y >= r.getY() - 1.5f && (float) y < r.getBottom() + 1.5f)
@@ -215,7 +231,7 @@ private:
 //==============================================================================
 // A rotary control for one of the playing pattern's groove settings, which belong to the
 // pattern and are stored with it, so they are no parameters.
-struct SequencerView::GrooveKnob : juce::Component
+struct SequencerView::GrooveKnob : juce::Component, juce::SettableTooltipClient
 {
     GrooveKnob (const juce::String& name, double min, double max, double step, std::function<double()> read,
                 std::function<void (double)> write, std::function<juce::String (double)> text, double defaultValue)
@@ -299,6 +315,22 @@ struct SequencerView::MidiButton : juce::TextButton
 };
 
 //==============================================================================
+// The dot under a pattern's letter: lit while the pattern plays as a layer.
+struct SequencerView::PlayDot : juce::Button
+{
+    PlayDot() : juce::Button ("Plays") {}
+    void paintButton (juce::Graphics& g, bool highlighted, bool) override
+    {
+        const auto dot = juce::Rectangle<float> (8.0f, 8.0f).withCentre (getLocalBounds().toFloat().getCentre());
+        g.setColour (getToggleState() ? theme::primary() : (highlighted ? theme::text : theme::dimText));
+        if (getToggleState())
+            g.fillEllipse (dot);
+        else
+            g.drawEllipse (dot.reduced (0.5f), 1.0f);
+    }
+};
+
+//==============================================================================
 SequencerView::SequencerView (BleepForgeProcessor& p)
     : processor (p), root (p.apvts, "seqRoot", "Root")
 {
@@ -309,9 +341,14 @@ SequencerView::SequencerView (BleepForgeProcessor& p)
     {
         auto* button = slotButtons.add (new juce::TextButton (juce::String::charToString ((juce::juce_wchar) ('A' + i))));
         button->setConnectedEdges ((i > 0 ? juce::Button::ConnectedOnLeft : 0) | (i < kNumPatternSlots - 1 ? juce::Button::ConnectedOnRight : 0));
-        button->setTooltip ("Pattern " + button->getButtonText() + ". A pattern you choose while it plays starts when the one playing starts over.");
-        button->onClick = [this, i] { processor.choosePatternSlot (i); refresh(); };
+        button->setTooltip ("Show and edit pattern " + button->getButtonText());
+        button->onClick = [this, i] { processor.editPatternSlot (i); refresh(); };
         addAndMakeVisible (button);
+
+        auto* playDot = playDots.add (new PlayDot());
+        playDot->setTooltip ("Pattern " + button->getButtonText() + " plays. Any number can play at once, each with its own length.");
+        playDot->onClick = [this, i] { processor.getPatternBank().setPlaying (i, ! processor.getPatternBank().isPlaying (i)); refresh(); };
+        addAndMakeVisible (playDot);
     }
 
     patternButton.setTooltip ("Load a pattern into this slot, save it, or copy it to another slot");
@@ -347,7 +384,15 @@ SequencerView::SequencerView (BleepForgeProcessor& p)
     gate = std::make_unique<GrooveKnob> ("Gate", 0.05, 1.0, 0.01, [activeGroove] { return (double) activeGroove().gate; },
                                          [&bank, &presets] (double v) { bank.activePattern().setGate ((float) v); presets.markEdited(); },
                                          [] (double v) { return juce::String (juce::roundToInt (v * 100.0)) + " %"; }, 0.5);
-    for (auto* knob : { length.get(), rate.get(), swing.get(), gate.get() })
+    drift = std::make_unique<GrooveKnob> ("Drift", -kMaxDrift, kMaxDrift, 1, [activeGroove] { return (double) activeGroove().drift; },
+                                          [&bank, &presets] (double v) { bank.activePattern().setDrift ((int) std::lround (v)); presets.markEdited(); },
+                                          [] (double v) { const int d = (int) std::lround (v); return d > 0 ? "+" + juce::String (d) : juce::String (d); }, 0);
+    hits = std::make_unique<GrooveKnob> ("Hits", 0, kMaxSteps, 1, [&bank] { return (double) bank.activePattern().hits(); },
+                                         [&bank, &presets] (double v) { bank.activePattern().setHits ((int) std::lround (v)); presets.markEdited(); },
+                                         [] (double v) { return juce::String ((int) std::lround (v)); }, 8);
+    drift->setTooltip ("Every time the pattern has played through, it moves on this many steps");
+    hits->setTooltip ("Spreads this many hits evenly over the pattern's length, keeping the notes you have");
+    for (auto* knob : { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get() })
         addAndMakeVisible (knob);
 
     root.setMaxDiameter (kDiameter);
@@ -376,13 +421,14 @@ void SequencerView::refresh()
     for (int i = 0; i < slotButtons.size(); ++i)
     {
         slotButtons[i]->setToggleState (i == bank.active(), juce::dontSendNotification);
-        slotButtons[i]->setColour (juce::TextButton::textColourOffId, i == bank.pending() ? theme::primary() : theme::text);
     }
     const auto name = processor.getPatternPresets().name();
     if (patternButton.getButtonText() != name)
         patternButton.setButtonText (name);
-    for (auto* knob : { length.get(), rate.get(), swing.get(), gate.get() })
+    for (auto* knob : { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get() })
         knob->refresh();
+    for (int i = 0; i < playDots.size(); ++i)
+        playDots[i]->setToggleState (bank.isPlaying (i), juce::dontSendNotification);
     grid->repaint();
 }
 
@@ -393,7 +439,7 @@ void SequencerView::paint (juce::Graphics& g)
     g.setFont (fonts::title (14.0f));
     g.drawText ("SEQUENCER", juce::Rectangle<float> ((float) kPadding, 6.0f, 120.0f, 14.0f), juce::Justification::centredLeft);
     // the divider between the steps and the groove
-    theme::paintDivider (g, (float) getWidth() - (float) (kPadding + 5 * kKnobWidth + 8), (float) kTopRow, (float) getHeight() - (float) kTopRow - (float) kPadding);
+    theme::paintDivider (g, (float) getWidth() - (float) (kPadding + kNumKnobs * kKnobWidth + 8), (float) kTopRow, (float) getHeight() - (float) kTopRow - (float) kPadding);
 }
 
 void SequencerView::resized()
@@ -401,16 +447,20 @@ void SequencerView::resized()
     auto area = getLocalBounds().reduced (kPadding);
 
     // the knobs on the right, the steps filling the rest
-    auto right = area.removeFromRight (5 * kKnobWidth);
+    auto right = area.removeFromRight (kNumKnobs * kKnobWidth);
     area.removeFromRight (16);
     right.removeFromTop (kGridTop - kPadding - 6);
-    for (auto* component : std::initializer_list<juce::Component*> { length.get(), rate.get(), swing.get(), gate.get(), &root })
+    for (auto* component : std::initializer_list<juce::Component*> { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get(), &root })
         component->setBounds (right.removeFromLeft (kKnobWidth));
 
     // the row above the steps: the slots, the pattern's name, the dice and the MIDI button
     auto top = juce::Rectangle<int> (kPadding, kTopRow, area.getWidth(), 22);
-    for (auto* button : slotButtons)
-        button->setBounds (top.removeFromLeft (kSlotWidth));
+    for (int i = 0; i < slotButtons.size(); ++i)
+    {
+        slotButtons[i]->setBounds (top.getX(), top.getY(), kSlotWidth, top.getHeight());
+        playDots[i]->setBounds (top.getX(), top.getBottom() + 1, kSlotWidth, 10);
+        top.removeFromLeft (kSlotWidth);
+    }
     top.removeFromLeft (10);
     midiButton->setBounds (top.removeFromRight (48));
     top.removeFromRight (6);

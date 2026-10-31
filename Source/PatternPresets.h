@@ -58,6 +58,7 @@ private:
         float swing = 0.5f;
         int rateIndex = -1;  // -1: leave the current rate
         float gate = -1.0f;  // < 0: leave the current gate
+        int drift = 0;
     };
 
     struct Slot

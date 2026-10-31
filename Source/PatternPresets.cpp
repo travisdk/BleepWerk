@@ -44,6 +44,7 @@ void PatternPresets::applyGroove (const LoadedGroove& loaded)
         target.setRate (loaded.rateIndex);
     if (loaded.gate >= 0.0f)
         target.setGate (loaded.gate);
+    target.setDrift (loaded.drift);
 }
 
 bool PatternPresets::exists (const juce::String& patternName) const
@@ -90,13 +91,14 @@ void PatternPresets::load (int index)
             return;
         // files from before rate and gate were stored leave the current values
         applyGroove ({ xml->getIntAttribute ("length", kMaxSteps), (float) xml->getDoubleAttribute ("swing", 0.5),
-                       rateIndexFor (xml->getStringAttribute ("rate")), (float) xml->getDoubleAttribute ("gate", -1.0) });
+                       rateIndexFor (xml->getStringAttribute ("rate")), (float) xml->getDoubleAttribute ("gate", -1.0),
+                       xml->getIntAttribute ("drift", 0) });
     }
     else if (juce::isPositiveAndBelow (index, kNumFactoryPatterns))
     {
         const auto& factory = kFactoryPatterns[index];
         parseCompactPattern (factory.steps, pattern());
-        applyGroove ({ factory.length, factory.swing, kDefaultRateIndex, kDefaultGate });
+        applyGroove ({ factory.length, factory.swing, kDefaultRateIndex, kDefaultGate, 0 });
     }
     else
     {
@@ -123,6 +125,7 @@ bool PatternPresets::save (const juce::String& patternName)
     xml.setAttribute ("swing", groove.swing);
     xml.setAttribute ("rate", kSeqRateNames[groove.rate]);
     xml.setAttribute ("gate", groove.gate);
+    xml.setAttribute ("drift", groove.drift);
     xml.setAttribute ("steps", juce::String (toCompactPattern (pattern())));
     if (! xml.writeTo (file))
         return false;
@@ -221,6 +224,8 @@ static juce::String slotSuffix (int index)
 
 void PatternPresets::writeState (juce::ValueTree& tree) const
 {
+    tree.setProperty ("patternPlaying", (int) bank.playing(), nullptr); // the layers that play
+    tree.setProperty ("patternEdited", bank.active(), nullptr);         // the slot the panel shows
     for (int i = 0; i < kNumPatternSlots; ++i)
     {
         tree.setProperty ("pattern" + slotSuffix (i), juce::String (bank.slot (i).toString()), nullptr);
@@ -232,6 +237,9 @@ void PatternPresets::writeState (juce::ValueTree& tree) const
 // A slot missing from the project keeps what it has.
 void PatternPresets::readState (const juce::ValueTree& tree)
 {
+    if (tree.hasProperty ("patternPlaying"))
+        bank.setPlayingMask ((uint32_t) std::max (0, (int) tree.getProperty ("patternPlaying")));
+    bank.select ((int) tree.getProperty ("patternEdited", 0));
     for (int i = 0; i < kNumPatternSlots; ++i)
     {
         const auto steps = "pattern" + slotSuffix (i), name = "patternName" + slotSuffix (i);

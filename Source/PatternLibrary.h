@@ -21,7 +21,7 @@ struct FactoryPattern
 };
 
 // Sixteen space-separated tokens: "-" is a rest, otherwise semitones from the root followed by
-// an optional "a" (accent) or "p" (soft), e.g. "0a 12p -". Steps past the length are still read.
+// an optional "a" (accent), e.g. "0a 12 -". Steps past the length are still read.
 inline bool parseCompactPattern (const char* text, Pattern& pattern)
 {
     std::istringstream in (text);
@@ -48,12 +48,9 @@ inline bool parseCompactPattern (const char* text, Pattern& pattern)
             return false;
         }
         for (auto c : token.substr (used))
-        {
             if (c == 'a')
-                step.level = kNumStepLevels - 1;
-            else if (c == 'p')
-                step.level = 0;
-        }
+                step.level = kAccentLevel; // "p" (soft) is read as a normal step
+
     }
     for (int i = 0; i < kMaxSteps; ++i)
         pattern.set (i, steps[i]);
@@ -67,45 +64,45 @@ inline std::string toCompactPattern (const Pattern& pattern)
     {
         const auto s = pattern.get (i);
         text += i > 0 ? " " : "";
-        text += s.gate ? std::to_string (s.note) + (s.level == kNumStepLevels - 1 ? "a" : s.level == 0 ? "p" : "") : "-";
+        text += s.gate ? std::to_string (s.note) + (s.level == kAccentLevel ? "a" : "") : "-";
     }
     return text;
 }
 
 inline const FactoryPattern kFactoryPatterns[] = {
     // Minimal: few notes, a lot of space
-    { "Lonely Pulse",     "0a - - - - - - - 0p - - - - - - -",         16, 0.5f },
-    { "Pulse and Echo",   "0a - - 0p - - 0p - - - - - - - - -",        16, 0.5f },
-    { "Off-beat Tick",    "- - 0 - - - 0p - - - 0 - - - 0p -",         16, 0.5f },
-    { "Slow Drip",        "0a - - - 7p - - - - - 3 - - - - -",         16, 0.52f },
-    { "Dust",             "0a - 0p - - 0p - - 0 - - 0p - - 7p -",      16, 0.5f },
+    { "Lonely Pulse",     "0a - - - - - - - 0 - - - - - - -",         16, 0.5f },
+    { "Pulse and Echo",   "0a - - 0 - - 0 - - - - - - - - -",        16, 0.5f },
+    { "Off-beat Tick",    "- - 0 - - - 0 - - - 0 - - - 0 -",         16, 0.5f },
+    { "Slow Drip",        "0a - - - 7 - - - - - 3 - - - - -",         16, 0.52f },
+    { "Dust",             "0a - 0 - - 0 - - 0 - - 0 - - 7 -",      16, 0.5f },
 
     // Hypnotic: short phrases that repeat and shift
-    { "Hypnotic Loop",    "0a - 0p 12p 0 - 0p 3p 0a - 0p 12p 0 - 7p 5p", 16, 0.5f },
-    { "Spiral",           "0 3p 7p 12a 0 3p 7p 12p 0 3p 7p 15a 0 3p 7p 10p", 16, 0.5f },
-    { "Tidal",            "0a - 0p - 7 - 0p - 0a - 0p - 10 - 7p -",    16, 0.55f },
-    { "Circle Walk",      "0a 0p - 7p - 0p 3 - 0a 0p - 10p - 0p 5 -",  16, 0.5f },
-    { "Fold",             "0a 7p 0p 12 0a 7p 0p 15 0a 7p 0p 12 0a 10p 0p 8", 16, 0.5f },
+    { "Hypnotic Loop",    "0a - 0 12 0 - 0 3 0a - 0 12 0 - 7 5", 16, 0.5f },
+    { "Spiral",           "0 3 7 12a 0 3 7 12 0 3 7 15a 0 3 7 10", 16, 0.5f },
+    { "Tidal",            "0a - 0 - 7 - 0 - 0a - 0 - 10 - 7 -",    16, 0.55f },
+    { "Circle Walk",      "0a 0 - 7 - 0 3 - 0a 0 - 10 - 0 5 -",  16, 0.5f },
+    { "Fold",             "0a 7 0 12 0a 7 0 15 0a 7 0 12 0a 10 0 8", 16, 0.5f },
 
     // Groove: swung and syncopated
-    { "Late Night",       "0a - - 0p - 0 - 7p - - 0a - - 0p - 3",       16, 0.58f },
-    { "Shuffle Blip",     "0a - 0p - 0a - 12p - 0a - 0p - 0a 12p 10p -", 16, 0.62f },
-    { "Rolling",          "0a 0p 0p 0 0p 0p 0 0p 0a 0p 0p 0 0p 0p 12 7p", 16, 0.5f },
-    { "Push and Pull",    "0a - - 0p - - 0 - 0a - - - 0p - 7 -",       16, 0.56f },
-    { "Offbeat Stab",     "- - 0a - - - 0a - - - 0a - - - 7a 5p",      16, 0.5f },
+    { "Late Night",       "0a - - 0 - 0 - 7 - - 0a - - 0 - 3",       16, 0.58f },
+    { "Shuffle Blip",     "0a - 0 - 0a - 12 - 0a - 0 - 0a 12 10 -", 16, 0.62f },
+    { "Rolling",          "0a 0 0 0 0 0 0 0 0a 0 0 0 0 0 12 7", 16, 0.5f },
+    { "Push and Pull",    "0a - - 0 - - 0 - 0a - - - 0 - 7 -",       16, 0.56f },
+    { "Offbeat Stab",     "- - 0a - - - 0a - - - 0a - - - 7a 5",      16, 0.5f },
 
     // Melodic: a line to build on
-    { "Minor Walk",       "0a - 3p - 5 - 7p - 10a - 7p - 5 - 3p -",    16, 0.5f },
-    { "Pentatonic Run",   "0 3p 5p 7 10p 12 10p 7p 5 3p 0a - 0p 3p 5 7p", 16, 0.5f },
-    { "Octave Bounce",    "0a 12p 0p 12p 0a 12p 0p 12p 0a 12p 0p 12p 0a 12p 0p 12p", 16, 0.5f },
-    { "Phrygian Shadow",  "0a 1p - 0p - 1p 0 - 0a 1p - 0p - 5p 3 1p",  16, 0.5f },
-    { "Call and Answer",  "0a 0p 7p 0p - - - - 3a 3p 10p 3p - - 5p 7p", 16, 0.5f },
+    { "Minor Walk",       "0a - 3 - 5 - 7 - 10a - 7 - 5 - 3 -",    16, 0.5f },
+    { "Pentatonic Run",   "0 3 5 7 10 12 10 7 5 3 0a - 0 3 5 7", 16, 0.5f },
+    { "Octave Bounce",    "0a 12 0 12 0a 12 0 12 0a 12 0 12 0a 12 0 12", 16, 0.5f },
+    { "Phrygian Shadow",  "0a 1 - 0 - 1 0 - 0a 1 - 0 - 5 3 1",  16, 0.5f },
+    { "Call and Answer",  "0a 0 7 0 - - - - 3a 3 10 3 - - 5 7", 16, 0.5f },
 
     // Odd lengths: loops that drift against the 4/4 grid
-    { "Twelve",           "0a - - 0p - - 0a - - 0p 12p - - - - -",     12, 0.5f },
-    { "Seven",            "0a 12p 0p 3 5p 0p 7p - - - - - - - - -",     7, 0.5f },
-    { "Five Wheel",       "0a - 0p 7p - - - - - - - - - - - -",         5, 0.5f },
-    { "Nine Drift",       "0a - 0p - 7p 0p - 3p 10p - - - - - - -",     9, 0.5f },
+    { "Twelve",           "0a - - 0 - - 0a - - 0 12 - - - - -",     12, 0.5f },
+    { "Seven",            "0a 12 0 3 5 0 7 - - - - - - - - -",     7, 0.5f },
+    { "Five Wheel",       "0a - 0 7 - - - - - - - - - - - -",         5, 0.5f },
+    { "Nine Drift",       "0a - 0 - 7 0 - 3 10 - - - - - - -",     9, 0.5f },
 };
 
 inline constexpr int kNumFactoryPatterns = (int) (sizeof (kFactoryPatterns) / sizeof (kFactoryPatterns[0]));

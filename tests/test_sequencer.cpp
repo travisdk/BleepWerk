@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Sequencer engine: timing independent of the host block size, swing and gate, no stuck notes
-// after loops, jumps or stopping, pattern slots that switch when the pattern starts over, the
-// three velocities, text round trips, and MIDI clips that play like the sequencer.
+// after loops, jumps or stopping, layers of different lengths that stay in step, drift, hits
+// spread evenly, the two velocities, text round trips, and MIDI clips that play like the sequencer.
 #include "Sequencer.h"
 #include "TestUtils.h"
 
@@ -45,12 +45,12 @@ static std::vector<Event> run (int blockSize, const Pattern& pattern, double sec
             ppq = 0.0;
             loopAtBeat = -1.0;
         }
-        engine.process (true, ppq, bpm, sampleRate, blockSize, settings, bank, emit);
+        engine.process (true, ppq, bpm, sampleRate, blockSize, settings, bank.slot (0), emit);
         ppq += blockSize * bpm / 60.0 / sampleRate;
         t += blockSize;
     }
     if (stopAtEnd)
-        engine.process (false, 0.0, bpm, sampleRate, 64, settings, bank, emit);
+        engine.process (false, 0.0, bpm, sampleRate, 64, settings, bank.slot (0), emit);
     return events;
 }
 
@@ -122,17 +122,17 @@ static void velocitiesFollowTheLevels()
 {
     Pattern p;
     for (int i = 0; i < kMaxSteps; ++i)
-        p.set (i, { true, 0, i % 3 });
+        p.set (i, { true, 0, i % 2 });
     const auto events = run (480, p, 1.0);
     int seen = 0;
     for (const auto& e : events)
         if (e.on)
         {
-            CHECK (e.velocity == kSeqVelocities[seen % 3]);
+            CHECK (e.velocity == kSeqVelocities[seen % 2]);
             ++seen;
         }
     CHECK (seen == 8);
-    CHECK (kSeqVelocities[0] < kSeqVelocities[1] && kSeqVelocities[1] < kSeqVelocities[2] && kSeqVelocities[2] <= 1.0f);
+    CHECK (kSeqVelocities[kNormalLevel] < kSeqVelocities[kAccentLevel] && kSeqVelocities[kAccentLevel] <= 1.0f);
 }
 
 static void restsPlayNothing()
@@ -182,56 +182,130 @@ static void silentWhenDisabledOrStopped()
     SequencerSettings settings; // not enabled
     int events = 0;
     auto emit = [&] (int, bool, int, float) { ++events; };
-    engine.process (true, 0.0, bpm, sampleRate, 4800, settings, bank, emit);
+    engine.process (true, 0.0, bpm, sampleRate, 4800, settings, bank.slot (0), emit);
     CHECK (events == 0);
     settings.enabled = true;
-    engine.process (false, 0.0, bpm, sampleRate, 4800, settings, bank, emit);
+    engine.process (false, 0.0, bpm, sampleRate, 4800, settings, bank.slot (0), emit);
     CHECK (events == 0);
-    engine.process (true, -8.0, bpm, sampleRate, 480, settings, bank, emit); // a pre-roll before beat 0
+    engine.process (true, -8.0, bpm, sampleRate, 480, settings, bank.slot (0), emit); // a pre-roll before beat 0
     CHECK (events == 0);
 }
 
-// Asking for another slot waits for the playing pattern to start over, and the new one begins on
-// its first step.
-static void slotSwitchLandsOnTheLoop()
+// Layers: two patterns play at once, each round its own length, so 4 and 3 steps meet again after 12.
+static void layersFormAPolymeter()
 {
-    SequencerEngine engine;
     PatternBank bank;
-    Groove groove;
-    groove.length = 4;
-    bank.slot (0).copyFrom (EveryStep (0, groove).pattern);
-    bank.slot (1).copyFrom (EveryStep (20, groove).pattern);
+    Groove four, three;
+    four.length = 4;
+    three.length = 3;
+    EveryStep a (10, four), b (20, three);
+    bank.slot (0).copyFrom (a.pattern);
+    bank.slot (1).copyFrom (b.pattern);
+    bank.setPlayingMask (3);
+    CHECK (bank.isPlaying (0) && bank.isPlaying (1) && ! bank.isPlaying (2));
+
+    SequencerEngine engines[2];
     SequencerSettings settings;
     settings.enabled = true;
     settings.rootNote = 0;
-    std::vector<Event> events;
+    std::vector<int> notes[2];
     double ppq = 0.0;
-    long t = 0;
-    auto emit = [&] (int s, bool on, int note, float velocity) { events.push_back ({ t + s, on, note, velocity }); };
-    for (int block = 0; block < 100; ++block)
+    for (int block = 0; block < 300; ++block) // three seconds, 24 steps
     {
-        if (block == 5)
-            bank.request (1); // in the middle of the first pass
-        engine.process (true, ppq, bpm, sampleRate, 480, settings, bank, emit);
+        for (int layer = 0; layer < 2; ++layer)
+            engines[layer].process (true, ppq, bpm, sampleRate, 480, settings, bank.slot (layer),
+                                    [&] (int, bool on, int note, float) { if (on) notes[layer].push_back (note); });
         ppq += 480 * bpm / 60.0 / sampleRate;
-        t += 480;
     }
+    CHECK (notes[0].size() >= 13 && notes[1].size() >= 13);
+    for (int j = 0; j < 13; ++j)
+    {
+        CHECK (notes[0][(size_t) j] == 10 + j % 4);
+        CHECK (notes[1][(size_t) j] == 20 + j % 3);
+    }
+    CHECK (notes[0][12] == 10 && notes[1][12] == 20); // together again at step 12
+
+    // a layer switched on later joins in step, not from its own first step
+    SequencerEngine late;
+    std::vector<int> joined;
+    ppq = 5 * 0.25; // five steps in
+    late.process (true, ppq, bpm, sampleRate, 480, settings, bank.slot (0), [&] (int, bool on, int note, float) { if (on) joined.push_back (note); });
+    CHECK (! joined.empty() && joined[0] == 10 + 5 % 4);
+
+    bank.playOnly (5);
+    CHECK (bank.playing() == 32u && bank.isPlaying (5) && ! bank.isPlaying (0));
+    bank.setPlaying (0, true);
+    bank.setPlaying (5, false);
+    CHECK (bank.playing() == 1u);
+}
+
+// Drift: every time the pattern has played through it starts a step later.
+static void driftMovesThePattern()
+{
+    CHECK (patternIndexAt (0, 4, 1) == 0 && patternIndexAt (3, 4, 1) == 3);
+    CHECK (patternIndexAt (4, 4, 1) == 1 && patternIndexAt (7, 4, 1) == 0); // the second pass: 1 2 3 0
+    CHECK (patternIndexAt (8, 4, 1) == 2);                                  // the third: 2 3 0 1
+    CHECK (patternIndexAt (4, 4, -1) == 3 && patternIndexAt (5, 4, -1) == 0);
+    CHECK (patternIndexAt (9, 5, 0) == 4);
+    for (int j = 0; j < 200; ++j)
+        for (int drift : { -4, -1, 0, 3 })
+            for (int length : { 1, 3, 7, 16 })
+            {
+                const int index = patternIndexAt (j, length, drift);
+                CHECK (index >= 0 && index < length);
+            }
+
+    Groove groove;
+    groove.length = 4;
+    groove.drift = 1;
+    const EveryStep steps (0, groove);
     std::vector<int> notes;
-    for (const auto& e : events)
+    for (const auto& e : run (480, steps.pattern, 2.0))
         if (e.on)
             notes.push_back (e.note);
-    CHECK (notes.size() >= 8);
-    CHECK (notes[0] == 0 && notes[1] == 1 && notes[2] == 2 && notes[3] == 3); // the first pass finishes
-    CHECK (notes[4] == 20 && notes[5] == 21 && notes[6] == 22 && notes[7] == 23); // then the new one, from its start
-    CHECK (bank.active() == 1);
+    const int expected[] = { 0, 1, 2, 3, 1, 2, 3, 0, 2, 3, 0, 1 };
+    CHECK (notes.size() >= 12);
+    for (size_t k = 0; k < 12 && k < notes.size(); ++k)
+        CHECK (notes[k] == expected[k]);
+}
+
+// Hits spreads a number of steps evenly over the length and leaves the notes.
+static void hitsSpreadEvenly()
+{
+    Pattern p;
+    for (int i = 0; i < kMaxSteps; ++i)
+        p.set (i, { true, i, kNormalLevel });
+    Groove groove;
+    groove.length = 8;
+    p.setGroove (groove);
+    p.setHits (3);
+    CHECK (p.hits() == 3);
+    for (int i = 0; i < 8; ++i)
+        CHECK (p.get (i).gate == (i == 0 || i == 3 || i == 6)); // the tresillo
+    for (int i = 8; i < kMaxSteps; ++i)
+        CHECK (p.get (i).gate); // past the length is left alone
+    for (int i = 0; i < kMaxSteps; ++i)
+        CHECK (p.get (i).note == i);
+    for (int length = 1; length <= kMaxSteps; ++length)
+    {
+        groove.length = length;
+        p.setGroove (groove);
+        for (int hits = 0; hits <= length; ++hits)
+        {
+            p.setHits (hits);
+            CHECK (p.hits() == hits);
+        }
+        p.setHits (99);
+        CHECK (p.hits() == length);
+    }
 }
 
 static void textRoundTrips()
 {
     Pattern p;
     p.set (0, { true, -7, 0 });
-    p.set (1, { false, 24, 2 });
-    p.set (15, { true, 12, 2 });
+    p.set (1, { false, 24, 1 });
+    p.set (15, { true, 12, 1 });
     Pattern q;
     CHECK (q.fromString (p.toString()));
     for (int i = 0; i < kMaxSteps; ++i)
@@ -248,8 +322,10 @@ static void textRoundTrips()
     odd.rate = 3;
     odd.swing = 0.6180339f;
     odd.gate = 0.123456789f;
+    odd.drift = -3;
     Groove parsed;
-    CHECK (Groove {}.toString() == "length 16 rate 1/16 swing 0.5 gate 0.5");
+    CHECK (Groove {}.toString() == "length 16 rate 1/16 swing 0.5 gate 0.5 drift 0");
+    CHECK (parsed.fromString ("length 8 rate 1/8 swing 0.55 gate 0.4") && parsed.drift == 0); // text without a drift
     CHECK (parsed.fromString (odd.toString()) && parsed.toString() == odd.toString());
     CHECK (! parsed.fromString ("length 5"));
     Pattern damaged;
@@ -266,7 +342,7 @@ static void randomLinesAreMusical()
     {
         Pattern p;
         p.randomize (rng);
-        CHECK (p.get (0).gate && p.get (0).note == 0 && p.get (0).level == 2); // the first step is the root, accented
+        CHECK (p.get (0).gate && p.get (0).note == 0 && p.get (0).level == kAccentLevel); // the first step is the root, accented
         for (int i = 0; i < kMaxSteps; ++i)
         {
             const auto s = p.get (i);
@@ -288,7 +364,7 @@ static void clipPlaysLikeTheSequencer()
     Pattern& p = scale.pattern;
     p.set (2, { false, 0, 1 });
     p.set (5, { true, 9, 0 });
-    p.set (6, { true, 7, 2 });
+    p.set (6, { true, 7, 1 });
     const auto clip = patternToClip (p, 0);
     CHECK (clip.lengthBeats == 12 * 0.25);
     CHECK (clip.notes.size() == 11);
@@ -324,7 +400,9 @@ int main()
     lengthLoops();
     nothingHangs();
     silentWhenDisabledOrStopped();
-    slotSwitchLandsOnTheLoop();
+    layersFormAPolymeter();
+    driftMovesThePattern();
+    hitsSpreadEvenly();
     textRoundTrips();
     randomLinesAreMusical();
     clipPlaysLikeTheSequencer();

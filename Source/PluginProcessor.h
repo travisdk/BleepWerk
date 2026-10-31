@@ -56,8 +56,8 @@ public:
     bleepforge::PatternBank& getPatternBank() { return patternBank; }
     PatternPresets& getPatternPresets() { return patternPresets; }
     bool isSequencerRunning() const { return sequencerRunning.load(); }
-    int getSequencerStep() const { return sequencer.getCurrentStep(); }
-    void choosePatternSlot (int slot);
+    int getSequencerStep() const { return layers[(size_t) patternBank.active()].getCurrentStep(); } // of the slot the panel shows
+    void editPatternSlot (int slot) { patternBank.select (slot); }
     static juce::File patternFolder();
 
 private:
@@ -97,7 +97,7 @@ private:
     double hostBpm = 120.0; // for the delay's synced time, also while the host is stopped
     bleepforge::NoteInput noteInput;
     bleepforge::PatternBank patternBank;
-    bleepforge::SequencerEngine sequencer;
+    std::array<bleepforge::SequencerEngine, bleepforge::kNumPatternSlots> layers; // one engine for each pattern that plays
     PatternPresets patternPresets { apvts, patternBank, [] { return BleepForgeProcessor::patternFolder(); }, [this] { patternsChanged(); } };
     std::atomic<bool> sequencerRunning { false };
     std::atomic<int> lastPatternParam { 0 };

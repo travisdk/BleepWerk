@@ -229,7 +229,8 @@ void BleepForgeProcessor::prepareToPlay (double sampleRate, int)
     strike.prepare (sampleRate);
     effects.prepare (sampleRate);
     noteInput.reset(); // prepare() has silenced the voices, so no key is held any more
-    sequencer.reset();
+    for (auto& layer : layers)
+        layer.reset();
     numHeldKeys = 0;
     sequencerRunning = false;
     readParams();
@@ -319,7 +320,7 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         int note;
         float velocity;
     };
-    constexpr int kMaxSeqEvents = 64;
+    constexpr int kMaxSeqEvents = 256; // eight layers
     std::array<SeqEvent, kMaxSeqEvents> seqEvents;
     int numSeqEvents = 0;
 
@@ -335,21 +336,34 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         numHeldKeys = 0;
         sequencerRunning = wanted;
     }
+    // the Pattern parameter (automation) makes one slot the only one that plays
     if (const int slot = (int) apvts.getRawParameterValue ("seqPattern")->load(); slot != lastPatternParam.exchange (slot))
-        patternBank.request (slot);
+    {
+        patternBank.playOnly (slot);
+        patternBank.select (slot);
+    }
 
     bleepforge::SequencerSettings settings;
     settings.enabled = wanted;
     settings.rootNote = numHeldKeys > 0 ? heldKeys[(size_t) numHeldKeys - 1] : (int) apvts.getRawParameterValue ("seqRoot")->load();
-    if (wanted || sequencer.getCurrentStep() >= 0)
-        sequencer.process (wanted, ppq, hostBpm, getSampleRate(), numSamples, settings, patternBank,
-                           [&] (int sample, bool on, int note, float velocity)
-                           {
-                               if (numSeqEvents < kMaxSeqEvents)
-                                   seqEvents[(size_t) numSeqEvents++] = { sample, on, note, velocity };
-                           });
-    else
-        patternBank.applyPending(); // stopped: a chosen pattern takes over at once
+    for (int layer = 0; layer < bleepforge::kNumPatternSlots; ++layer)
+    {
+        // a layer that doesn't play is run as stopped, which lets go of its note
+        bleepforge::SequencerSettings layerSettings = settings;
+        layerSettings.enabled = wanted && patternBank.isPlaying (layer);
+        if (layerSettings.enabled || layers[(size_t) layer].getCurrentStep() >= 0)
+            layers[(size_t) layer].process (layerSettings.enabled, ppq, hostBpm, getSampleRate(), numSamples, layerSettings,
+                                            patternBank.slot (layer),
+                                            [&] (int sample, bool on, int note, float velocity)
+                                            {
+                                                if (numSeqEvents < kMaxSeqEvents)
+                                                    seqEvents[(size_t) numSeqEvents++] = { sample, on, note, velocity };
+                                            });
+    }
+    // the layers' events in time order (a few, so an insertion sort; no allocation)
+    for (int k = 1; k < numSeqEvents; ++k)
+        for (int m = k; m > 0 && seqEvents[(size_t) m].sample < seqEvents[(size_t) m - 1].sample; --m)
+            std::swap (seqEvents[(size_t) m], seqEvents[(size_t) m - 1]);
 
     Engines engines { *this };
     int position = 0;
@@ -406,7 +420,8 @@ void BleepForgeProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer
     buffer.clear();
     noteInput.reset();
     allNotesOff();
-    sequencer.reset();
+    for (auto& layer : layers)
+        layer.reset();
     numHeldKeys = 0;
     sequencerRunning = false;
 }
@@ -438,17 +453,6 @@ bool BleepForgeProcessor::readTransport (double& ppq, bool& playing)
 juce::File BleepForgeProcessor::patternFolder()
 {
     return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("BleepForge/Patterns");
-}
-
-// Asks for a pattern: it takes over when the playing one starts over, or at once if the
-// sequencer isn't playing.
-void BleepForgeProcessor::choosePatternSlot (int slot)
-{
-    bleepforge::files::setParameterValue (*apvts.getParameter ("seqPattern"), (float) slot);
-    lastPatternParam = slot;
-    patternBank.request (slot);
-    if (! sequencerRunning.load())
-        patternBank.applyPending();
 }
 
 juce::AudioProcessorEditor* BleepForgeProcessor::createEditor()
@@ -484,7 +488,7 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
             // Only the parameters stay in the tree: getStateInformation adds the rest again, so
             // a reloaded state saves byte for byte the same.
             // the patterns are saved as properties of the tree, and added again on saving
-            for (auto id : { "stateVersion", "presetName", "presetIndex" })
+            for (auto id : { "stateVersion", "presetName", "presetIndex", "patternPlaying", "patternEdited" })
                 state.removeProperty (id, nullptr);
             for (int i = 0; i < bleepforge::kNumPatternSlots; ++i)
                 for (auto prefix : { "pattern", "patternName", "patternGroove" })
@@ -518,6 +522,7 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
                 if (apvts.getParameter (state.getChild (i).getProperty ("id").toString()) == nullptr)
                     state.removeChild (i, nullptr);
             apvts.replaceState (state);
+            lastPatternParam = (int) apvts.getRawParameterValue ("seqPattern")->load(); // no solo from loading
             // Tells the host every parameter may have changed, so it reads them all again
             // (CLAP: params rescan of the values, which the wrapper sends for a program change).
             updateHostDisplay (ChangeDetails().withProgramChanged (true));
