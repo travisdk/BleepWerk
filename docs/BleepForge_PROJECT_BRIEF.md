@@ -115,6 +115,10 @@ patterns A-H, locked to the host's transport (sample-accurate, loops and jumps h
 
 ## 8. Quality and testing
 
+- Linux is the only target for now (decided 2026-10-31). The Windows code paths (the package-windows
+  target, the install notes, the MIDI drag-out) stay but are not built or tested, and the CI
+  matrix has no Windows job; the last Windows build error found, the std::array iterator, is fixed
+
 - JUCE-free unit tests for the engines, effects, presets, dice and MIDI input (sustain,
   all-notes-off, mono last-note priority, pitch bend)
 - Validate builds with pluginval

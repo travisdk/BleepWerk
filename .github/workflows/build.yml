@@ -1,7 +1,7 @@
 # Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
 # SPDX-License-Identifier: AGPL-3.0-only
 
-# Builds BleepForge (CLAP + VST3) on Linux and Windows, runs the unit tests,
+# Builds BleepForge (CLAP + VST3) on Linux (Windows is dropped for now), runs the unit tests,
 # checks the third-party notices and uploads the release archives.
 # Runs on GitHub only after a push; nothing here is needed for local builds.
 name: Build
@@ -34,10 +34,11 @@ jobs:
             os: ubuntu-24.04
             generator: -G Ninja
             package: package-linux
-          - name: Windows
-            os: windows-2022
-            generator: ""            # Visual Studio 2022 (MSVC), the default on this runner
-            package: package-windows
+          # Windows is dropped for now (2026-10-31); to bring it back, add:
+          #   - name: Windows
+          #     os: windows-2022
+          #     generator: ""            # Visual Studio 2022 (MSVC), the default on this runner
+          #     package: package-windows
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
