@@ -29,7 +29,7 @@ Everything is synthesized. No samples, no third-party audio content.
 
 ### 4.1 Voice types
 
-Each note is rendered by one of three engines, selectable per preset:
+Each note is rendered by one of two engines, selectable per preset:
 
 **Bleep engine**
 - Oscillator: sine, saw, square/pulse (PWM), simple 2-operator FM
@@ -37,25 +37,20 @@ Each note is rendered by one of three engines, selectable per preset:
 - Short amp envelope (attack, decay, optional short release)
 - Optional noise blend
 
-**Foley engine**
-- Exciter: noise burst, click or impulse (shape and length adjustable)
-- Modal resonator bank (a small number of tuned resonators)
-- High-level controls: Material (wood ↔ metal ↔ glass), Size, Damping, Brightness
-- Goal: drips, tinks, knocks, crackles by turning a few knobs
-
-**Machine engine** (added 2026-10-18)
-- Industrial sounds tuned to the note: Hit (a click and noise striking the part, with a deep
-  rumble and a short hiss), Hiss (noise through a bandpass, steam), Grind (noise into a comb
-  filter). A fourth type, Hum (a driven sine with a rasp), was removed after testing: it added
-  nothing useful
-- Screech (added 2026-10-23): metal rubbing on metal, a bright tone two octaves above the note
-  that slides up into it, with friction hiss around it; Motion makes it waver and chatter, and
-  above half way jump to another vibration mode (a fourth or a seventh up) and back
-- Every type runs into a tuned metal resonator (8 inharmonic modes that follow the note) and a
-  light saturation
-- Five controls shared by all four types: Length (ends by itself, up to 6 s), Tone, Motion
-  (0 still, then a slow wave to a fast rattle), Focus (airy noise to a clear tone; on Hit, how
-  much rumble and hiss), Metal (dry source to about a second of ringing metal)
+**Strike engine** (replaced the Foley and Machine engines, 2026-10-31)
+Something hits something: two choices and five knobs.
+- Hit with (the exciter): Knock (a short pulse with a little noise bite; Tone is how hard),
+  Noise (a decaying burst), Crackle (sparse clicks), Steam (steady noise through a bandpass on
+  the note, opening with a puff) and Friction (metal rubbing on metal: a bright tone two octaves
+  up that slides into the note, with friction hiss; Motion makes it waver, chatter and jump)
+- Hit on (the body): Wood (a free bar), Metal (a hard part, between a bar and a plate) or
+  Membrane (a drum skin: the Bessel zeros of a circular membrane). Eight tuned two-pole
+  resonators that follow the note
+- Length (a burst, or how long Steam and Friction last), Ring (how long the body rings), Tone
+  (dark to bright), Motion (a rattle, a flutter, a waver) and Sweep (the body slides into the
+  note: drips, a drum's fall)
+- Heavy industrial sounds come from a hard-hit metal body with Drive and reverb, not from a
+  special noise engine
 
 ### 4.2 Voice mode
 
@@ -89,15 +84,33 @@ Each note is rendered by one of three engines, selectable per preset:
 ## 6. UI
 
 - Top: title, preset browser, settings
-- Then the engine section (Bleep / Foley / Machine, with Voices, Glide, Bend and Output), and
-  below it Chaos and the effects
+- Then the engine section (Bleep / Strike, with Voices, Glide, Bend and Output), and
+  below it Chaos, Drive and the effects
+- A SEQ button in the header folds a step sequencer out below the effects (see 6.1); folded in,
+  the sequencer is off and the plug-in is as without one
 - Resizable window
 - Own visual identity, not imitating any other plugin
+
+### 6.1 Step sequencer (added 2026-10-31)
+
+Adapted from SubForge's: sixteen steps (on or off, a note from the root, an accent), eight
+patterns A-H, locked to the host's transport (sample-accurate, loops and jumps handled).
+- While it is on and the host plays, played keys set the root of the pattern instead of
+  sounding; otherwise the keys play as usual. Switching lets go of everything held
+- Any pattern can play as a layer, any number at once, each with its own length, counted from
+  beat 0 so they stay in step (a polymeter: 16 against 12 meets again after 48)
+- Per pattern: Length, Rate, Swing, Gate, Drift (moves on a few steps every pass), Hits (spreads
+  that many hits evenly: 3 of 8 is the tresillo), and Vary with a shape (Walk, Random, Skip),
+  which lets the length change from pass to pass
+- A factory set of original patterns, user pattern files (.bfpattern), a dice, copy to slot
+- MIDI export of the shown pattern as a one-pass clip; on Windows it can be dragged into the host
+- No slide (a step is a short strike) and no MIDI slot notes: the Pattern parameter, which the
+  host can automate, makes one pattern the only one that plays
 
 ## 7. Presets
 
 - Factory presets defined in code or as bundled parameter files (no audio content)
-- A large factory set (over 100), grouped by category: bleeps, pulses, FM, noise, lo-fi, dub, wood, metal, machine, glass, drips, textures
+- A large factory set (over 100), grouped by category: bleeps, pulses, FM, lo-fi, dub, wood, drums, industrial, air and friction, drips, textures, drive
 - Sound presets never change the Bend Range
 
 ## 8. Quality and testing
@@ -111,12 +124,13 @@ Each note is rendered by one of three engines, selectable per preset:
 
 1. **Skeleton:** JUCE 8 project with CMake, CLAP + VST3 build on Linux and Windows, empty UI, APVTS in place
 2. **Bleep engine**, mono/poly
-3. **Foley engine**
+3. **Foley engine** (later joined with Machine as the Strike engine)
 4. **Chaos**
 5. **Effects**
 6. **Presets, state save/restore, polish**
 7. **MIDI input** (2026-10-19)
 8. **Testing and release** (README, license, build artifacts)
+9. **Strike engine** and **step sequencer** (2026-10-31)
 
 ## 10. Open for later
 
