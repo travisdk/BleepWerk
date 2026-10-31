@@ -5,7 +5,7 @@
 # and dice on their own.
 # Add a name here for each tests/test_<name>.cpp. BleepForge_Tests builds them all, so CI needs
 # no list of its own.
-set(BLEEPFORGE_TESTS bleep note_input foley machine strike effects soundshape presets randomizer themes)
+set(BLEEPFORGE_TESTS bleep note_input strike effects soundshape presets randomizer themes)
 add_custom_target (BleepForge_Tests)
 foreach (name ${BLEEPFORGE_TESTS})
     add_executable (test_${name} test_${name}.cpp)

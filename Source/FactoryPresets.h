@@ -231,7 +231,9 @@ inline const std::vector<FactoryPreset>& factoryPresets()
 
         // ---- Industrial, steam and friction: struck metal parts, and steady sources, tuned to the note
         { "Press Clonk", "Industrial", { Strike, { "strikeBody", Metal }, { "strikeRing", 0.82f }, { "strikeTone", 0.45f }, { "chaosAmount", 0.5f }, { "chaosPitch", 0.6f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
-        { "Heavy Hit", "Industrial", { Strike, { "strikeBody", Metal }, { "strikeRing", 0.74f }, { "strikeTone", 0.3f }, { "chaosAmount", 0.4f } } },
+        { "Heavy Hit", "Industrial", { Strike, { "strikeBody", Metal }, { "strikeRing", 0.74f }, { "strikeTone", 0.3f }, { "chaosAmount", 0.4f },
+                                       { "driveType", Warm }, { "drivePost", Pre }, { "driveAmount", 0.6f }, { "driveMix", 0.7f },
+                                       { "roomSize", 0.7f }, { "roomDecay", 1.4f }, { "roomMix", 0.25f } } },
         { "Rattling Plate", "Industrial", { Strike, { "strikeBody", Metal }, { "strikeRing", 0.9f }, { "strikeTone", 0.65f }, { "strikeMotion", 0.55f }, { "chaosAmount", 0.6f }, { "chaosPitch", 0.7f } } },
         { "Donk", "Industrial", { Strike, { "strikeBody", Metal }, { "strikeRing", 0.69f }, { "roomSize", 1 }, { "roomDecay", 4 }, { "roomMix", 0.12f }, { "roomDuck", 0.12f } } },
         { "Steam Valve", "Air & Friction", { Strike, { "strikeExciter", Steam }, { "strikeBody", Metal }, { "strikeRing", 0.15f }, { "strikeTone", 0.75f } } },
