@@ -5,10 +5,11 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
+#include "SoundShape.h"
 
 // A small picture of the sound in the engine panel, redrawn as the knobs move: for the Bleep its
 // amplitude envelope with the pitch envelope over it, for Foley and Machine the tones of the
-// resonator as bars on a log frequency axis (height is strength, a brighter bar rings longer).
+// resonator: how the sound rings out over time, and its tones from low to high as bars.
 // Only to look at; it has no controls.
 class SoundView : public juce::Component, private juce::Timer
 {
@@ -23,6 +24,8 @@ private:
 
     void paintBleep (juce::Graphics&, juce::Rectangle<float>) const;
     void paintModes (juce::Graphics&, juce::Rectangle<float>) const;
+    void paintRing (juce::Graphics&, juce::Rectangle<float>, const std::vector<bleepforge::ShapeMode>&) const;
+    void paintTones (juce::Graphics&, juce::Rectangle<float>, const std::vector<bleepforge::ShapeMode>&, bool screech) const;
 
     BleepForgeProcessor& processor;
     bleepforge::Patch patch;

@@ -92,4 +92,26 @@ inline std::vector<ShapeMode> machineShape (const MachineParams& p)
         m.strength /= std::max (1.0e-6f, strongest);
     return modes;
 }
+
+// How loud a resonator is `seconds` after the hit, 0..1: the tones added up, each dying away
+// over its own ring time (-60 dB after it).
+inline float ringLevelAt (const std::vector<ShapeMode>& modes, float seconds)
+{
+    float sum = 0.0f, start = 0.0f;
+    for (const auto& m : modes)
+    {
+        start += m.strength;
+        sum += m.strength * std::exp (-6.9f * std::max (0.0f, seconds) / std::max (0.005f, m.ringSeconds));
+    }
+    return start > 0.0f ? sum / start : 0.0f;
+}
+
+// The end of the time axis: about where the longest tone has died to 1 %, at least 50 ms.
+inline float ringEndSeconds (const std::vector<ShapeMode>& modes)
+{
+    float end = 0.05f;
+    for (const auto& m : modes)
+        end = std::max (end, std::min (10.0f, m.ringSeconds * 0.67f));
+    return end;
+}
 } // namespace bleepforge

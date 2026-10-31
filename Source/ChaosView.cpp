@@ -33,7 +33,7 @@ void ChaosView::paint (juce::Graphics& g)
 
     // Amount stands apart: it scales the others
     const float divider = (float) (kPadding + kKnobWidth + 8);
-    theme::paintEngravedLine (g, divider, (float) kPadding + kTitleHeight, area.getHeight() - 2.0f * kPadding - kTitleHeight);
+    theme::paintDivider (g, divider, (float) kPadding + kTitleHeight, area.getHeight() - 2.0f * kPadding - kTitleHeight);
 
     g.setColour (theme::primary().withAlpha (0.8f));
     g.setFont (fonts::title (14.0f));

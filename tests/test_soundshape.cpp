@@ -57,6 +57,11 @@ static void testModes()
     f.damping = 1.0f;
     CHECK (foleyShape (f)[0].ringSeconds < wood[0].ringSeconds);
 
+    // the ring-out curve starts at 1 and falls; a damped sound ends sooner
+    CHECK (std::abs (ringLevelAt (wood, 0.0f) - 1.0f) < 1.0e-5f);
+    CHECK (ringLevelAt (wood, 0.1f) < 1.0f && ringLevelAt (wood, 1.0f) < ringLevelAt (wood, 0.1f));
+    CHECK (ringEndSeconds (foleyShape (f)) < ringEndSeconds (wood));
+
     MachineParams m;
     m.metal = 0.0f;
     const auto dry = machineShape (m);

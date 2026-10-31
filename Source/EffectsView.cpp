@@ -61,7 +61,7 @@ void EffectsView::paint (juce::Graphics& g)
         if (i > 0)
         {
             const float x = (float) group.area.getX() - (float) kGroupGap * 0.5f;
-            theme::paintEngravedLine (g, x, (float) kPadding + kTitleHeight, area.getHeight() - 2.0f * kPadding - kTitleHeight);
+            theme::paintDivider (g, x, (float) kPadding + kTitleHeight, area.getHeight() - 2.0f * kPadding - kTitleHeight);
         }
         g.setColour (theme::primary().withAlpha (0.8f));
         g.drawText (group.name, juce::Rectangle<float> ((float) group.area.getX(), 6.0f, 100.0f, 14.0f), juce::Justification::centredLeft);

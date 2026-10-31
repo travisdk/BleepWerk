@@ -160,7 +160,7 @@ void EngineView::paint (juce::Graphics& g)
     theme::paintPanel (g, area);
 
     // divider between the shared controls and the engine's own
-    theme::paintEngravedLine (g, (float) kLeftWidth, (float) kPadding + 4.0f, area.getHeight() - 2.0f * kPadding - 4.0f);
+    theme::paintDivider (g, (float) kLeftWidth, (float) kPadding + 4.0f, area.getHeight() - 2.0f * kPadding - 4.0f);
 
     g.setColour (theme::primary().withAlpha (0.8f));
     g.setFont (fonts::title (14.0f));
