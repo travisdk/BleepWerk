@@ -127,6 +127,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     sound ("strikeMotion", "Motion", linear ("strikeMotion"));
     sound ("strikeSweep", "Sweep", linear ("strikeSweep", 0.1f), "st");
 
+    // The step sequencer: switched on it plays against the host's transport. The patterns
+    // themselves are stored with the project, not as parameters. The list of slots must never
+    // change length: hosts store automation as 0..1 and would land on other slots.
+    choice ("seqEnabled", "Sequencer", { "Off", "On" });
+    {
+        StringArray slotNames;
+        for (int i = 0; i < bleepforge::kNumPatternSlots; ++i)
+            slotNames.add (String::charToString ((juce_wchar) ('A' + i)));
+        params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqPattern", 1 }, "Sequencer Pattern", slotNames, 0));
+    }
+    params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqRoot", 1 }, "Sequencer Root", 24, 84, 48));
+
     // Chaos: Amount scales every target's depth
     sound ("chaosAmount", "Chaos", linear ("chaosAmount"));
     sound ("chaosPitch", "Chaos Pitch", linear ("chaosPitch"));
@@ -205,6 +217,9 @@ void BleepForgeProcessor::prepareToPlay (double sampleRate, int)
     strike.prepare (sampleRate);
     effects.prepare (sampleRate);
     noteInput.reset(); // prepare() has silenced the voices, so no key is held any more
+    sequencer.reset();
+    numHeldKeys = 0;
+    sequencerRunning = false;
     readParams();
     effects.setParams (patch.effects, hostBpm);
     outputGain.reset (sampleRate, 0.02);
@@ -282,15 +297,87 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         strike.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
     };
 
+    // The sequencer plays while it is switched on and the host's transport runs. Then the
+    // keys played don't sound but set the root of the pattern (the last one held), and its
+    // notes go to the engines on their exact samples, mixed in with the host's events.
+    struct SeqEvent
+    {
+        int sample;
+        bool on;
+        int note;
+        float velocity;
+    };
+    constexpr int kMaxSeqEvents = 64;
+    std::array<SeqEvent, kMaxSeqEvents> seqEvents;
+    int numSeqEvents = 0;
+
+    double ppq = 0.0;
+    bool playing = false;
+    const bool hasTransport = readTransport (ppq, playing);
+    const bool wanted = apvts.getRawParameterValue ("seqEnabled")->load() > 0.5f && hasTransport && playing;
+    if (wanted != sequencerRunning.load())
+    {
+        // changing between playing the keys and the pattern lets go of everything held
+        noteInput.reset();
+        allNotesOff();
+        numHeldKeys = 0;
+        sequencerRunning = wanted;
+    }
+    if (const int slot = (int) apvts.getRawParameterValue ("seqPattern")->load(); slot != lastPatternParam.exchange (slot))
+        patternBank.request (slot);
+
+    bleepforge::SequencerSettings settings;
+    settings.enabled = wanted;
+    settings.rootNote = numHeldKeys > 0 ? heldKeys[(size_t) numHeldKeys - 1] : (int) apvts.getRawParameterValue ("seqRoot")->load();
+    if (wanted || sequencer.getCurrentStep() >= 0)
+        sequencer.process (wanted, ppq, hostBpm, getSampleRate(), numSamples, settings, patternBank,
+                           [&] (int sample, bool on, int note, float velocity)
+                           {
+                               if (numSeqEvents < kMaxSeqEvents)
+                                   seqEvents[(size_t) numSeqEvents++] = { sample, on, note, velocity };
+                           });
+    else
+        patternBank.applyPending(); // stopped: a chosen pattern takes over at once
+
     Engines engines { *this };
     int position = 0;
+    int nextSeq = 0;
+    auto playSequencerUpTo = [&] (int sample)
+    {
+        for (; nextSeq < numSeqEvents && seqEvents[(size_t) nextSeq].sample <= sample; ++nextSeq)
+        {
+            const auto& e = seqEvents[(size_t) nextSeq];
+            const int at = juce::jlimit (position, numSamples, e.sample);
+            renderRange (position, at);
+            position = at;
+            if (e.on)
+                engines.noteOn (e.note, e.velocity);
+            else
+                engines.noteOff (e.note);
+        }
+    };
     for (const auto metadata : midi)
     {
         const int eventPos = juce::jlimit (0, numSamples, metadata.samplePosition);
+        playSequencerUpTo (eventPos);
         renderRange (position, eventPos);
         position = juce::jmax (position, eventPos);
+
+        const auto* data = metadata.data;
+        const bool isNote = metadata.numBytes >= 3 && ((data[0] & 0xf0) == 0x90 || (data[0] & 0xf0) == 0x80);
+        if (sequencerRunning.load() && isNote)
+        {
+            const int key = data[1] & 0x7f;
+            const bool down = (data[0] & 0xf0) == 0x90 && (data[2] & 0x7f) != 0;
+            auto* end = heldKeys.begin() + numHeldKeys;
+            numHeldKeys = (int) (std::remove (heldKeys.begin(), end, key) - heldKeys.begin());
+            if (down && numHeldKeys < (int) heldKeys.size())
+                heldKeys[(size_t) numHeldKeys++] = key;
+            continue;
+        }
         noteInput.handle (metadata.data, metadata.numBytes, engines);
     }
+    playSequencerUpTo (numSamples);
     renderRange (position, numSamples);
 
     effects.setParams (patch.effects, hostBpm);
@@ -307,6 +394,9 @@ void BleepForgeProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer
     buffer.clear();
     noteInput.reset();
     allNotesOff();
+    sequencer.reset();
+    numHeldKeys = 0;
+    sequencerRunning = false;
 }
 
 // The delay's synced time follows the host's tempo, kept from the last block that had one.
@@ -316,6 +406,37 @@ void BleepForgeProcessor::readTempo()
         if (auto position = hostPlayHead->getPosition())
             if (auto bpm = position->getBpm())
                 hostBpm = *bpm;
+}
+
+// The host's position in quarter notes and whether it plays; false when it has none (a plain
+// player), where the sequencer stays silent.
+bool BleepForgeProcessor::readTransport (double& ppq, bool& playing)
+{
+    if (auto* hostPlayHead = getPlayHead())
+        if (auto position = hostPlayHead->getPosition())
+            if (auto pos = position->getPpqPosition())
+            {
+                ppq = *pos;
+                playing = position->getIsPlaying();
+                return true;
+            }
+    return false;
+}
+
+juce::File BleepForgeProcessor::patternFolder()
+{
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("BleepForge/Patterns");
+}
+
+// Asks for a pattern: it takes over when the playing one starts over, or at once if the
+// sequencer isn't playing.
+void BleepForgeProcessor::choosePatternSlot (int slot)
+{
+    bleepforge::files::setParameterValue (*apvts.getParameter ("seqPattern"), (float) slot);
+    lastPatternParam = slot;
+    patternBank.request (slot);
+    if (! sequencerRunning.load())
+        patternBank.applyPending();
 }
 
 juce::AudioProcessorEditor* BleepForgeProcessor::createEditor()
@@ -330,6 +451,7 @@ void BleepForgeProcessor::getStateInformation (juce::MemoryBlock& destData)
     auto state = apvts.copyState();
     state.setProperty ("stateVersion", kStateVersion, nullptr);
     soundPresets.writeState (state);
+    patternPresets.writeState (state);
 
     if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
@@ -346,10 +468,15 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
         {
             auto state = juce::ValueTree::fromXml (*xml);
             soundPresets.readState (state);
+            patternPresets.readState (state);
             // Only the parameters stay in the tree: getStateInformation adds the rest again, so
             // a reloaded state saves byte for byte the same.
+            // the patterns are saved as properties of the tree, and added again on saving
             for (auto id : { "stateVersion", "presetName", "presetIndex" })
                 state.removeProperty (id, nullptr);
+            for (int i = 0; i < bleepforge::kNumPatternSlots; ++i)
+                for (auto prefix : { "pattern", "patternName", "patternGroove" })
+                    state.removeProperty (juce::String (prefix) + juce::String::charToString ((juce::juce_wchar) ('A' + i)), nullptr);
             // A value that is not a number (a damaged project) loads as the parameter's default,
             // as its range only clamps numbers; an old delay time like that is dropped.
             for (int i = state.getNumChildren(); --i >= 0;)

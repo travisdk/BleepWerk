@@ -7,6 +7,8 @@
 #include "Patch.h"
 #include "NoteInput.h"
 #include "SoundPresets.h"
+#include "PatternPresets.h"
+#include "Sequencer.h"
 
 class BleepForgeProcessor : public juce::AudioProcessor
 {
@@ -49,10 +51,21 @@ public:
     // Never touches the pitch bend range, a setting of the player.
     SoundPresets& getSoundPresets() { return soundPresets; }
 
+    // The step sequencer: eight patterns, which of them plays, and the pattern files. The
+    // sequencer plays while it is switched on and the host's transport runs.
+    bleepforge::PatternBank& getPatternBank() { return patternBank; }
+    PatternPresets& getPatternPresets() { return patternPresets; }
+    bool isSequencerRunning() const { return sequencerRunning.load(); }
+    int getSequencerStep() const { return sequencer.getCurrentStep(); }
+    void choosePatternSlot (int slot);
+    static juce::File patternFolder();
+
 private:
     void readParams();
     void readTempo();
+    bool readTransport (double& ppq, bool& playing); // false when the host gives no position
     void allNotesOff();
+    void patternsChanged() { updateHostDisplay (ChangeDetails().withNonParameterStateChanged (true)); }
 
     // What NoteInput plays: a note-on goes to the selected engine, everything else to all
     // three, so a note that started before an engine switch still ends.
@@ -83,6 +96,13 @@ private:
     bleepforge::Effects effects;
     double hostBpm = 120.0; // for the delay's synced time, also while the host is stopped
     bleepforge::NoteInput noteInput;
+    bleepforge::PatternBank patternBank;
+    bleepforge::SequencerEngine sequencer;
+    PatternPresets patternPresets { apvts, patternBank, [] { return BleepForgeProcessor::patternFolder(); }, [this] { patternsChanged(); } };
+    std::atomic<bool> sequencerRunning { false };
+    std::atomic<int> lastPatternParam { 0 };
+    std::array<int, 16> heldKeys {}; // keys held while the sequencer runs; the last one is the root
+    int numHeldKeys = 0;
     juce::LinearSmoothedValue<float> outputGain { 1.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BleepForgeProcessor)
