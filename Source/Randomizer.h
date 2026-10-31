@@ -90,26 +90,19 @@ inline std::vector<PresetValue> randomSound (Engine engine, DiceRng& rng)
         set ("bleepRelease", std::round (rng.logBetween (5, 150)));
         set ("bleepNoise", rng.chance (0.6f) ? 0.0f : round (rng.between (0, 0.4f), 0.01f));
     }
-    else if (engine == Engine::Foley)
-    {
-        set ("foleyExciter", (float) rng.below (kNumFoleyExciters));
-        set ("foleyLength", round (rng.logBetween (0.1f, 30), 0.01f));
-        set ("foleyMaterial", round (rng.uniform(), 0.01f));
-        set ("foleySize", round (rng.between (0.1f, 0.9f), 0.01f));
-        // never the seconds-long rings at the bottom of the range: a percussive part
-        set ("foleyDamping", round (rng.between (0.25f, 0.9f), 0.01f));
-        set ("foleyBrightness", round (rng.between (0.2f, 0.9f), 0.01f));
-        set ("foleySweep", rng.chance (0.7f) ? 0.0f : std::round (rng.between (-12, 12)));
-    }
     else
     {
-        // from a short burst to a sound that lasts a bar, and still more often than moving
-        set ("machineType", (float) rng.below (kNumMachineTypes));
-        set ("machineLength", std::round (rng.logBetween (60, 2500)));
-        set ("machineTone", round (rng.between (0.1f, 0.9f), 0.01f));
-        set ("machineMotion", rng.chance (0.4f) ? 0.0f : round (rng.between (0.05f, 0.7f), 0.01f));
-        set ("machineFocus", round (rng.between (0.1f, 1.0f), 0.01f));
-        set ("machineMetal", round (rng.between (0.2f, 1.0f), 0.01f));
+        const int exciter = rng.below (kNumStrikeExciters);
+        set ("strikeExciter", (float) exciter);
+        set ("strikeBody", (float) rng.below (kNumStrikeBodies));
+        // a burst of noise or crackle is short; steam and friction last from a puff to a bar
+        set ("strikeLength", strikeIsSteady ((StrikeExciter) exciter) ? std::round (rng.logBetween (150, 2500))
+                                                                      : round (rng.logBetween (0.2f, 40), 0.01f));
+        // never the seconds-long rings at the top of the range: a percussive part
+        set ("strikeRing", round (rng.between (0.1f, 0.75f), 0.01f));
+        set ("strikeTone", round (rng.between (0.2f, 0.9f), 0.01f));
+        set ("strikeMotion", rng.chance (0.5f) ? 0.0f : round (rng.between (0.05f, 0.7f), 0.01f));
+        set ("strikeSweep", rng.chance (0.7f) ? 0.0f : std::round (rng.between (-12, 12)));
     }
 
     const bool mono = rng.chance (0.2f);

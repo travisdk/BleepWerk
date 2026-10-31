@@ -5,8 +5,7 @@
 
 #include "BleepSynth.h"
 #include "Effects.h"
-#include "FoleySynth.h"
-#include "MachineSynth.h"
+#include "StrikeSynth.h"
 
 #include <cstring>
 #include <utility>
@@ -19,8 +18,8 @@
 // JUCE-free.
 namespace bleepforge
 {
-enum class Engine { Bleep, Foley, Machine };
-inline constexpr const char* kEngineNames[] = { "Bleep", "Foley", "Machine" };
+enum class Engine { Bleep, Strike };
+inline constexpr const char* kEngineNames[] = { "Bleep", "Strike" };
 inline constexpr int kNumEngines = (int) std::size (kEngineNames);
 
 struct SoundParam
@@ -44,20 +43,13 @@ inline constexpr SoundParam kSoundParams[] = {
     { "bleepRelease", 1, 500, 30 },
     { "bleepNoise", 0, 1, 0 },
 
-    { "foleyExciter", 0, kNumFoleyExciters - 1, (float) FoleyExciter::Mallet },
-    { "foleyLength", 0.05f, 200, 0.3f },
-    { "foleyMaterial", 0, 1, 0 },
-    { "foleySize", 0, 1, 0.5f },
-    { "foleyDamping", 0, 1, 0.5f },
-    { "foleyBrightness", 0, 1, 0.5f },
-    { "foleySweep", -24, 24, 0 },
-
-    { "machineType", 0, kNumMachineTypes - 1, (float) MachineType::Hit },
-    { "machineLength", 10, 6000, 400 },
-    { "machineTone", 0, 1, 0.5f },
-    { "machineMotion", 0, 1, 0 },
-    { "machineFocus", 0, 1, 0.5f },
-    { "machineMetal", 0, 1, 0.5f },
+    { "strikeExciter", 0, kNumStrikeExciters - 1, (float) StrikeExciter::Knock },
+    { "strikeBody", 0, kNumStrikeBodies - 1, (float) StrikeBody::Wood },
+    { "strikeLength", 0.1f, 6000, 300 },
+    { "strikeRing", 0, 1, 0.5f },
+    { "strikeTone", 0, 1, 0.5f },
+    { "strikeMotion", 0, 1, 0 },
+    { "strikeSweep", -24, 24, 0 },
 
     { "chaosAmount", 0, 1, 0.0f }, // off until asked for: presets and new instances play the same every hit
     { "chaosPitch", 0, 1, 0.2f },
@@ -109,8 +101,7 @@ struct Patch
 {
     Engine engine = Engine::Bleep;
     BleepParams bleep;
-    FoleyParams foleyParams;
-    MachineParams machine;
+    StrikeParams strike;
     ChaosDepths chaos;
     bool mono = false;
     float glideMs = 0.0f;
@@ -139,22 +130,14 @@ Patch readPatch (Get&& get)
     b.releaseMs = get ("bleepRelease");
     b.noise = get ("bleepNoise");
 
-    auto& f = patch.foleyParams;
-    f.exciter = (FoleyExciter) index ("foleyExciter", kNumFoleyExciters);
-    f.exciterMs = get ("foleyLength");
-    f.material = get ("foleyMaterial");
-    f.size = get ("foleySize");
-    f.damping = get ("foleyDamping");
-    f.brightness = get ("foleyBrightness");
-    f.sweepSemis = get ("foleySweep");
-
-    auto& m = patch.machine;
-    m.type = (MachineType) index ("machineType", kNumMachineTypes);
-    m.lengthMs = get ("machineLength");
-    m.tone = get ("machineTone");
-    m.motion = get ("machineMotion");
-    m.focus = get ("machineFocus");
-    m.metal = get ("machineMetal");
+    auto& k = patch.strike;
+    k.exciter = (StrikeExciter) index ("strikeExciter", kNumStrikeExciters);
+    k.body = (StrikeBody) index ("strikeBody", kNumStrikeBodies);
+    k.lengthMs = get ("strikeLength");
+    k.ring = get ("strikeRing");
+    k.tone = get ("strikeTone");
+    k.motion = get ("strikeMotion");
+    k.sweepSemis = get ("strikeSweep");
 
     // Amount scales every target's depth
     const float amount = get ("chaosAmount");
@@ -201,22 +184,17 @@ inline std::pair<std::vector<float>, std::vector<float>> renderPatch (const Patc
     std::vector<float> left ((size_t) numSamples, 0.0f), right ((size_t) numSamples, 0.0f);
 
     BleepSynth bleep;
-    FoleySynth foley;
-    MachineSynth machine;
+    StrikeSynth strike;
     Effects effects;
     bleep.prepare (sampleRate);
-    foley.prepare (sampleRate);
-    machine.prepare (sampleRate);
+    strike.prepare (sampleRate);
     effects.prepare (sampleRate);
     bleep.setParams (patch.bleep);
-    foley.setParams (patch.foleyParams);
-    machine.setParams (patch.machine);
+    strike.setParams (patch.strike);
     bleep.setMode (patch.mono ? BleepSynth::Mode::Mono : BleepSynth::Mode::Poly);
-    foley.setMode (patch.mono ? FoleySynth::Mode::Mono : FoleySynth::Mode::Poly);
-    machine.setMode (patch.mono ? MachineSynth::Mode::Mono : MachineSynth::Mode::Poly);
+    strike.setMode (patch.mono ? StrikeSynth::Mode::Mono : StrikeSynth::Mode::Poly);
     bleep.setGlideMs (patch.glideMs);
-    foley.setGlideMs (patch.glideMs);
-    machine.setGlideMs (patch.glideMs);
+    strike.setGlideMs (patch.glideMs);
     effects.setParams (patch.effects, 120.0);
 
     constexpr int notes[] = { 60, 64, 67, 72 };
@@ -226,15 +204,13 @@ inline std::pair<std::vector<float>, std::vector<float>> renderPatch (const Patc
         switch (patch.engine)
         {
             case Engine::Bleep: bleep.noteOn (note, 0.8f); break;
-            case Engine::Foley: foley.noteOn (note, 0.8f); break;
-            case Engine::Machine: machine.noteOn (note, 0.8f); break;
+            case Engine::Strike: strike.noteOn (note, 0.8f); break;
         }
     };
     auto noteOff = [&] (int note)
     {
         bleep.noteOff (note);
-        foley.noteOff (note);
-        machine.noteOff (note);
+        strike.noteOff (note);
     };
 
     // events in time order: each note's on at k * step, its off a gate later
@@ -253,8 +229,7 @@ inline std::pair<std::vector<float>, std::vector<float>> renderPatch (const Patc
         {
             const int n = std::min (256, to - position);
             bleep.renderAdding (left.data() + position, right.data() + position, n);
-            foley.renderAdding (left.data() + position, right.data() + position, n);
-            machine.renderAdding (left.data() + position, right.data() + position, n);
+            strike.renderAdding (left.data() + position, right.data() + position, n);
             effects.process (left.data() + position, right.data() + position, n);
         }
         position = to;

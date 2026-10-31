@@ -29,7 +29,7 @@ static Patch patchFor (const std::vector<PresetValue>& values, Engine engine)
 static void testSounds()
 {
     // each engine's parameters start with its name in lower case
-    constexpr const char* prefixes[] = { "bleep", "foley", "machine" };
+    constexpr const char* prefixes[] = { "bleep", "strike" };
     static_assert (std::size (prefixes) == kNumEngines);
     for (int e = 0; e < kNumEngines; ++e)
         for (uint64_t seed = 1; seed <= 60; ++seed)

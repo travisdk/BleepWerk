@@ -487,8 +487,9 @@ private:
                         x = strength * (0.4f + 0.6f * std::abs (noise.next()))
                           / std::sqrt (std::max (1.0f, kCracklesPerSecond * (float) exciterLength / fs));
                     break;
-                default:
-                    break;
+                case StrikeExciter::Steam:
+                case StrikeExciter::Friction:
+                    break; // steady sources are not one-off strikes (see render())
             }
         }
         else if (p.exciter == StrikeExciter::Knock && p.motion > 0.0f && elapsed < rattleUntil && 0.5f + 0.5f * noise.next() < 25.0f * p.motion * p.motion / fs)
@@ -571,12 +572,12 @@ private:
         const float depth = std::min (1.0f, 3.0f * motion);
         const float stick = std::pow (0.5f + 0.5f * std::sin (kTwoPi * chatterPhase), 3.0f);
         const float chatter = (1.0f - 0.85f * depth * (1.0f - stick)) / (1.0f - 0.58f * depth);
-        const float level = std::max (0.0f, 1.0f + 0.25f * motion * wobble);
+        const float swell = std::max (0.0f, 1.0f + 0.25f * motion * wobble);
 
         // the chatter comes after the drive, which would otherwise flatten it
         const float rough = 0.7f * (1.0f - kFocus);
         const float drive = 1.0f + 4.0f * tone;
-        return 0.8f * std::tanh (drive * ((1.0f - rough) * partials + rough * hissy)) / std::tanh (drive) * chatter * level;
+        return 0.8f * std::tanh (drive * ((1.0f - rough) * partials + rough * hissy)) / std::tanh (drive) * chatter * swell;
     }
 
     float fs = 48000.0f;

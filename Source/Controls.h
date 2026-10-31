@@ -55,6 +55,7 @@ struct Toggle : juce::Component
     juce::OwnedArray<juce::TextButton> buttons;
     bool stacked;
     int buttonHeight = 26; // of a side-by-side row
+    std::function<void (int)> onSelect; // called with the index after a click on a button (not when the parameter changes otherwise)
 };
 
 // A small icon button drawn without fonts or images: a die (roll random values) or a back

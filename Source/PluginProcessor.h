@@ -71,13 +71,13 @@ private:
     //   1: 0.1.0
     //   2: 0.10.0
     //   3: Delay Time split into a time and a feel (an old delayTime is converted on loading)
-    static constexpr int kStateVersion = 3;
+    //   4: Foley and Machine became one engine, Strike (their parameters are dropped on loading)
+    static constexpr int kStateVersion = 4;
 
     // Every engine renders every block, so switching lets the old one ring out; notes go to
     // the selected one.
     bleepforge::BleepSynth bleep;
-    bleepforge::FoleySynth foley;
-    bleepforge::MachineSynth machine;
+    bleepforge::StrikeSynth strike;
     bleepforge::Patch patch; // this block's sound parameters
     SoundPresets soundPresets { apvts };
     bleepforge::Effects effects;

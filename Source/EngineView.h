@@ -10,9 +10,10 @@
 
 #include <optional>
 
-// The sound section. Left: the engine (Bleep, Foley or Machine), and below it
+// The sound section. Left: the engine (Bleep or Strike), and below it
 // Mono or Poly, Glide, Bend and Output. Right: the controls of the selected engine, which swap when the engine changes, and
 // by the engine's name the dice, which roll a random sound for that engine, with a back arrow.
+// Strike has two rows of buttons, what hits and what is hit, above the picture of the sound.
 class EngineView : public juce::Component, private juce::Timer
 {
 public:
@@ -35,10 +36,8 @@ private:
 
     Choice bleepWave;
     Knob pulseWidth, fmRatio, fmAmount, pitchAmount, pitchDecay, attack, decay, release, noise;
-    Choice foleyExciter;
-    Knob foleyLength, material, size, damping, brightness, sweep;
-    Choice machineType;
-    Knob machineLength, machineTone, motion, focus, metal;
+    Toggle exciter, body;
+    Knob strikeLength, ring, strikeTone, motion, sweep;
 
     // the dice: a random sound for the engine in view, and back to the sound before it
     IconButton dice { IconButton::Icon::Dice, "Random sound for this engine" },
@@ -53,8 +52,8 @@ private:
 
     bool isKey (const std::vector<juce::Component*>* list, size_t index) const;
 
-    std::vector<juce::Component*> bleepControls, foleyControls, machineControls;
-    std::vector<size_t> bleepKeys, foleyKeys, machineKeys; // indices of the larger knobs
+    std::vector<juce::Component*> bleepControls, strikeControls;
+    std::vector<size_t> bleepKeys, strikeKeys; // indices of the larger knobs
     int shownEngine = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EngineView)

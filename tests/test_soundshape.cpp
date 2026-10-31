@@ -44,42 +44,51 @@ static void testBleep()
 
 static void testModes()
 {
-    FoleyParams f;
-    const auto wood = foleyShape (f);
-    CHECK (wood.size() == (size_t) kNumModes);
+    StrikeParams p;
+    p.body = StrikeBody::Wood;
+    const auto wood = strikeShape (p);
+    CHECK (wood.size() == (size_t) kNumStrikeModes);
     CHECK (wood[0].ratio == 1.0f && wood[1].ratio > 2.0f);
-    f.material = 0.5f;
-    const auto metal = foleyShape (f);
-    CHECK (metal[5].ratio < 3.2f); // a plate's modes crowd together
-    CHECK (metal[0].ringSeconds > wood[0].ringSeconds); // and ring longer
+    p.body = StrikeBody::Membrane;
+    const auto drum = strikeShape (p);
+    CHECK (drum[5].ratio < 3.2f); // a skin's modes crowd together
+    CHECK (drum[0].ringSeconds > wood[0].ringSeconds); // and ring longer
     for (const auto& m : wood)
         CHECK (m.ringSeconds > 0.0f && m.strength > 0.0f);
-    f.damping = 1.0f;
-    CHECK (foleyShape (f)[0].ringSeconds < wood[0].ringSeconds);
+    p.body = StrikeBody::Wood;
+    p.ring = 0.0f;
+    const auto damped = strikeShape (p);
+    CHECK (damped[0].ringSeconds < wood[0].ringSeconds);
 
     // the ring-out curve starts at 1 and falls; a damped sound ends sooner
     CHECK (std::abs (ringLevelAt (wood, 0.0f) - 1.0f) < 1.0e-5f);
     CHECK (ringLevelAt (wood, 0.1f) < 1.0f && ringLevelAt (wood, 1.0f) < ringLevelAt (wood, 0.1f));
-    CHECK (ringEndSeconds (foleyShape (f)) < ringEndSeconds (wood));
+    CHECK (ringEndSeconds (damped) < ringEndSeconds (wood));
 
-    MachineParams m;
-    m.metal = 0.0f;
-    const auto dry = machineShape (m);
-    m.metal = 1.0f;
-    const auto ringing = machineShape (m);
-    CHECK (dry.size() == 8 && ringing.size() == 8);
-    CHECK (ringing[0].ringSeconds > 5.0f * dry[0].ringSeconds);
+    p.body = StrikeBody::Metal;
+    p.ring = 1.0f;
+    const auto ringing = strikeShape (p);
+    CHECK (ringing.size() == 8);
     CHECK (ringing[0].strength == 1.0f); // the strongest is 1
     for (size_t k = 1; k < ringing.size(); ++k)
         CHECK (ringing[k].strength < ringing[k - 1].strength); // the higher the weaker
     CHECK (ringing[0].ringSeconds > ringing[7].ringSeconds); // and the shorter
 
-    m.type = MachineType::Screech;
-    m.tone = 1.0f;
-    const auto screech = machineShape (m);
+    // Friction: a bright tone with its partials
+    p.exciter = StrikeExciter::Friction;
+    p.tone = 1.0f;
+    const auto screech = strikeShape (p);
     CHECK (screech.size() == 7 && screech[0].ratio == 1.0f && screech[6].ratio == 7.0f);
-    m.tone = 0.0f;
-    CHECK (machineShape (m)[6].strength < screech[6].strength); // a dark tone loses the top
+    p.tone = 0.0f;
+    CHECK (strikeShape (p)[6].strength < screech[6].strength); // a dark tone loses the top
+
+    // Steam and Friction: fade in, plateau to half of Length, then down to silence at Length
+    p.exciter = StrikeExciter::Steam;
+    p.lengthMs = 1000.0f;
+    CHECK (steadyLevelAt (p, 0.0f) == 0.0f);
+    CHECK (steadyLevelAt (p, 300.0f) == 1.0f);
+    CHECK (steadyLevelAt (p, 750.0f) < 1.0f && steadyLevelAt (p, 750.0f) > steadyLevelAt (p, 1000.0f));
+    CHECK (std::abs (steadyLevelAt (p, 1000.0f) - 1.0e-4f) < 2.0e-5f); // -80 dB at Length
 }
 
 int main()

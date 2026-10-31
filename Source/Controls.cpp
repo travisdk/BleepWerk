@@ -80,6 +80,8 @@ Toggle::Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& p
             parameter.setValueNotifyingHost ((float) i / (float) juce::jmax (1, last));
             parameter.endChangeGesture();
             update();
+            if (onSelect)
+                onSelect (i);
         };
         addAndMakeVisible (button);
     }

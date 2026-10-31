@@ -9,6 +9,8 @@
 namespace
 {
 constexpr int kPadding = 10, kLeftWidth = 280, kKnobWidth = 50, kChoiceWidth = 90, kDiameter = 47, kKeyDiameter = 62;
+constexpr int kSelectorTop = 27, kSelectorHeight = 48; // Strike's two rows of buttons
+constexpr float kMembraneSweep = -3.0f; // semitones: the body starts this far above the note
 } // namespace
 
 EngineView::EngineView (BleepForgeProcessor& p)
@@ -29,19 +31,13 @@ EngineView::EngineView (BleepForgeProcessor& p)
       decay (p.apvts, "bleepDecay", "Decay"),
       release (p.apvts, "bleepRelease", "Release"),
       noise (p.apvts, "bleepNoise", "Noise"),
-      foleyExciter (p.apvts, "foleyExciter", "Exciter"),
-      foleyLength (p.apvts, "foleyLength", "Length"),
-      material (p.apvts, "foleyMaterial", "Material"),
-      size (p.apvts, "foleySize", "Size"),
-      damping (p.apvts, "foleyDamping", "Damping"),
-      brightness (p.apvts, "foleyBrightness", "Bright"),
-      sweep (p.apvts, "foleySweep", "Sweep", true),
-      machineType (p.apvts, "machineType", "Type"),
-      machineLength (p.apvts, "machineLength", "Length"),
-      machineTone (p.apvts, "machineTone", "Tone"),
-      motion (p.apvts, "machineMotion", "Motion"),
-      focus (p.apvts, "machineFocus", "Focus"),
-      metal (p.apvts, "machineMetal", "Metal")
+      exciter (p.apvts, "strikeExciter", "Hit with"),
+      body (p.apvts, "strikeBody", "Hit on"),
+      strikeLength (p.apvts, "strikeLength", "Length"),
+      ring (p.apvts, "strikeRing", "Ring"),
+      strikeTone (p.apvts, "strikeTone", "Tone"),
+      motion (p.apvts, "strikeMotion", "Motion"),
+      sweep (p.apvts, "strikeSweep", "Sweep", true)
 {
     for (auto* c : std::initializer_list<juce::Component*> { &engine, &voices, &glide, &bend, &output, &dice, &back, &picture })
         addAndMakeVisible (c);
@@ -51,14 +47,12 @@ EngineView::EngineView (BleepForgeProcessor& p)
     back.setEnabled (false);
 
     // the ones that matter most for each sound, drawn larger: pitch envelope and decay for the
-    // bleep, material and damping for the foley, length and metal for the machine
+    // bleep, ring and tone for the strike
     bleepKeys = { 4, 7 };
-    foleyKeys = { 2, 4 };
-    machineKeys = { 1, 5 };
+    strikeKeys = { 3, 4 };
     bleepControls = { &bleepWave, &pulseWidth, &fmRatio, &fmAmount, &pitchAmount, &pitchDecay, &attack, &decay, &release, &noise };
-    foleyControls = { &foleyExciter, &foleyLength, &material, &size, &damping, &brightness, &sweep };
-    machineControls = { &machineType, &machineLength, &machineTone, &motion, &focus, &metal };
-    for (auto* list : { &bleepControls, &foleyControls, &machineControls })
+    strikeControls = { &exciter, &body, &strikeLength, &ring, &strikeTone, &motion, &sweep };
+    for (auto* list : { &bleepControls, &strikeControls })
         for (size_t i = 0; i < list->size(); ++i)
         {
             auto* c = (*list)[i];
@@ -66,6 +60,13 @@ EngineView::EngineView (BleepForgeProcessor& p)
             if (auto* knob = dynamic_cast<Knob*> (c))
                 knob->setMaxDiameter (isKey (list, i) ? kKeyDiameter : kDiameter);
         }
+    // a drum skin falls in pitch when it is hit, so picking the membrane sets Sweep to a small fall
+    body.onSelect = [this] (int index)
+    {
+        if (index == (int) bleepforge::StrikeBody::Membrane)
+            if (auto* param = processor.apvts.getParameter ("strikeSweep"))
+                bleepforge::files::setParameterValue (*param, kMembraneSweep);
+    };
     for (auto* knob : { &glide, &bend, &output })
         knob->setMaxDiameter (kDiameter);
 
@@ -83,6 +84,13 @@ void EngineView::timerCallback()
 {
     engine.update();
     voices.update();
+    exciter.update();
+    body.update();
+
+    // Length only shapes the sources that last or burst, and Motion those that move
+    const auto strikeExciter = (bleepforge::StrikeExciter) (int) processor.apvts.getRawParameterValue ("strikeExciter")->load();
+    strikeLength.setEnabled (strikeExciter != bleepforge::StrikeExciter::Knock);
+    motion.setEnabled (strikeExciter != bleepforge::StrikeExciter::Noise && strikeExciter != bleepforge::StrikeExciter::Crackle);
 
     // Pulse W and the FM knobs only shape their own wave; for the others they do nothing
     const auto wave = (bleepforge::BleepWave) (int) processor.apvts.getRawParameterValue ("bleepWave")->load();
@@ -99,7 +107,7 @@ void EngineView::timerCallback()
 
 bool EngineView::isKey (const std::vector<juce::Component*>* list, size_t index) const
 {
-    const auto& keys = list == &bleepControls ? bleepKeys : list == &foleyControls ? foleyKeys : machineKeys;
+    const auto& keys = list == &bleepControls ? bleepKeys : strikeKeys;
     return std::find (keys.begin(), keys.end(), index) != keys.end();
 }
 
@@ -107,10 +115,9 @@ void EngineView::showEngine (int engineIndex)
 {
     for (auto* c : bleepControls)
         c->setVisible (engineIndex == (int) bleepforge::Engine::Bleep);
-    for (auto* c : foleyControls)
-        c->setVisible (engineIndex == (int) bleepforge::Engine::Foley);
-    for (auto* c : machineControls)
-        c->setVisible (engineIndex == (int) bleepforge::Engine::Machine);
+    for (auto* c : strikeControls)
+        c->setVisible (engineIndex == (int) bleepforge::Engine::Strike);
+    resized(); // the picture's top follows the engine
     repaint();
 }
 
@@ -208,9 +215,24 @@ void EngineView::resized()
             controls[i]->setBounds (slot.removeFromBottom (Knob::heightFor (key ? kKeyDiameter : kDiameter)));
         }
     };
-    // the picture takes what the key knobs leave above the row
-    picture.setBounds (area.getX(), 27, area.getWidth(), area.getBottom() - Knob::heightFor (kKeyDiameter) - 4 - 27);
+    // the picture takes what the key knobs leave above the row; Strike's buttons come above it
+    const bool strikeShown = shownEngine == (int) bleepforge::Engine::Strike;
+    const int pictureTop = strikeShown ? kSelectorTop + kSelectorHeight + 4 : kSelectorTop;
+    picture.setBounds (area.getX(), pictureTop, area.getWidth(), area.getBottom() - Knob::heightFor (kKeyDiameter) - 4 - pictureTop);
     lay (bleepControls, bleepKeys);
-    lay (foleyControls, foleyKeys);
-    lay (machineControls, machineKeys);
+
+    // Strike: what hits and what is hit side by side, and the five knobs spread over the width
+    auto selectors = juce::Rectangle<int> (area.getX(), kSelectorTop, area.getWidth(), kSelectorHeight);
+    exciter.setBounds (selectors.removeFromLeft ((selectors.getWidth() - 16) * 5 / 8));
+    selectors.removeFromLeft (16);
+    body.setBounds (selectors);
+    auto knobRow = area.withTrimmedTop (area.getHeight() - Knob::heightFor (kKeyDiameter));
+    const int slotWidth = knobRow.getWidth() / 5;
+    for (size_t i = 2; i < strikeControls.size(); ++i)
+    {
+        const bool key = isKey (&strikeControls, i);
+        auto slot = knobRow.removeFromLeft (slotWidth);
+        strikeControls[i]->setBounds (slot.withSizeKeepingCentre (key ? kKeyDiameter + 4 : kKnobWidth + 14, slot.getHeight())
+                                          .removeFromBottom (Knob::heightFor (key ? kKeyDiameter : kDiameter)));
+    }
 }

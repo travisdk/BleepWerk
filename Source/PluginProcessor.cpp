@@ -118,41 +118,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     sound ("bleepRelease", "Release", skewed ("bleepRelease", 50.0f), "ms");
     sound ("bleepNoise", "Noise", linear ("bleepNoise"));
 
-    // Foley engine
-    choice ("foleyExciter", "Exciter", namesOf (bleepforge::kFoleyExciterNames));
-    sound ("foleyLength", "Exciter Length", skewed ("foleyLength", 5.0f), "ms");
-    // Material shows the material it sounds like rather than a percentage
-    params.push_back (std::make_unique<AudioParameterFloat> (
-        ParameterID { "foleyMaterial", 1 }, "Material", linear ("foleyMaterial"), soundDefault ("foleyMaterial"),
-        AudioParameterFloatAttributes()
-            .withStringFromValueFunction ([] (float v, int)
-                                          {
-                                              return String (v < 0.15f ? "Wood" : v < 0.4f ? "Wood/Metal" : v < 0.6f ? "Metal"
-                                                                         : v < 0.85f ? "Metal/Glass" : "Glass");
-                                          })
-            .withValueFromStringFunction ([] (const String& text)
-                                          {
-                                              const auto t = text.trim().toLowerCase();
-                                              // each name reads back inside its own band, so text round-trips
-                                              if (t == "wood") return 0.0f;
-                                              if (t == "wood/metal") return 0.275f;
-                                              if (t == "metal") return 0.5f;
-                                              if (t == "metal/glass") return 0.725f;
-                                              if (t == "glass") return 1.0f;
-                                              return t.retainCharacters ("0123456789.").getFloatValue() / 100.0f;
-                                          })));
-    sound ("foleySize", "Size", linear ("foleySize"));
-    sound ("foleyDamping", "Damping", linear ("foleyDamping"));
-    sound ("foleyBrightness", "Brightness", linear ("foleyBrightness"));
-    sound ("foleySweep", "Sweep", linear ("foleySweep", 0.1f), "st");
-
-    // Machine engine
-    choice ("machineType", "Machine Type", namesOf (bleepforge::kMachineTypeNames));
-    sound ("machineLength", "Machine Length", skewed ("machineLength", 600.0f), "ms");
-    sound ("machineTone", "Machine Tone", linear ("machineTone"));
-    sound ("machineMotion", "Motion", linear ("machineMotion"));
-    sound ("machineFocus", "Focus", linear ("machineFocus"));
-    sound ("machineMetal", "Metal", linear ("machineMetal"));
+    // Strike engine
+    choice ("strikeExciter", "Hit With", namesOf (bleepforge::kStrikeExciterNames));
+    choice ("strikeBody", "Hit On", namesOf (bleepforge::kStrikeBodyNames));
+    sound ("strikeLength", "Strike Length", skewed ("strikeLength", 30.0f), "ms");
+    sound ("strikeRing", "Ring", linear ("strikeRing"));
+    sound ("strikeTone", "Strike Tone", linear ("strikeTone"));
+    sound ("strikeMotion", "Motion", linear ("strikeMotion"));
+    sound ("strikeSweep", "Sweep", linear ("strikeSweep", 0.1f), "st");
 
     // Chaos: Amount scales every target's depth
     sound ("chaosAmount", "Chaos", linear ("chaosAmount"));
@@ -229,8 +202,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
 void BleepForgeProcessor::prepareToPlay (double sampleRate, int)
 {
     bleep.prepare (sampleRate);
-    foley.prepare (sampleRate);
-    machine.prepare (sampleRate); // sizes the comb delays here, off the audio thread
+    strike.prepare (sampleRate);
     effects.prepare (sampleRate);
     noteInput.reset(); // prepare() has silenced the voices, so no key is held any more
     readParams();
@@ -250,17 +222,13 @@ void BleepForgeProcessor::readParams()
     patch = bleepforge::readPatch ([this] (const char* id) { return apvts.getRawParameterValue (id)->load(); });
 
     bleep.setParams (patch.bleep);
-    foley.setParams (patch.foleyParams);
-    machine.setParams (patch.machine);
+    strike.setParams (patch.strike);
     bleep.setMode (patch.mono ? bleepforge::BleepSynth::Mode::Mono : bleepforge::BleepSynth::Mode::Poly);
-    foley.setMode (patch.mono ? bleepforge::FoleySynth::Mode::Mono : bleepforge::FoleySynth::Mode::Poly);
-    machine.setMode (patch.mono ? bleepforge::MachineSynth::Mode::Mono : bleepforge::MachineSynth::Mode::Poly);
+    strike.setMode (patch.mono ? bleepforge::StrikeSynth::Mode::Mono : bleepforge::StrikeSynth::Mode::Poly);
     bleep.setGlideMs (patch.glideMs);
-    foley.setGlideMs (patch.glideMs);
-    machine.setGlideMs (patch.glideMs);
+    strike.setGlideMs (patch.glideMs);
     bleep.setChaos (patch.chaos);
-    foley.setChaos (patch.chaos);
-    machine.setChaos (patch.chaos);
+    strike.setChaos (patch.chaos);
     // the range may change while a bend is held
     Engines { *this }.pitchBend (noteInput.currentBend());
 }
@@ -270,31 +238,27 @@ void BleepForgeProcessor::Engines::noteOn (int note, float velocity)
     switch (p.patch.engine)
     {
         case bleepforge::Engine::Bleep: p.bleep.noteOn (note, velocity); break;
-        case bleepforge::Engine::Foley: p.foley.noteOn (note, velocity); break;
-        case bleepforge::Engine::Machine: p.machine.noteOn (note, velocity); break;
+        case bleepforge::Engine::Strike: p.strike.noteOn (note, velocity); break;
     }
 }
 
 void BleepForgeProcessor::Engines::noteOff (int note)
 {
     p.bleep.noteOff (note);
-    p.foley.noteOff (note);
-    p.machine.noteOff (note);
+    p.strike.noteOff (note);
 }
 
 void BleepForgeProcessor::Engines::pitchBend (float amount)
 {
     const float semis = amount * p.apvts.getRawParameterValue ("bendRange")->load();
     p.bleep.setPitchBend (semis);
-    p.foley.setPitchBend (semis);
-    p.machine.setPitchBend (semis);
+    p.strike.setPitchBend (semis);
 }
 
 void BleepForgeProcessor::allNotesOff()
 {
     bleep.allNotesOff();
-    foley.allNotesOff();
-    machine.allNotesOff();
+    strike.allNotesOff();
 }
 
 void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
@@ -315,8 +279,7 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         if (to <= from)
             return;
         bleep.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
-        foley.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
-        machine.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
+        strike.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
     };
 
     Engines engines { *this };

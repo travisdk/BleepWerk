@@ -101,26 +101,58 @@ void SoundView::paintBleep (juce::Graphics& g, juce::Rectangle<float> r) const
 
 // Two small pictures side by side, each with its title: how the sound dies away over time
 // (the same volume-over-time view as the Bleep), and its tones from low to high as bars.
-// Screech does not ring, so it shows only its overtones.
+// Steam and Friction show how long they last instead of how the body rings; Friction shows its own overtones.
 void SoundView::paintModes (juce::Graphics& g, juce::Rectangle<float> r) const
 {
     using namespace bleepforge;
-    const bool screech = patch.engine == Engine::Machine && patch.machine.type == MachineType::Screech;
-    const auto modes = patch.engine == Engine::Foley ? foleyShape (patch.foleyParams) : machineShape (patch.machine);
+    const bool screech = patch.strike.exciter == StrikeExciter::Friction;
+    const auto modes = strikeShape (patch.strike);
     if (modes.empty())
         return;
 
     g.setFont (bleepforge::fonts::value (10.0f));
     auto tones = r;
-    if (! screech)
-    {
-        auto ringArea = tones.removeFromLeft ((r.getWidth() - 16.0f) * 0.5f);
-        tones.removeFromLeft (16.0f);
-        paintRing (g, ringArea, modes);
-        g.setColour (theme::outline);
-        g.fillRect (tones.getX() - 8.0f, r.getY(), 1.0f, r.getHeight());
-    }
+    auto left = tones.removeFromLeft ((r.getWidth() - 16.0f) * 0.5f);
+    tones.removeFromLeft (16.0f);
+    if (strikeIsSteady (patch.strike.exciter))
+        paintLasts (g, left);
+    else
+        paintRing (g, left, modes);
+    g.setColour (theme::outline);
+    g.fillRect (tones.getX() - 8.0f, r.getY(), 1.0f, r.getHeight());
     paintTones (g, tones, modes, screech);
+}
+
+// Steam and Friction: how loud the sound is over its Length.
+void SoundView::paintLasts (juce::Graphics& g, juce::Rectangle<float> r) const
+{
+    using namespace bleepforge;
+    const float end = juce::jlimit (5.0f, 6000.0f, patch.strike.lengthMs);
+    const int steps = juce::jmax (8, (int) r.getWidth());
+    auto bottom = r.removeFromBottom (12.0f);
+    auto title = r.removeFromTop (12.0f);
+    r.removeFromTop (2.0f);
+
+    juce::Path fill, line;
+    fill.startNewSubPath (r.getX(), r.getBottom());
+    for (int i = 0; i <= steps; ++i)
+    {
+        const float x = r.getX() + r.getWidth() * (float) i / (float) steps;
+        const float y = r.getBottom() - r.getHeight() * steadyLevelAt (patch.strike, end * (float) i / (float) steps);
+        fill.lineTo (x, y);
+        i == 0 ? line.startNewSubPath (x, y) : line.lineTo (x, y);
+    }
+    fill.lineTo (r.getRight(), r.getBottom());
+    fill.closeSubPath();
+    g.setColour (theme::primary().withAlpha (0.2f));
+    g.fillPath (fill);
+    g.setColour (theme::primary());
+    g.strokePath (line, juce::PathStrokeType (1.6f));
+
+    g.setColour (theme::dimText);
+    g.drawText ("HOW LONG IT LASTS", title, juce::Justification::topLeft);
+    g.drawText ("start", bottom, juce::Justification::bottomLeft);
+    g.drawText (end >= 1000.0f ? juce::String (end * 0.001f, 1) + " s" : juce::String (juce::roundToInt (end)) + " ms", bottom, juce::Justification::bottomRight);
 }
 
 void SoundView::paintRing (juce::Graphics& g, juce::Rectangle<float> r, const std::vector<bleepforge::ShapeMode>& modes) const
