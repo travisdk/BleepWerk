@@ -72,15 +72,11 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Glide Sine", "Bleeps", { { "voiceMode", Mono }, { "glide", 80 }, { "bleepPitchAmount", 0 }, { "bleepDecay", 400 },
                                     { "bleepRelease", 120 } } },
 
-        // ---- Pulses and ticks
+        // ---- Pulses
         { "Square Bleep", "Pulses", { { "bleepWave", Pulse }, { "bleepPitchAmount", 0 }, { "bleepDecay", 150 },
                                       { "filterType", LP }, { "filterCutoff", 4000 } } },
         { "Retro Beep", "Pulses", { { "bleepWave", Pulse }, { "bleepPitchAmount", 0 }, { "bleepDecay", 300 }, { "bleepRelease", 40 } } },
         { "Narrow Pulse", "Pulses", { { "bleepWave", Pulse }, { "bleepPulseWidth", 0.12f }, { "bleepDecay", 120 } } },
-        { "Needle Tick", "Pulses", { { "bleepWave", Pulse }, { "bleepPulseWidth", 0.08f }, { "bleepPitchAmount", 24 },
-                                     { "bleepPitchDecay", 5 }, { "bleepDecay", 15 }, { "filterType", HP }, { "filterCutoff", 3000 } } },
-        { "Digital Click", "Pulses", { { "bleepWave", Pulse }, { "bleepPitchAmount", 48 }, { "bleepPitchDecay", 2 }, { "bleepDecay", 8 },
-                                       { "filterType", HP }, { "filterCutoff", 1500 } } },
         { "Reedy Blip", "Pulses", { { "bleepWave", Pulse }, { "bleepPulseWidth", 0.3f }, { "bleepPitchAmount", 3 }, { "bleepDecay", 200 },
                                     { "filterType", BP }, { "filterCutoff", 1500 }, { "filterResonance", 0.4f } } },
         { "Hollow Square", "Pulses", { { "bleepWave", Pulse }, { "bleepPitchAmount", 0 }, { "bleepDecay", 260 },
@@ -93,10 +89,6 @@ inline const std::vector<FactoryPreset>& factoryPresets()
                                       { "bleepDecay", 300 }, { "bleepRelease", 80 }, { "filterType", LP }, { "filterCutoff", 3000 } } },
         { "Chip Arp", "Pulses", { { "bleepWave", Pulse }, { "bleepPulseWidth", 0.25f }, { "bleepPitchAmount", 12 }, { "bleepPitchDecay", 4 },
                                   { "bleepDecay", 110 }, { "crushBits", 8 } } },
-        { "Tick Tock", "Pulses", { { "bleepWave", Pulse }, { "bleepPitchAmount", 0 }, { "bleepDecay", 30 },
-                                   { "filterType", BP }, { "filterCutoff", 2500 }, { "filterResonance", 0.7f } } },
-        { "Thin Buzz", "Pulses", { { "bleepWave", Pulse }, { "bleepPulseWidth", 0.05f }, { "bleepPitchAmount", -5 }, { "bleepPitchDecay", 20 },
-                                   { "bleepDecay", 180 }, { "filterType", LP }, { "filterCutoff", 5000 } } },
 
         // ---- FM
         { "FM Bell", "FM", { { "bleepWave", FM }, { "bleepFmRatio", 3.5f }, { "bleepFmAmount", 0.45f }, { "bleepPitchAmount", 0 },
@@ -135,25 +127,6 @@ inline const std::vector<FactoryPreset>& factoryPresets()
                                    { "bleepDecay", 200 }, { "chaosAmount", 0.8f }, { "chaosPitch", 0.4f }, { "chaosTone", 0.8f },
                                    { "chaosPan", 0.9f } } },
 
-        // ---- Noise and hats
-        { "Noise Blip", "Noise", { { "bleepNoise", 0.8f }, { "bleepDecay", 50 }, { "filterType", HP }, { "filterCutoff", 5000 } } },
-        { "Closed Hat", "Noise", { { "bleepNoise", 1 }, { "bleepDecay", 35 }, { "filterType", HP }, { "filterCutoff", 7000 } } },
-        { "Open Hat", "Noise", { { "bleepNoise", 1 }, { "bleepDecay", 300 }, { "bleepRelease", 200 }, { "filterType", HP },
-                                 { "filterCutoff", 6500 } } },
-        { "Shaker", "Noise", { { "bleepNoise", 1 }, { "bleepAttack", 6 }, { "bleepDecay", 70 }, { "filterType", BP }, { "filterCutoff", 5000 },
-                               { "filterResonance", 0.3f }, { "chaosAmount", 0.5f }, { "chaosDecay", 0.8f } } },
-        { "Snare Blip", "Noise", { { "bleepNoise", 0.55f }, { "bleepPitchAmount", 12 }, { "bleepPitchDecay", 15 }, { "bleepDecay", 140 },
-                                   { "filterType", HP }, { "filterCutoff", 300 } } },
-        { "Air Puff", "Noise", { { "bleepNoise", 1 }, { "bleepAttack", 15 }, { "bleepDecay", 120 }, { "filterType", LP },
-                                 { "filterCutoff", 2500 } } },
-        { "Whistle Hit", "Noise", { { "bleepNoise", 0.9f }, { "bleepDecay", 300 }, { "filterType", BP }, { "filterCutoff", 1200 },
-                                    { "filterResonance", 0.6f } } },
-        { "Rim Shot", "Noise", { { "bleepNoise", 0.4f }, { "bleepPitchAmount", 24 }, { "bleepPitchDecay", 4 },
-                                 { "bleepDecay", 40 }, { "filterType", BP }, { "filterCutoff", 1800 }, { "filterResonance", 0.4f } } },
-        { "Hiss Tick", "Noise", { { "bleepNoise", 1 }, { "bleepDecay", 12 }, { "filterType", HP }, { "filterCutoff", 9000 } } },
-        { "Brush", "Noise", { { "bleepNoise", 1 }, { "bleepAttack", 10 }, { "bleepDecay", 160 }, { "filterType", BP }, { "filterCutoff", 3000 },
-                              { "filterResonance", 0.1f }, { "chaosAmount", 0.6f }, { "chaosDecay", 0.7f }, { "chaosPan", 0.7f } } },
-
         // ---- Lo-fi
         { "Lo-fi Bleep", "Lo-fi", { { "bleepWave", Pulse }, { "bleepPitchAmount", 0 }, { "bleepDecay", 180 }, { "crushBits", 6 },
                                     { "crushRate", 8000 } } },
@@ -184,8 +157,6 @@ inline const std::vector<FactoryPreset>& factoryPresets()
                                  { "delayMix", 0.4f }, { "roomSize", 0.7f }, { "roomDecay", 1.1f }, { "roomMix", 0.3f } } },
         { "Triplet Echo", "Dub", { { "bleepDecay", 150 }, { "delayNote", N8 }, { "delayFeel", Triplet }, { "delayFeedback", 0.55f },
                                    { "delayMix", 0.4f } } },
-        { "Dub Tick", "Dub", { { "bleepWave", Pulse }, { "bleepPulseWidth", 0.1f }, { "bleepDecay", 20 }, { "filterType", HP },
-                               { "filterCutoff", 2000 }, { "delayNote", N16 }, { "delayFeel", Dotted }, { "delayFeedback", 0.7f }, { "delayMix", 0.45f } } },
         { "Dub Bell", "Dub", { { "bleepWave", FM }, { "bleepFmRatio", 3.5f }, { "bleepFmAmount", 0.4f }, { "bleepPitchAmount", 0 },
                                { "bleepDecay", 700 }, { "delayNote", N4 }, { "delayFeel", Triplet }, { "delayFeedback", 0.55f }, { "delayMix", 0.35f },
                                { "roomDecay", 0.7f }, { "roomMix", 0.3f } } },
@@ -193,8 +164,6 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Long Echo", "Dub", { { "bleepPitchAmount", 0 }, { "bleepDecay", 150 }, { "filterType", LP }, { "filterCutoff", 1800 },
                                 { "delayNote", N8 }, { "delayFeel", Dotted }, { "delayFeedback", 0.65f }, { "delayMix", 0.45f } } },
         { "Slapback Blip", "Dub", { { "bleepDecay", 100 }, { "delayNote", N32 }, { "delayFeel", Straight }, { "delayFeedback", 0.2f }, { "delayMix", 0.35f } } },
-        { "Dub Hat", "Dub", { { "bleepNoise", 1 }, { "bleepDecay", 30 }, { "filterType", HP }, { "filterCutoff", 6000 },
-                              { "delayNote", N16 }, { "delayFeel", Dotted }, { "delayFeedback", 0.55f }, { "delayMix", 0.4f } } },
         { "Chord Echo", "Dub", { { "bleepPitchAmount", 0 }, { "bleepDecay", 300 }, { "filterType", BP },
                                  { "filterCutoff", 900 }, { "filterResonance", 0.35f }, { "delayNote", N8 }, { "delayFeel", Dotted }, { "delayFeedback", 0.7f },
                                  { "delayMix", 0.5f }, { "roomSize", 0.8f }, { "roomDecay", 1.2f }, { "roomMix", 0.35f } } },
