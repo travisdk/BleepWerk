@@ -8,7 +8,7 @@
 
 namespace
 {
-constexpr int kPadding = 10, kLeftWidth = 280, kKnobWidth = 50, kChoiceWidth = 90, kDiameter = 47, kKeyDiameter = 62;
+constexpr int kPadding = 10, kLeftWidth = 280, kKnobWidth = 50, kDiameter = 47, kKeyDiameter = 62;
 constexpr int kSelectorTop = 27, kSelectorHeight = 48; // Strike's two rows of buttons
 constexpr float kMembraneSweep = -3.0f; // semitones: the body starts this far above the note
 } // namespace
@@ -196,24 +196,22 @@ void EngineView::resized()
     dice.setBounds (nameRow.removeFromRight (18));
     nameRow.removeFromRight (4);
     back.setBounds (nameRow.removeFromRight (18));
-    // the key knobs are larger and stand with their values on the same line as the rest, the
-    // others share what is left
-    auto lay = [area] (const std::vector<juce::Component*>& controls, const std::vector<size_t>& keys)
+    // Bleep in two rows spread over the width, like Strike: the source on top (wave, its pulse
+    // width and FM, noise) and the envelopes below, where the key knobs, pitch envelope and
+    // decay, are larger
+    const int sourceWidth = area.getWidth() / 5;
+    auto sourceRow = juce::Rectangle<int> (area.getX(), kSelectorTop, area.getWidth(), Knob::heightFor (kDiameter));
+    bleepWave.setBounds (sourceRow.removeFromLeft (sourceWidth).reduced (4, 0).withHeight (Knob::kLabelHeight + kDiameter));
+    for (auto* knob : { &pulseWidth, &fmRatio, &fmAmount, &noise })
+        knob->setBounds (sourceRow.removeFromLeft (sourceWidth).withSizeKeepingCentre (kKnobWidth + 14, Knob::heightFor (kDiameter)));
+    auto envelopeRow = area.withTrimmedTop (area.getHeight() - Knob::heightFor (kKeyDiameter));
+    for (auto* knob : { &pitchAmount, &pitchDecay, &attack, &decay, &release })
     {
-        auto row = area.withTrimmedTop (area.getHeight() - Knob::heightFor (kKeyDiameter));
-        controls.front()->setBounds (row.removeFromLeft (kChoiceWidth).withTrimmedBottom (Knob::kValueHeight + kKeyDiameter - kDiameter));
-        row.removeFromLeft (8);
-        const int keyWidth = kKeyDiameter + 4;
-        const int others = (int) controls.size() - 1 - (int) keys.size();
-        const int width = juce::jmin (kKnobWidth + 14, (row.getWidth() - keyWidth * (int) keys.size()) / juce::jmax (1, others));
-        for (size_t i = 1; i < controls.size(); ++i)
-        {
-            const bool key = std::find (keys.begin(), keys.end(), i) != keys.end();
-            auto slot = row.removeFromLeft (key ? keyWidth : width);
-            controls[i]->setBounds (slot.removeFromBottom (Knob::heightFor (key ? kKeyDiameter : kDiameter)));
-        }
-    };
-    lay (bleepControls, bleepKeys);
+        const bool key = knob == &pitchAmount || knob == &decay;
+        auto slot = envelopeRow.removeFromLeft (sourceWidth);
+        knob->setBounds (slot.withSizeKeepingCentre (key ? kKeyDiameter + 4 : kKnobWidth + 14, slot.getHeight())
+                             .removeFromBottom (Knob::heightFor (key ? kKeyDiameter : kDiameter)));
+    }
 
     // Strike: what hits and what is hit side by side, and the five knobs spread over the width
     auto selectors = juce::Rectangle<int> (area.getX(), kSelectorTop, area.getWidth(), kSelectorHeight);

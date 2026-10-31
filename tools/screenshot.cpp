@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Renders the interface of a fresh instance to a PNG, for checking the layout and for the
-// README: BleepForge_Screenshot <output.png> [scale] [foley|machine]
+// README: BleepForge_Screenshot <output.png> [scale] [strike]
 
 #include "MainView.h"
 #include "Theme.h"
@@ -11,7 +11,7 @@ int main (int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [foley|machine]\n";
+        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [strike]\n";
         return 1;
     }
 
@@ -24,9 +24,7 @@ int main (int argc, char* argv[])
     for (int i = 3; i < argc; ++i)
     {
         const juce::String option (argv[i]);
-        if (option == "foley")
-            processor.apvts.getParameter ("engine")->setValueNotifyingHost (0.5f);
-        else if (option == "machine")
+        if (option == "strike")
             processor.apvts.getParameter ("engine")->setValueNotifyingHost (1.0f);
     }
 

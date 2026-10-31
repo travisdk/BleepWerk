@@ -8,7 +8,7 @@
 
 namespace
 {
-constexpr int kMargin = 16, kHeaderHeight = 40, kEngineHeight = 196, kChaosHeight = 128, kGap = 10, kChaosWidth = 420;
+constexpr int kMargin = 16, kHeaderHeight = 40, kEngineHeight = 212, kChaosHeight = 128, kGap = 10, kChaosWidth = 420;
 } // namespace
 
 MainView::MainView (BleepForgeProcessor& p)
