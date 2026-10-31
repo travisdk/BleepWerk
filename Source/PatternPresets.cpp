@@ -45,6 +45,8 @@ void PatternPresets::applyGroove (const LoadedGroove& loaded)
     if (loaded.gate >= 0.0f)
         target.setGate (loaded.gate);
     target.setDrift (loaded.drift);
+    target.setVary (loaded.vary);
+    target.setShape (loaded.shape);
 }
 
 bool PatternPresets::exists (const juce::String& patternName) const
@@ -92,13 +94,13 @@ void PatternPresets::load (int index)
         // files from before rate and gate were stored leave the current values
         applyGroove ({ xml->getIntAttribute ("length", kMaxSteps), (float) xml->getDoubleAttribute ("swing", 0.5),
                        rateIndexFor (xml->getStringAttribute ("rate")), (float) xml->getDoubleAttribute ("gate", -1.0),
-                       xml->getIntAttribute ("drift", 0) });
+                       xml->getIntAttribute ("drift", 0), xml->getIntAttribute ("vary", 0), xml->getIntAttribute ("shape", 0) });
     }
     else if (juce::isPositiveAndBelow (index, kNumFactoryPatterns))
     {
         const auto& factory = kFactoryPatterns[index];
         parseCompactPattern (factory.steps, pattern());
-        applyGroove ({ factory.length, factory.swing, kDefaultRateIndex, kDefaultGate, 0 });
+        applyGroove ({ factory.length, factory.swing, kDefaultRateIndex, kDefaultGate, 0, 0, 0 });
     }
     else
     {
@@ -126,6 +128,8 @@ bool PatternPresets::save (const juce::String& patternName)
     xml.setAttribute ("rate", kSeqRateNames[groove.rate]);
     xml.setAttribute ("gate", groove.gate);
     xml.setAttribute ("drift", groove.drift);
+    xml.setAttribute ("vary", groove.vary);
+    xml.setAttribute ("shape", groove.shape);
     xml.setAttribute ("steps", juce::String (toCompactPattern (pattern())));
     if (! xml.writeTo (file))
         return false;

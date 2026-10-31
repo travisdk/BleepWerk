@@ -59,6 +59,8 @@ private:
         int rateIndex = -1;  // -1: leave the current rate
         float gate = -1.0f;  // < 0: leave the current gate
         int drift = 0;
+        int vary = 0;
+        int shape = 0;
     };
 
     struct Slot

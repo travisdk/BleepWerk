@@ -21,7 +21,8 @@
 // is no slide: every note ends at its gate. Any of the eight can play at the same time, each as
 // a layer of its own length, so two layers of 16 and 12 steps first meet again after 48 (a
 // polymeter). A pattern's Drift moves it on a few steps every time it has played through, so a
-// sparse line slowly shifts against the beat. JUCE-free so it can be tested on its own.
+// sparse line slowly shifts against the beat, and Vary makes its length change from one pass to
+// the next, so it never settles. JUCE-free so it can be tested on its own.
 namespace bleepforge
 {
 
@@ -43,6 +44,11 @@ inline constexpr float kSeqVelocities[kNumStepLevels] = { 0.65f, 1.0f };
 constexpr int kNormalLevel = 0, kAccentLevel = 1;
 constexpr int kMaxDrift = 4; // steps a pattern moves on per pass, either way
 
+// How Vary moves the length from pass to pass (always between Length - Vary and Length).
+enum class LengthShape { Walk, Random, Skip };
+inline constexpr const char* kLengthShapeNames[] = { "Walk", "Random", "Skip" };
+constexpr int kNumLengthShapes = (int) std::size (kLengthShapeNames);
+
 struct Step
 {
     bool gate = true;
@@ -61,6 +67,8 @@ struct Groove
     float swing = 0.5f;  // 0.5 straight .. 0.75 heavy shuffle; delays every second step
     float gate = 0.5f;   // fraction of the step a note is held
     int drift = 0;       // steps the pattern moves on every time it has played through, -4..4
+    int vary = 0;        // how many steps shorter than length a pass may be, 0 (off) .. length - 1
+    int shape = 0;       // index into kLengthShapeNames
 
     double stepBeats() const { return kSeqRateBeats[std::clamp (rate, 0, kNumSeqRates - 1)]; }
 
@@ -72,7 +80,8 @@ struct Groove
         out.imbue (std::locale::classic());
         out.precision (9);
         out << "length " << length << " rate " << kSeqRateNames[std::clamp (rate, 0, kNumSeqRates - 1)]
-            << " swing " << swing << " gate " << gate << " drift " << drift;
+            << " swing " << swing << " gate " << gate << " drift " << drift << " vary " << vary << " shape "
+            << kLengthShapeNames[std::clamp (shape, 0, kNumLengthShapes - 1)];
         return out.str();
     }
 
@@ -103,6 +112,14 @@ struct Groove
                 found |= 8;
             else if (key == "drift" && number >> parsed.drift) // not in older text: stays 0
                 parsed.drift = std::clamp (parsed.drift, -kMaxDrift, kMaxDrift);
+            else if (key == "vary" && number >> parsed.vary)
+                parsed.vary = std::clamp (parsed.vary, 0, kMaxSteps - 1);
+            else if (key == "shape")
+            {
+                for (int i = 0; i < kNumLengthShapes; ++i)
+                    if (value == kLengthShapeNames[i])
+                        parsed.shape = i;
+            }
         }
         if (found != 15)
             return false;
@@ -121,7 +138,7 @@ public:
     Step get (int index) const { return unpack (steps[(size_t) index].load (std::memory_order_relaxed)); }
     void set (int index, const Step& step) { steps[(size_t) index].store (pack (step), std::memory_order_relaxed); }
 
-    Groove groove() const { return { grooveLength.load(), grooveRate.load(), grooveSwing.load(), grooveGate.load(), grooveDrift.load() }; }
+    Groove groove() const { return { grooveLength.load(), grooveRate.load(), grooveSwing.load(), grooveGate.load(), grooveDrift.load(), grooveVary.load(), grooveShape.load() }; }
     void setGroove (const Groove& g)
     {
         setLength (g.length);
@@ -129,6 +146,8 @@ public:
         setSwing (g.swing);
         setGate (g.gate);
         setDrift (g.drift);
+        setVary (g.vary);
+        setShape (g.shape);
     }
     void setLength (int value) { grooveLength = std::clamp (value, 1, kMaxSteps); }
     void setRate (int value) { grooveRate = std::clamp (value, 0, kNumSeqRates - 1); }
@@ -136,6 +155,8 @@ public:
     void setSwing (float value) { grooveSwing = std::isnan (value) ? Groove {}.swing : std::clamp (value, 0.5f, 0.75f); }
     void setGate (float value) { grooveGate = std::isnan (value) ? Groove {}.gate : std::clamp (value, 0.05f, 1.0f); }
     void setDrift (int value) { grooveDrift = std::clamp (value, -kMaxDrift, kMaxDrift); }
+    void setVary (int value) { grooveVary = std::clamp (value, 0, kMaxSteps - 1); }
+    void setShape (int value) { grooveShape = std::clamp (value, 0, kNumLengthShapes - 1); }
 
     // How many of the first length steps are on, and spreading a number of hits evenly over them
     // (3 of 8 is the tresillo): the notes stay where they are, steps that come on keep theirs.
@@ -250,7 +271,7 @@ private:
     }
 
     std::array<std::atomic<uint32_t>, kMaxSteps> steps;
-    std::atomic<int> grooveLength { kMaxSteps }, grooveRate { 1 }, grooveDrift { 0 };
+    std::atomic<int> grooveLength { kMaxSteps }, grooveRate { 1 }, grooveDrift { 0 }, grooveVary { 0 }, grooveShape { 0 };
     std::atomic<float> grooveSwing { 0.5f }, grooveGate { 0.5f };
 };
 
@@ -297,12 +318,67 @@ inline double stepStartBeats (int64_t k, const Groove& groove)
     return (k & 1) ? pairStart + 2.0 * beats * groove.swing : pairStart;
 }
 
-// Which step of a pattern of this length plays at step j of the timeline: they go round, and
-// every time round the pattern has moved on by its drift.
-inline int patternIndexAt (int64_t j, int length, int drift)
+// How many steps pass number p plays: the pattern's Length, or fewer by up to Vary, as the shape
+// goes. Walk steps down and up again (16, 15, 14, 15, 16...), Random picks from a fixed series
+// that repeats every 32 passes, so a bounce comes out the same each time, and Skip plays two
+// full passes and then a short one. The series repeat after lengthPeriod() passes.
+inline int lengthPeriod (const Groove& groove)
 {
-    const int64_t pass = j >= 0 ? j / length : -((-j + length - 1) / length);
-    const int64_t shifted = j + pass * drift;
+    const int vary = std::clamp (groove.vary, 0, std::clamp (groove.length, 1, kMaxSteps) - 1);
+    if (vary == 0)
+        return 1;
+    switch ((LengthShape) std::clamp (groove.shape, 0, kNumLengthShapes - 1))
+    {
+        case LengthShape::Walk: return 2 * vary;
+        case LengthShape::Random: return 32;
+        case LengthShape::Skip: return 3;
+    }
+    return 1;
+}
+
+inline int lengthOfPass (int64_t pass, const Groove& groove)
+{
+    const int length = std::clamp (groove.length, 1, kMaxSteps);
+    const int vary = std::clamp (groove.vary, 0, length - 1);
+    if (vary == 0)
+        return length;
+    const int period = lengthPeriod (groove);
+    const int p = (int) (((pass % period) + period) % period);
+    switch ((LengthShape) std::clamp (groove.shape, 0, kNumLengthShapes - 1))
+    {
+        case LengthShape::Walk: return length - (p <= vary ? p : 2 * vary - p);
+        case LengthShape::Random:
+        {
+            uint32_t h = (uint32_t) p * 2654435761u + 0x9e3779b9u; // a fixed scramble of the pass number
+            h ^= h >> 15;
+            h *= 2246822519u;
+            h ^= h >> 13;
+            return length - (int) (h % (uint32_t) (vary + 1));
+        }
+        case LengthShape::Skip: return p == 2 ? length - vary : length;
+    }
+    return length;
+}
+
+// Which step of a pattern plays at step j of the timeline: they go round, every pass as long as
+// lengthOfPass says, and every time round the pattern has moved on by its drift (a pass cut
+// short plays a window of the pattern, from where the drift has got to).
+inline int patternIndexAt (int64_t j, const Groove& groove)
+{
+    const int length = std::clamp (groove.length, 1, kMaxSteps);
+    const int period = lengthPeriod (groove);
+    int64_t cycleSteps = 0;
+    for (int p = 0; p < period; ++p)
+        cycleSteps += lengthOfPass (p, groove);
+
+    const int64_t cycle = j >= 0 ? j / cycleSteps : -((-j + cycleSteps - 1) / cycleSteps);
+    int64_t rest = j - cycle * cycleSteps;
+    int pass = 0;
+    while (pass < period - 1 && rest >= lengthOfPass (pass, groove))
+        rest -= lengthOfPass (pass++, groove);
+
+    const int64_t passNumber = cycle * period + pass;
+    const int64_t shifted = rest + passNumber * groove.drift;
     return (int) (((shifted % length) + length) % length);
 }
 
@@ -369,7 +445,6 @@ public:
 
         const auto groove = pattern.groove();
         const double beats = groove.stepBeats();
-        const int length = std::clamp (groove.length, 1, kMaxSteps);
         const auto first = (int64_t) std::floor (ppqStart / beats) - 1;
         const auto last = (int64_t) std::ceil (ppqEnd / beats) + 1;
 
@@ -381,7 +456,7 @@ public:
                 continue;
 
             flushNoteOffUpTo (sample);
-            const int index = patternIndexAt (j, length, groove.drift);
+            const int index = patternIndexAt (j, groove);
             currentStep.store (index);
             const auto step = pattern.get (index);
 

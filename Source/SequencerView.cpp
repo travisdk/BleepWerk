@@ -10,7 +10,7 @@ using namespace bleepforge;
 
 namespace
 {
-constexpr int kPadding = 10, kTopRow = 24, kGridTop = 66, kSlotWidth = 26, kKnobWidth = 50, kDiameter = 36, kNumKnobs = 7;
+constexpr int kPadding = 10, kTopRow = 24, kGridTop = 66, kSlotWidth = 26, kKnobWidth = 46, kDiameter = 34, kNumKnobs = 8;
 constexpr int kLedHeight = 10, kNoteHeight = 14, kOctaveHeight = 12, kGap = 3;
 constexpr int kPixelsPerSemitone = 4;
 } // namespace
@@ -390,9 +390,22 @@ SequencerView::SequencerView (BleepForgeProcessor& p)
     hits = std::make_unique<GrooveKnob> ("Hits", 0, kMaxSteps, 1, [&bank] { return (double) bank.activePattern().hits(); },
                                          [&bank, &presets] (double v) { bank.activePattern().setHits ((int) std::lround (v)); presets.markEdited(); },
                                          [] (double v) { return juce::String ((int) std::lround (v)); }, 8);
+    vary = std::make_unique<GrooveKnob> ("Vary", 0, kMaxSteps - 1, 1, [activeGroove] { return (double) activeGroove().vary; },
+                                         [&bank, &presets] (double v) { bank.activePattern().setVary ((int) std::lround (v)); presets.markEdited(); },
+                                         [] (double v) { const int n = (int) std::lround (v); return n == 0 ? juce::String ("Off") : "-" + juce::String (n); }, 0);
+    vary->setTooltip ("Lets the length change from pass to pass, by up to this many steps shorter, so the pattern never settles");
+    shapeButton.setTooltip ("How the length changes: Walk steps down and up, Random follows a fixed series, Skip plays one short pass in three");
+    shapeButton.onClick = [this, &bank, &presets]
+    {
+        auto& pattern = bank.activePattern();
+        pattern.setShape ((pattern.groove().shape + 1) % kNumLengthShapes);
+        presets.markEdited();
+        refresh();
+    };
+    addAndMakeVisible (shapeButton);
     drift->setTooltip ("Every time the pattern has played through, it moves on this many steps");
     hits->setTooltip ("Spreads this many hits evenly over the pattern's length, keeping the notes you have");
-    for (auto* knob : { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get() })
+    for (auto* knob : { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get(), vary.get() })
         addAndMakeVisible (knob);
 
     root.setMaxDiameter (kDiameter);
@@ -425,8 +438,12 @@ void SequencerView::refresh()
     const auto name = processor.getPatternPresets().name();
     if (patternButton.getButtonText() != name)
         patternButton.setButtonText (name);
-    for (auto* knob : { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get() })
+    for (auto* knob : { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get(), vary.get() })
         knob->refresh();
+    const auto shapeName = juce::String (kLengthShapeNames[juce::jlimit (0, kNumLengthShapes - 1, bank.activePattern().groove().shape)]);
+    if (shapeButton.getButtonText() != shapeName)
+        shapeButton.setButtonText (shapeName);
+    shapeButton.setEnabled (bank.activePattern().groove().vary > 0);
     for (int i = 0; i < playDots.size(); ++i)
         playDots[i]->setToggleState (bank.isPlaying (i), juce::dontSendNotification);
     grid->repaint();
@@ -450,8 +467,13 @@ void SequencerView::resized()
     auto right = area.removeFromRight (kNumKnobs * kKnobWidth);
     area.removeFromRight (16);
     right.removeFromTop (kGridTop - kPadding - 6);
-    for (auto* component : std::initializer_list<juce::Component*> { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get(), &root })
-        component->setBounds (right.removeFromLeft (kKnobWidth));
+    for (auto* component : std::initializer_list<juce::Component*> { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get(), vary.get(), &root })
+    {
+        auto column = right.removeFromLeft (kKnobWidth);
+        component->setBounds (column);
+        if (component == vary.get())
+            shapeButton.setBounds (column.getX(), column.getY() + Knob::heightFor (kDiameter) + 4, kKnobWidth, 20);
+    }
 
     // the row above the steps: the slots, the pattern's name, the dice and the MIDI button
     auto top = juce::Rectangle<int> (kPadding, kTopRow, area.getWidth(), 22);

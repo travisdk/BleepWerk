@@ -9,7 +9,7 @@
 
 // The step sequencer's panel, below the effects: the patterns A-H, the name of the one shown
 // with its menu, the dice and the MIDI export; sixteen steps; and the groove (length, rate,
-// swing, gate, drift, hits) and the root note.
+// swing, gate, drift, hits, vary) and the root note.
 //   A-H:   click a letter to edit that pattern; the dot under it makes it play (as a layer, any
 //          number at once, each with its own length)
 //   step:  click the bar to switch it on or off, drag it up and down or scroll to change the
@@ -49,7 +49,8 @@ private:
     IconButton dice { IconButton::Icon::Dice, "A random pattern in the playing slot" };
     std::unique_ptr<MidiButton> midiButton;
     std::unique_ptr<StepGrid> grid;
-    std::unique_ptr<GrooveKnob> length, rate, swing, gate, drift, hits;
+    std::unique_ptr<GrooveKnob> length, rate, swing, gate, drift, hits, vary;
+    juce::TextButton shapeButton; // how Vary moves the length: Walk, Random or Skip
     Knob root;
 
     int shownVersion = -1;

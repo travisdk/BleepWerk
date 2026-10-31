@@ -242,18 +242,31 @@ static void layersFormAPolymeter()
 // Drift: every time the pattern has played through it starts a step later.
 static void driftMovesThePattern()
 {
-    CHECK (patternIndexAt (0, 4, 1) == 0 && patternIndexAt (3, 4, 1) == 3);
-    CHECK (patternIndexAt (4, 4, 1) == 1 && patternIndexAt (7, 4, 1) == 0); // the second pass: 1 2 3 0
-    CHECK (patternIndexAt (8, 4, 1) == 2);                                  // the third: 2 3 0 1
-    CHECK (patternIndexAt (4, 4, -1) == 3 && patternIndexAt (5, 4, -1) == 0);
-    CHECK (patternIndexAt (9, 5, 0) == 4);
+    Groove g;
+    g.length = 4;
+    g.drift = 1;
+    CHECK (patternIndexAt (0, g) == 0 && patternIndexAt (3, g) == 3);
+    CHECK (patternIndexAt (4, g) == 1 && patternIndexAt (7, g) == 0); // the second pass: 1 2 3 0
+    CHECK (patternIndexAt (8, g) == 2);                               // the third: 2 3 0 1
+    g.drift = -1;
+    CHECK (patternIndexAt (4, g) == 3 && patternIndexAt (5, g) == 0);
+    g.drift = 0;
+    g.length = 5;
+    CHECK (patternIndexAt (9, g) == 4);
     for (int j = 0; j < 200; ++j)
         for (int drift : { -4, -1, 0, 3 })
             for (int length : { 1, 3, 7, 16 })
-            {
-                const int index = patternIndexAt (j, length, drift);
-                CHECK (index >= 0 && index < length);
-            }
+                for (int vary : { 0, 2 })
+                    for (int shape = 0; shape < kNumLengthShapes; ++shape)
+                    {
+                        Groove each;
+                        each.length = length;
+                        each.drift = drift;
+                        each.vary = std::min (vary, length - 1);
+                        each.shape = shape;
+                        const int index = patternIndexAt (j, each);
+                        CHECK (index >= 0 && index < length);
+                    }
 
     Groove groove;
     groove.length = 4;
@@ -267,6 +280,71 @@ static void driftMovesThePattern()
     CHECK (notes.size() >= 12);
     for (size_t k = 0; k < 12 && k < notes.size(); ++k)
         CHECK (notes[k] == expected[k]);
+}
+
+// Vary: the length changes from pass to pass, between Length - Vary and Length, the way the
+// shape says, and the series repeats.
+static void varyChangesTheLength()
+{
+    Groove g;
+    g.length = 8;
+    CHECK (lengthPeriod (g) == 1 && lengthOfPass (0, g) == 8 && lengthOfPass (5, g) == 8); // off
+
+    g.vary = 2;
+    g.shape = (int) LengthShape::Walk; // 8 7 6 7 8 7 6 7 ...
+    const int walk[] = { 8, 7, 6, 7, 8, 7, 6, 7 };
+    for (int p = 0; p < 8; ++p)
+        CHECK (lengthOfPass (p, g) == walk[p]);
+    CHECK (lengthPeriod (g) == 4);
+
+    g.shape = (int) LengthShape::Skip; // 8 8 6 8 8 6
+    const int skip[] = { 8, 8, 6, 8, 8, 6 };
+    for (int p = 0; p < 6; ++p)
+        CHECK (lengthOfPass (p, g) == skip[p]);
+
+    g.shape = (int) LengthShape::Random;
+    bool different = false;
+    for (int p = 0; p < 64; ++p)
+    {
+        CHECK (lengthOfPass (p, g) >= 6 && lengthOfPass (p, g) <= 8);
+        CHECK (lengthOfPass (p, g) == lengthOfPass (p + 32, g)); // repeats after 32
+        different = different || lengthOfPass (p, g) != lengthOfPass (0, g);
+    }
+    CHECK (different);
+
+    // Vary can't take the length below one step
+    g.length = 3;
+    g.vary = 15;
+    for (int shape = 0; shape < kNumLengthShapes; ++shape)
+    {
+        g.shape = shape;
+        for (int p = 0; p < 100; ++p)
+            CHECK (lengthOfPass (p, g) >= 1 && lengthOfPass (p, g) <= 3);
+    }
+
+    // played: passes of 4, 3, 4, 3 steps, so the step at the start of every pass is the first
+    Groove skipGroove;
+    skipGroove.length = 4;
+    skipGroove.vary = 1;
+    skipGroove.shape = (int) LengthShape::Walk; // 4 3 4 3 ...
+    const EveryStep steps (0, skipGroove);
+    std::vector<int> notes;
+    for (const auto& e : run (480, steps.pattern, 4.0))
+        if (e.on)
+            notes.push_back (e.note);
+    const int expected[] = { 0, 1, 2, 3, 0, 1, 2, 0, 1, 2, 3, 0, 1, 2 };
+    CHECK (notes.size() >= 14);
+    for (size_t k = 0; k < 14 && k < notes.size(); ++k)
+        CHECK (notes[k] == expected[k]);
+
+    // a layer switched on late is in step (the position, not the time since it was switched on)
+    SequencerEngine late;
+    SequencerSettings settings;
+    settings.enabled = true;
+    settings.rootNote = 0;
+    std::vector<int> joined;
+    late.process (true, 9 * 0.25, bpm, sampleRate, 480, settings, steps.pattern, [&] (int, bool on, int note, float) { if (on) joined.push_back (note); });
+    CHECK (! joined.empty() && joined[0] == expected[9]);
 }
 
 // Hits spreads a number of steps evenly over the length and leaves the notes.
@@ -323,8 +401,10 @@ static void textRoundTrips()
     odd.swing = 0.6180339f;
     odd.gate = 0.123456789f;
     odd.drift = -3;
+    odd.vary = 4;
+    odd.shape = (int) LengthShape::Skip;
     Groove parsed;
-    CHECK (Groove {}.toString() == "length 16 rate 1/16 swing 0.5 gate 0.5 drift 0");
+    CHECK (Groove {}.toString() == "length 16 rate 1/16 swing 0.5 gate 0.5 drift 0 vary 0 shape Walk");
     CHECK (parsed.fromString ("length 8 rate 1/8 swing 0.55 gate 0.4") && parsed.drift == 0); // text without a drift
     CHECK (parsed.fromString (odd.toString()) && parsed.toString() == odd.toString());
     CHECK (! parsed.fromString ("length 5"));
@@ -402,6 +482,7 @@ int main()
     silentWhenDisabledOrStopped();
     layersFormAPolymeter();
     driftMovesThePattern();
+    varyChangesTheLength();
     hitsSpreadEvenly();
     textRoundTrips();
     randomLinesAreMusical();
