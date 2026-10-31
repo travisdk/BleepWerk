@@ -21,10 +21,20 @@ BleepForgeEditor::BleepForgeEditor (BleepForgeProcessor& p)
     setLookAndFeel (&lookAndFeel);
 
     setResizable (true, true);
-    setResizeLimits (juce::roundToInt (MainView::kWidth * kMinScale), juce::roundToInt (MainView::kHeight * kMinScale),
-                     juce::roundToInt (MainView::kWidth * kMaxScale), juce::roundToInt (MainView::kHeight * kMaxScale));
-    getConstrainer()->setFixedAspectRatio ((double) MainView::kWidth / (double) MainView::kHeight);
-    setSize (MainView::kWidth, MainView::kHeight);
+    applyDesignSize (1.0f);
+    // the sequencer panel makes the view taller: keep the scale, and follow the new height
+    view.onDesignSizeChanged = [this] { applyDesignSize ((float) getWidth() / (float) MainView::kWidth); };
+}
+
+// The limits and the aspect ratio for the height the view has now, and the window at that
+// height and the given scale.
+void BleepForgeEditor::applyDesignSize (float scale)
+{
+    const int height = view.designHeight();
+    setResizeLimits (juce::roundToInt (MainView::kWidth * kMinScale), juce::roundToInt ((float) height * kMinScale),
+                     juce::roundToInt (MainView::kWidth * kMaxScale), juce::roundToInt ((float) height * kMaxScale));
+    getConstrainer()->setFixedAspectRatio ((double) MainView::kWidth / (double) height);
+    setSize (juce::roundToInt ((float) MainView::kWidth * scale), juce::roundToInt ((float) height * scale));
 }
 
 BleepForgeEditor::~BleepForgeEditor()
@@ -41,11 +51,12 @@ void BleepForgeEditor::resized()
 {
     // vector drawing throughout, so a transform keeps everything sharp at any scale; a
     // host-set size with another aspect ratio leaves the view centred with margins
-    const float scale = juce::jmin ((float) getWidth() / (float) MainView::kWidth, (float) getHeight() / (float) MainView::kHeight);
-    view.setBounds (0, 0, MainView::kWidth, MainView::kHeight);
+    const int height = view.designHeight();
+    const float scale = juce::jmin ((float) getWidth() / (float) MainView::kWidth, (float) getHeight() / (float) height);
+    view.setBounds (0, 0, MainView::kWidth, height);
     view.setTransform (juce::AffineTransform::scale (scale).translated (
         ((float) getWidth() - (float) MainView::kWidth * scale) * 0.5f,
-        ((float) getHeight() - (float) MainView::kHeight * scale) * 0.5f));
+        ((float) getHeight() - (float) height * scale) * 0.5f));
 }
 
 void BleepForgeEditor::parentHierarchyChanged()

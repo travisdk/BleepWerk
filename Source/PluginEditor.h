@@ -21,6 +21,8 @@ public:
     void parentHierarchyChanged() override;
 
 private:
+    void applyDesignSize (float scale);
+
     BleepForgeProcessor& processor;
     bleepforge::theme::LookAndFeel lookAndFeel;
     MainView view;

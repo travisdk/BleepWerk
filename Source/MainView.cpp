@@ -12,7 +12,7 @@ constexpr int kMargin = 16, kHeaderHeight = 40, kEngineHeight = 212, kChaosHeigh
 } // namespace
 
 MainView::MainView (BleepForgeProcessor& p)
-    : processor (p), engineView (p), chaosView (p), driveView (p), effectsView (p)
+    : processor (p), engineView (p), chaosView (p), driveView (p), effectsView (p), sequencerView (p)
 {
     setSize (kWidth, kHeight);
     using namespace bleepforge;
@@ -32,10 +32,40 @@ MainView::MainView (BleepForgeProcessor& p)
     {
         auto& presets = processor.getSoundPresets();
         const auto suggestion = presets.isUser (presets.current()) ? presets.name() : "My " + presets.name();
-        showNameDialog (suggestion, [this] (const juce::String& name) { savePreset (name); });
+        showNameDialog ("Save preset", "Saved to " + SoundPresets::folder().getFullPathName(), suggestion,
+                        [this] (const juce::String& name) { savePreset (name); });
     };
     for (auto* button : { &presetPrev, &presetButton, &presetNext, &saveButton })
         addAndMakeVisible (*button);
+
+    // the sequencer: this button folds the panel out below the effects and switches the
+    // sequencer on; folded in, BleepForge is as it is without one
+    sequencerButton.setTooltip ("Show the step sequencer, which plays against the host's transport. Hidden, it is off.");
+    sequencerButton.setClickingTogglesState (false);
+    sequencerButton.setColour (juce::TextButton::textColourOnId, bleepforge::theme::primary());
+    sequencerButton.onClick = [this]
+    {
+        if (auto* param = processor.apvts.getParameter ("seqEnabled"))
+            bleepforge::files::setParameterValue (*param, sequencerShown ? 0.0f : 1.0f);
+        refreshSequencer();
+    };
+    addAndMakeVisible (sequencerButton);
+    addChildComponent (sequencerView);
+    sequencerView.onSave = [this]
+    {
+        auto& patterns = processor.getPatternPresets();
+        const auto suggestion = patterns.isUser (patterns.current()) ? patterns.name().trimCharactersAtEnd (" *")
+                                                                      : "My " + patterns.name().trimCharactersAtEnd (" *");
+        showNameDialog ("Save pattern", "Saved to " + BleepForgeProcessor::patternFolder().getFullPathName(), suggestion,
+                        [this] (const juce::String& name) { savePattern (name); });
+    };
+    sequencerView.onDelete = [this] (int entry)
+    {
+        auto& patterns = processor.getPatternPresets();
+        confirm ("Delete pattern?", "\"" + patterns.entryName (entry) + "\" will be moved to the trash.", "Delete",
+                 [&patterns, entry] { patterns.remove (entry); });
+    };
+    refreshSequencer();
 
     // the sound
     addAndMakeVisible (engineView);
@@ -57,6 +87,21 @@ void MainView::timerCallback()
 {
     if (processor.getSoundPresets().version() != shownPresetVersion)
         refreshPreset();
+    refreshSequencer(); // the host can switch it on, or a project that had it on can load
+}
+
+// Shows the panel while the sequencer is on, and tells the editor to change its size.
+void MainView::refreshSequencer()
+{
+    const bool on = processor.apvts.getRawParameterValue ("seqEnabled")->load() > 0.5f;
+    sequencerButton.setToggleState (on, juce::dontSendNotification);
+    if (on == sequencerShown)
+        return;
+    sequencerShown = on;
+    sequencerView.setVisible (on);
+    resized();
+    if (onDesignSizeChanged)
+        onDesignSizeChanged();
 }
 
 // For every open BleepForge editor of this process, and saved for the next ones.
@@ -178,12 +223,26 @@ void MainView::savePreset (const juce::String& name)
         save();
 }
 
+void MainView::savePattern (const juce::String& name)
+{
+    auto save = [this, name]
+    {
+        if (! processor.getPatternPresets().save (name))
+            confirm ("Could not save", "Writing to " + BleepForgeProcessor::patternFolder().getFullPathName() + " failed.", "OK", {});
+    };
+
+    if (processor.getPatternPresets().exists (name))
+        confirm ("Overwrite pattern?", "\"" + name + "\" already exists.", "Overwrite", save);
+    else
+        save();
+}
+
 // Shown inside the view rather than as a separate desktop window, which some hosts bury.
 // (From SubForge.)
-void MainView::showNameDialog (const juce::String& suggestion, std::function<void (const juce::String&)> onName)
+void MainView::showNameDialog (const juce::String& title, const juce::String& where, const juce::String& suggestion,
+                               std::function<void (const juce::String&)> onName)
 {
-    auto* window = new juce::AlertWindow ("Save preset", "Saved to " + SoundPresets::folder().getFullPathName(),
-                                          juce::MessageBoxIconType::NoIcon);
+    auto* window = new juce::AlertWindow (title, where, juce::MessageBoxIconType::NoIcon);
     window->addTextEditor ("name", suggestion, "Name:");
     window->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
     window->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
@@ -297,6 +356,11 @@ void MainView::paint (juce::Graphics& g)
                 juce::Justification::centredLeft);
 }
 
+void MainView::lookAndFeelChanged()
+{
+    sequencerButton.setColour (juce::TextButton::textColourOnId, bleepforge::theme::primary());
+}
+
 void MainView::resized()
 {
     auto area = getLocalBounds().reduced (kMargin);
@@ -309,6 +373,8 @@ void MainView::resized()
     header.removeFromRight (8);
     for (auto [button, width] : { std::pair { &presetNext, 26 }, { &presetButton, 200 }, { &presetPrev, 26 } })
         button->setBounds (header.removeFromRight (width).withSizeKeepingCentre (width, 26));
+    header.removeFromRight (14);
+    sequencerButton.setBounds (header.removeFromRight (48).withSizeKeepingCentre (48, 26));
 
     // the sound: the engine; Chaos and Drive side by side across the whole width; the effects
     area.removeFromTop (kGap);
@@ -320,4 +386,9 @@ void MainView::resized()
     driveView.setBounds (middle);
     area.removeFromTop (kGap);
     effectsView.setBounds (area.removeFromTop (EffectsView::kHeight));
+    if (sequencerShown)
+    {
+        area.removeFromTop (kGap);
+        sequencerView.setBounds (area.removeFromTop (SequencerView::kHeight));
+    }
 }

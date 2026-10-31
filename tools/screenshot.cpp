@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Renders the interface of a fresh instance to a PNG, for checking the layout and for the
-// README: BleepForge_Screenshot <output.png> [scale] [strike]
+// README: BleepForge_Screenshot <output.png> [scale] [strike] [seq]
 
 #include "MainView.h"
 #include "Theme.h"
@@ -11,7 +11,7 @@ int main (int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [strike]\n";
+        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [strike] [seq]\n";
         return 1;
     }
 
@@ -26,9 +26,12 @@ int main (int argc, char* argv[])
         const juce::String option (argv[i]);
         if (option == "strike")
             processor.apvts.getParameter ("engine")->setValueNotifyingHost (1.0f);
+        else if (option == "seq")
+            processor.apvts.getParameter ("seqEnabled")->setValueNotifyingHost (1.0f);
     }
 
     auto view = std::make_unique<MainView> (processor);
+    view->setSize (MainView::kWidth, view->designHeight());
     const auto image = view->createComponentSnapshot (view->getLocalBounds(), true, scale);
     view.reset();
     juce::LookAndFeel::setDefaultLookAndFeel (nullptr);

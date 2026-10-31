@@ -137,7 +137,19 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
             slotNames.add (String::charToString ((juce_wchar) ('A' + i)));
         params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqPattern", 1 }, "Sequencer Pattern", slotNames, 0));
     }
-    params.push_back (std::make_unique<AudioParameterInt> (ParameterID { "seqRoot", 1 }, "Sequencer Root", 24, 84, 48));
+    // shown as a note name (the pattern's root), not a number
+    params.push_back (std::make_unique<AudioParameterInt> (
+        ParameterID { "seqRoot", 1 }, "Sequencer Root", 24, 84, 48,
+        AudioParameterIntAttributes()
+            .withStringFromValueFunction ([] (int v, int) { return MidiMessage::getMidiNoteName (jlimit (0, 127, v), true, true, 3); })
+            .withValueFromStringFunction ([] (const String& text)
+                                          {
+                                              const auto t = text.trim();
+                                              for (int n = 24; n <= 84; ++n) // a note name reads back as its note
+                                                  if (t.equalsIgnoreCase (MidiMessage::getMidiNoteName (n, true, true, 3)))
+                                                      return n;
+                                              return jlimit (24, 84, t.getIntValue());
+                                          })));
 
     // Chaos: Amount scales every target's depth
     sound ("chaosAmount", "Chaos", linear ("chaosAmount"));
