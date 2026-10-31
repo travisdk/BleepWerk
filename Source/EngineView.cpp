@@ -20,7 +20,6 @@ EngineView::EngineView (BleepForgeProcessor& p)
       glide (p.apvts, "glide", "Glide"),
       bend (p.apvts, "bendRange", "Bend"),
       output (p.apvts, "outputGain", "Output"),
-      picture (p),
       bleepWave (p.apvts, "bleepWave", "Wave"),
       pulseWidth (p.apvts, "bleepPulseWidth", "Pulse W"),
       fmRatio (p.apvts, "bleepFmRatio", "FM Ratio"),
@@ -39,7 +38,7 @@ EngineView::EngineView (BleepForgeProcessor& p)
       motion (p.apvts, "strikeMotion", "Motion"),
       sweep (p.apvts, "strikeSweep", "Sweep", true)
 {
-    for (auto* c : std::initializer_list<juce::Component*> { &engine, &voices, &glide, &bend, &output, &dice, &back, &picture })
+    for (auto* c : std::initializer_list<juce::Component*> { &engine, &voices, &glide, &bend, &output, &dice, &back })
         addAndMakeVisible (c);
     engine.buttonHeight = 40; // the main choice, so larger buttons
     dice.onClick = [this] { rollSound(); };
@@ -117,7 +116,6 @@ void EngineView::showEngine (int engineIndex)
         c->setVisible (engineIndex == (int) bleepforge::Engine::Bleep);
     for (auto* c : strikeControls)
         c->setVisible (engineIndex == (int) bleepforge::Engine::Strike);
-    resized(); // the picture's top follows the engine
     repaint();
 }
 
@@ -215,10 +213,6 @@ void EngineView::resized()
             controls[i]->setBounds (slot.removeFromBottom (Knob::heightFor (key ? kKeyDiameter : kDiameter)));
         }
     };
-    // the picture takes what the key knobs leave above the row; Strike's buttons come above it
-    const bool strikeShown = shownEngine == (int) bleepforge::Engine::Strike;
-    const int pictureTop = strikeShown ? kSelectorTop + kSelectorHeight + 4 : kSelectorTop;
-    picture.setBounds (area.getX(), pictureTop, area.getWidth(), area.getBottom() - Knob::heightFor (kKeyDiameter) - 4 - pictureTop);
     lay (bleepControls, bleepKeys);
 
     // Strike: what hits and what is hit side by side, and the five knobs spread over the width

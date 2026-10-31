@@ -6,14 +6,13 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
 #include "Controls.h"
-#include "SoundView.h"
 
 #include <optional>
 
 // The sound section. Left: the engine (Bleep or Strike), and below it
 // Mono or Poly, Glide, Bend and Output. Right: the controls of the selected engine, which swap when the engine changes, and
 // by the engine's name the dice, which roll a random sound for that engine, with a back arrow.
-// Strike has two rows of buttons, what hits and what is hit, above the picture of the sound.
+// Strike has two rows of buttons, what hits and what is hit, above its knobs.
 class EngineView : public juce::Component, private juce::Timer
 {
 public:
@@ -32,7 +31,6 @@ private:
     BleepForgeProcessor& processor;
     Toggle engine, voices;
     Knob glide, bend, output;
-    SoundView picture; // the sound drawn, above the engine's knobs
 
     Choice bleepWave;
     Knob pulseWidth, fmRatio, fmAmount, pitchAmount, pitchDecay, attack, decay, release, noise;
