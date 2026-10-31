@@ -34,6 +34,9 @@ else()
     set(BLEEPFORGE_DEFAULT_CLAP_DIR "${BLEEPFORGE_HOME}/.clap")
     set(BLEEPFORGE_DEFAULT_VST3_DIR "${BLEEPFORGE_HOME}/.vst3")
 endif()
+# Link-time optimisation makes every build slow, so it is for release builds only: configure
+# with -DBLEEPFORGE_LTO=ON. CI and the package targets need it (see below).
+option(BLEEPFORGE_LTO "Link with link-time optimisation (slow; for release builds)" OFF)
 option(BLEEPFORGE_INSTALL_AFTER_BUILD "Copy the CLAP and VST3 into the user's plug-in folders after each build" ON)
 set(CLAP_INSTALL_DIR "${BLEEPFORGE_DEFAULT_CLAP_DIR}" CACHE PATH "Where the built .clap is copied")
 set(VST3_INSTALL_DIR "${BLEEPFORGE_DEFAULT_VST3_DIR}" CACHE PATH "Where the built .vst3 is copied")
@@ -100,8 +103,10 @@ target_link_libraries(BleepForge
         juce::juce_dsp
     PUBLIC
         juce::juce_recommended_config_flags
-        juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+if (BLEEPFORGE_LTO)
+    target_link_libraries(BleepForge PUBLIC juce::juce_recommended_lto_flags)
+endif()
 
 clap_juce_extensions_plugin(TARGET BleepForge
     CLAP_ID "dk.hjuhl.bleepforge"
@@ -142,7 +147,14 @@ else()
     set(BLEEPFORGE_INSTALL_NOTES "${CMAKE_SOURCE_DIR}/packaging/INSTALL-linux.txt")
 endif()
 set(BLEEPFORGE_PACKAGE_DIR "${CMAKE_BINARY_DIR}/package/${BLEEPFORGE_PACKAGE_NAME}")
+# What is released must be LTO-optimised: the package targets stop if the build is not.
+set(BLEEPFORGE_PACKAGE_CHECK "")
+if (NOT BLEEPFORGE_LTO)
+    file(WRITE "${CMAKE_BINARY_DIR}/need-lto.cmake" "message(FATAL_ERROR \"Release packages need LTO: reconfigure with -DBLEEPFORGE_LTO=ON and rebuild\")\n")
+    set(BLEEPFORGE_PACKAGE_CHECK COMMAND ${CMAKE_COMMAND} -P "${CMAKE_BINARY_DIR}/need-lto.cmake")
+endif()
 add_custom_target(${BLEEPFORGE_PACKAGE_TARGET}
+    ${BLEEPFORGE_PACKAGE_CHECK}
     COMMAND ${CMAKE_COMMAND} -E rm -rf ${BLEEPFORGE_PACKAGE_DIR}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${BLEEPFORGE_PACKAGE_DIR}
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:BleepForge_CLAP> ${BLEEPFORGE_PACKAGE_DIR}/

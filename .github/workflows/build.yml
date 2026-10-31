@@ -72,6 +72,7 @@ jobs:
           -DJUCE_DIR=_sdks/JUCE
           -DCLAP_JUCE_EXTENSIONS_DIR=_sdks/clap-juce-extensions
           -DBLEEPFORGE_INSTALL_AFTER_BUILD=OFF
+          -DBLEEPFORGE_LTO=ON
 
       - name: Build
         run: >
