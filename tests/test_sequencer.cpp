@@ -4,6 +4,7 @@
 // Sequencer engine: timing independent of the host block size, swing and gate, no stuck notes
 // after loops, jumps or stopping, layers of different lengths that stay in step, drift, hits
 // spread evenly, the two velocities, text round trips, and MIDI clips that play like the sequencer.
+#include "PatternLibrary.h"
 #include "Sequencer.h"
 #include "TestUtils.h"
 
@@ -471,6 +472,23 @@ static void clipPlaysLikeTheSequencer()
     CHECK (patternToClip (p, 40).notes.front().note == 43);
 }
 
+static void factoryPatternsParse()
+{
+    for (int i = 0; i < kNumFactoryPatterns; ++i)
+    {
+        const auto& factory = kFactoryPatterns[i];
+        Pattern pattern;
+        CHECK (parseCompactPattern (factory.steps, pattern));
+        CHECK (factory.length >= 1 && factory.length <= kMaxSteps);
+        bool anyStep = false;
+        for (int s = 0; s < factory.length; ++s)
+            anyStep = anyStep || pattern.get (s).gate;
+        CHECK (anyStep);
+        for (int j = 0; j < i; ++j) // names pick the preset back up from a saved project
+            CHECK (std::string (kFactoryPatterns[j].name) != factory.name);
+    }
+}
+
 int main()
 {
     timingIsBlockSizeIndependent();
@@ -487,5 +505,6 @@ int main()
     textRoundTrips();
     randomLinesAreMusical();
     clipPlaysLikeTheSequencer();
+    factoryPatternsParse();
     return finish ("sequencer");
 }

@@ -103,6 +103,19 @@ inline const FactoryPattern kFactoryPatterns[] = {
     { "Seven",            "0a 12 0 3 5 0 7 - - - - - - - - -",     7, 0.5f },
     { "Five Wheel",       "0a - 0 7 - - - - - - - - - - - -",         5, 0.5f },
     { "Nine Drift",       "0a - 0 - 7 0 - 3 10 - - - - - - -",     9, 0.5f },
+
+    // Berlin School: unbroken sixteenths in minor, an accent every fourth step, the harmony
+    // moving underneath. Best with a long gate and a little Drift.
+    { "Dawn Arp",         "0a 3 7 10 12 10 7 3 0a 3 7 10 12 15 12 10", 16, 0.5f },
+    { "Pulsar Line",      "0a 0 12 0 7 0 12 0 0a 0 12 0 10 0 12 0",    16, 0.5f },
+    { "Cold Ascent",      "0a 7 3 10 7 12 10 15 12 15 10 12 7 10 3 7", 16, 0.5f },
+    { "Glass Fifths",     "0a 7 0 7 3a 10 3 10 5a 12 5 12 3a 10 3 10", 16, 0.5f },
+    { "Slow Tide Seq",    "0a 12 7 12 0 12 7 12 -2a 10 5 10 -2 10 5 10", 16, 0.5f },
+    { "Octave Engine",    "0a 12 0 12 7 12 7 12 3a 12 3 12 10 12 10 12", 16, 0.5f },
+    { "Phrygian Night",   "0a 1 7 1 0 1 8 1 0a 1 7 1 0 1 5 3",         16, 0.5f },
+    { "Eight Stars",      "0a 7 12 7 3 7 10 7 - - - - - - - -",         8, 0.5f },
+    { "Twelve Stars",     "0a 3 7 3 10 7 12 10 15 12 10 7 - - - -",    12, 0.5f },
+    { "Drone Walker",     "0a 0 7 0 0 5 0 3 0a 0 7 0 0 10 0 8",        16, 0.5f },
 };
 
 inline constexpr int kNumFactoryPatterns = (int) (sizeof (kFactoryPatterns) / sizeof (kFactoryPatterns[0]));
