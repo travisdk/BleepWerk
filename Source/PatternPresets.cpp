@@ -22,8 +22,10 @@ PatternPresets::PatternPresets (juce::AudioProcessorValueTreeState& s, PatternBa
 juce::String PatternPresets::entryName (int index) const
 {
     if (isUser (index))
-        return userFiles[index - kNumFactoryPatterns].getFileNameWithoutExtension();
-    return juce::isPositiveAndBelow (index, kNumFactoryPatterns) ? kFactoryPatterns[index].name : "";
+        return userFiles[index - kNumFactoryEntries].getFileNameWithoutExtension();
+    if (juce::isPositiveAndBelow (index, kNumFactoryPatterns))
+        return kFactoryPatterns[index].name;
+    return isSet (index) ? kFactorySets[index - kNumFactoryPatterns].name : "";
 }
 
 int PatternPresets::rateIndexFor (const juce::String& rateName)
@@ -35,9 +37,8 @@ int PatternPresets::rateIndexFor (const juce::String& rateName)
 }
 
 // Into the slot that plays; the processor shows it in the sequencer parameters.
-void PatternPresets::applyGroove (const LoadedGroove& loaded)
+void PatternPresets::applyGroove (Pattern& target, const LoadedGroove& loaded)
 {
-    auto& target = pattern();
     target.setLength (loaded.length);
     target.setSwing (loaded.swing);
     if (loaded.rateIndex >= 0)
@@ -59,7 +60,7 @@ void PatternPresets::rescan()
     std::array<juce::File, kNumPatternSlots> loadedFiles;
     for (size_t i = 0; i < slots.size(); ++i)
         if (isUser (slots[i].entry))
-            loadedFiles[i] = userFiles[slots[i].entry - kNumFactoryPatterns];
+            loadedFiles[i] = userFiles[slots[i].entry - kNumFactoryEntries];
 
     userFiles = files::listSorted (getFolder(), kExtension);
 
@@ -68,7 +69,7 @@ void PatternPresets::rescan()
         if (loadedFiles[i] != juce::File())
         {
             const int index = userFiles.indexOf (loadedFiles[i]);
-            slots[i].entry = index >= 0 ? kNumFactoryPatterns + index : -1;
+            slots[i].entry = index >= 0 ? kNumFactoryEntries + index : -1;
         }
     }
     changed();
@@ -87,12 +88,12 @@ void PatternPresets::load (int index)
 {
     if (isUser (index))
     {
-        const auto xml = files::parseXmlFile (userFiles[index - kNumFactoryPatterns]);
+        const auto xml = files::parseXmlFile (userFiles[index - kNumFactoryEntries]);
         if (xml == nullptr || ! xml->hasTagName ("BleepForgePattern")
             || ! parseCompactPattern (xml->getStringAttribute ("steps").toRawUTF8(), pattern()))
             return;
         // files from before rate and gate were stored leave the current values
-        applyGroove ({ xml->getIntAttribute ("length", kMaxSteps), (float) xml->getDoubleAttribute ("swing", 0.5),
+        applyGroove (pattern(), { xml->getIntAttribute ("length", kMaxSteps), (float) xml->getDoubleAttribute ("swing", 0.5),
                        rateIndexFor (xml->getStringAttribute ("rate")), (float) xml->getDoubleAttribute ("gate", -1.0),
                        xml->getIntAttribute ("drift", 0), xml->getIntAttribute ("vary", 0), xml->getIntAttribute ("shape", 0) });
     }
@@ -100,7 +101,13 @@ void PatternPresets::load (int index)
     {
         const auto& factory = kFactoryPatterns[index];
         parseCompactPattern (factory.steps, pattern());
-        applyGroove ({ factory.length, factory.swing, kDefaultRateIndex, kDefaultGate, 0, 0, 0 });
+        applyGroove (pattern(), { factory.length, factory.swing, kDefaultRateIndex, kDefaultGate, 0, 0, 0 });
+    }
+    else if (isSet (index))
+    {
+        loadSet (index - kNumFactoryPatterns);
+        changed();
+        return;
     }
     else
     {
@@ -109,6 +116,26 @@ void PatternPresets::load (int index)
 
     slot() = { entryName (index), index };
     changed();
+}
+
+// The layers go into slots A, B, C... and play together; the panel shows A. Other slots keep
+// their steps but stop playing, so a set is heard as it was written.
+void PatternPresets::loadSet (int setIndex)
+{
+    const auto& set = kFactorySets[setIndex];
+    uint32_t mask = 0;
+    for (int i = 0; i < set.numLayers; ++i)
+    {
+        const auto& layer = set.layers[i];
+        auto& target = bank.slot (i);
+        parseCompactPattern (layer.steps, target);
+        applyGroove (target, { layer.length, 0.5f, layer.rate, layer.gate, 0, 0, 0 });
+        slots[(size_t) i] = { juce::String (set.name) + " " + juce::String (i + 1) + "/" + juce::String (set.numLayers),
+                              kNumFactoryPatterns + setIndex };
+        mask |= 1u << i;
+    }
+    bank.setPlayingMask (mask);
+    bank.select (0);
 }
 
 bool PatternPresets::save (const juce::String& patternName)
@@ -136,7 +163,7 @@ bool PatternPresets::save (const juce::String& patternName)
 
     slot() = { file.getFileNameWithoutExtension(), -1 };
     rescan();
-    slot().entry = kNumFactoryPatterns + userFiles.indexOf (file);
+    slot().entry = kNumFactoryEntries + userFiles.indexOf (file);
     changed();
     return true;
 }
@@ -146,7 +173,7 @@ void PatternPresets::remove (int index)
     if (! isUser (index))
         return;
 
-    files::moveToTrash (userFiles[index - kNumFactoryPatterns]);
+    files::moveToTrash (userFiles[index - kNumFactoryEntries]);
     for (auto& s : slots)
         if (s.entry == index)
             s.entry = -1;

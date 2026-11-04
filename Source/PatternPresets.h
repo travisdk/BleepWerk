@@ -6,7 +6,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PatternLibrary.h"
 
-// Sequencer patterns: the factory patterns followed by the user's .bfpattern
+// Sequencer patterns: the factory patterns, the factory polymeter sets (several layers loaded
+// into slots A, B, C... at once), followed by the user's .bfpattern
 // files. A pattern covers the steps plus the groove settings (length, swing,
 // rate, gate) and nothing of the sound; the root note is left alone so a
 // pattern follows the key being played. Everything works on the slot that
@@ -21,9 +22,10 @@ public:
                     std::function<void()> onChange);
 
     // browser: factory entries first, then user files
-    int numEntries() const { return bleepforge::kNumFactoryPatterns + userFiles.size(); }
+    int numEntries() const { return bleepforge::kNumFactoryEntries + userFiles.size(); }
     juce::String entryName (int index) const;
-    bool isUser (int index) const { return index >= bleepforge::kNumFactoryPatterns && index < numEntries(); }
+    bool isUser (int index) const { return index >= bleepforge::kNumFactoryEntries && index < numEntries(); }
+    bool isSet (int index) const { return index >= bleepforge::kNumFactoryPatterns && index < bleepforge::kNumFactoryEntries; }
     int current() const { return slot().entry; }
     juce::String name() const { return slot().name; }
     juce::String slotName (int slotIndex) const { return slots[(size_t) slotIndex].name; }
@@ -74,7 +76,8 @@ private:
     bleepforge::Pattern& pattern() { return bank.activePattern(); }
     const bleepforge::Pattern& pattern() const { return bank.activePattern(); }
     int entryNamed (const juce::String& wanted) const;
-    void applyGroove (const LoadedGroove&);
+    void applyGroove (bleepforge::Pattern&, const LoadedGroove&);
+    void loadSet (int setIndex);
     static int rateIndexFor (const juce::String& rateName);
     void changed() { onChange(); }
 

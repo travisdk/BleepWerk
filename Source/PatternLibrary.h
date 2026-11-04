@@ -120,4 +120,93 @@ inline const FactoryPattern kFactoryPatterns[] = {
 
 inline constexpr int kNumFactoryPatterns = (int) (sizeof (kFactoryPatterns) / sizeof (kFactoryPatterns[0]));
 
+// Polymeter sets: several layers that load into slots A, B, C... at once and play together.
+// The layers have different lengths, so they drift apart and meet again only after the least
+// common multiple of the lengths (16 against 12 after 48 steps). The steps are semitones from
+// the one shared root, so a bass layer sits low (-12 and up) and the others above it.
+struct FactoryLayer
+{
+    const char* steps; // as FactoryPattern
+    int length;
+    int rate;          // index into kSeqRateNames
+    float gate;
+};
+
+constexpr int kMaxSetLayers = 4;
+
+struct FactorySet
+{
+    const char* name;
+    int numLayers;
+    FactoryLayer layers[kMaxSetLayers];
+};
+
+inline const FactorySet kFactorySets[] = {
+    { "Slow Orbit 16:12", 2, {
+        { "0a 3 7 10 12 10 7 3 0 3 7 10 12 15 12 10", 16, 1, 0.5f },
+        { "12a - - 7 - - 10 - - 5 - - - - - -", 12, 1, 0.5f } } },
+    { "Three Clocks 16:12:9", 3, {
+        { "0a - 0 - 0 - 0 - 0a - 0 - 0 - 0 -", 16, 1, 0.5f },
+        { "12 15 12 10 12 7 12 10 12 15 12 17 - - - -", 12, 1, 0.5f },
+        { "24a - - 19 - - 22 - - - - - - - - -", 9, 1, 0.4f } } },
+    { "Seven Against Four", 2, {
+        { "0a - 0 - 0a - 0 - 0a - 0 - 0a - 0 7", 16, 1, 0.5f },
+        { "12a 15 19 15 12 10 7 - - - - - - - - -", 7, 1, 0.5f } } },
+    { "Phase Drift 16:15", 2, {
+        { "0a 7 12 7 3 7 10 7 0a 7 12 7 5 7 10 8", 16, 1, 0.7f },
+        { "12a 19 24 19 15 19 22 19 12 19 24 19 17 19 22 -", 15, 1, 0.7f } } },
+    { "Quintuple Clock", 3, {
+        { "0a - - - - - - - 0a - - - -3 - - -", 16, 1, 0.8f },
+        { "12a 15 19 15 12 - - - - - - - - - - -", 5, 1, 0.5f },
+        { "24a - - - - - - - - - - - - - - -", 3, 1, 0.3f } } },
+    { "Cold Machine 16:12:8", 3, {
+        { "0a 0 12 0 7 0 12 0 - - - - - - - -", 8, 1, 0.5f },
+        { "12a 15 19 15 17 15 12 10 12 15 19 22 - - - -", 12, 1, 0.5f },
+        { "0a - 3 - 7 - 10 - 12a - 10 - 7 - 3 -", 16, 1, 0.9f } } },
+    { "Three Over Four", 2, {
+        { "0a - 0 - 0 - 0 - 7a - 7 - 5 - 3 -", 16, 1, 0.5f },
+        { "12a 15 19 15 12 10 - - - - - - - - - -", 6, 3, 0.5f } } },
+    { "Cathedral Seq", 2, {
+        { "0a - - - 3 - - - 5 - - - 3 - - -", 16, 0, 0.95f },
+        { "12a 15 19 22 19 15 12 10 7 10 12 15 - - - -", 12, 1, 0.5f } } },
+    { "Nine and Eleven", 2, {
+        { "0a 3 7 10 7 3 12 10 7 - - - - - - -", 9, 1, 0.5f },
+        { "12a - 15 - 19 - 15 - 12 - 10 - - - - -", 11, 1, 0.5f } } },
+    { "Phrygian Wheels 16:14", 2, {
+        { "0a 1 7 1 0 1 8 1 0a 1 7 1 0 1 5 3", 16, 1, 0.5f },
+        { "12a - 13 - 12 - 8 - 12 - 7 - 13 - - -", 14, 1, 0.6f } } },
+    { "Bass Under Twelve", 2, {
+        { "-12a - - - -12 - - - -9 - - - - - - -", 12, 1, 0.9f },
+        { "0a 7 12 15 12 7 0 7 3a 10 15 19 15 10 3 10", 16, 1, 0.5f } } },
+    { "Glass Canon 16:13", 2, {
+        { "0a 7 0 7 3a 10 3 10 5a 12 5 12 3a 10 3 10", 16, 1, 0.5f },
+        { "12a 19 12 19 15 22 15 22 17 24 17 22 15 - - -", 13, 1, 0.5f } } },
+    { "Gears 6:4:5", 3, {
+        { "0a 7 12 7 3 7 - - - - - - - - - -", 6, 1, 0.5f },
+        { "24a - 19 - - - - - - - - - - - - -", 4, 1, 0.4f },
+        { "12a - 15 - 10 - - - - - - - - - - -", 5, 1, 0.5f } } },
+    { "Octave in Seven", 2, {
+        { "0a 3 7 10 12 10 7 3 - - - - - - - -", 8, 1, 0.5f },
+        { "12a 10 7 5 3 5 7 - - - - - - - - -", 7, 1, 0.5f } } },
+    { "Deep Time", 3, {
+        { "-12a - - - -12 - - - -9 - - - -7 - - -", 16, 0, 0.95f },
+        { "0a 7 12 7 3 7 10 7 5 7 12 7 - - - -", 12, 0, 0.6f },
+        { "24a - 19 - 22 - - - - - - - - - - -", 7, 1, 0.3f } } },
+    { "Staccato Rain 11:13:16", 3, {
+        { "12a 15 19 12 15 19 24 19 15 12 - - - - - -", 11, 1, 0.25f },
+        { "0a - 0 - - 0 - 0 - - 7 - - - - -", 13, 1, 0.25f },
+        { "24a - - - 22 - - - 19a - - - 17 - - -", 16, 1, 0.25f } } },
+    { "Seven Eight Nine", 3, {
+        { "0a 7 3 10 7 12 10 - - - - - - - - -", 7, 1, 0.5f },
+        { "12a 15 19 15 17 15 12 10 - - - - - - - -", 8, 1, 0.5f },
+        { "0a - - 5 - - 3 - - - - - - - - -", 9, 1, 0.8f } } },
+    { "Five Over Seven", 2, {
+        { "0a 3 7 3 10 - - - - - - - - - - -", 5, 1, 0.5f },
+        { "12a 15 17 15 12 10 7 - - - - - - - - -", 7, 1, 0.5f } } },
+};
+
+inline constexpr int kNumFactorySets = (int) (sizeof (kFactorySets) / sizeof (kFactorySets[0]));
+// the browser lists the single patterns first, then the sets, then the user's files
+inline constexpr int kNumFactoryEntries = kNumFactoryPatterns + kNumFactorySets;
+
 } // namespace bleepforge

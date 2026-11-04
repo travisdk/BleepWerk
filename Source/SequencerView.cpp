@@ -501,10 +501,15 @@ void SequencerView::showPatternMenu()
     for (int i = 0; i < kNumFactoryPatterns; ++i)
         menu.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
 
-    if (presets.numEntries() > kNumFactoryPatterns)
+    juce::PopupMenu sets;
+    for (int i = kNumFactoryPatterns; i < kNumFactoryEntries; ++i)
+        sets.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
+    menu.addSubMenu ("Polymeter sets (layers)", sets);
+
+    if (presets.numEntries() > kNumFactoryEntries)
     {
         juce::PopupMenu user;
-        for (int i = kNumFactoryPatterns; i < presets.numEntries(); ++i)
+        for (int i = kNumFactoryEntries; i < presets.numEntries(); ++i)
             user.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
         menu.addSubMenu ("My patterns", user);
     }
