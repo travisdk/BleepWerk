@@ -6,12 +6,6 @@
 
 using namespace bleepforge;
 
-namespace
-{
-constexpr int kDefaultRateIndex = 1; // 1/16
-constexpr float kDefaultGate = 0.5f;
-} // namespace
-
 PatternPresets::PatternPresets (juce::AudioProcessorValueTreeState& s, PatternBank& b, std::function<juce::File()> folderProvider,
                                 std::function<void()> callback)
     : state (s), bank (b), getFolder (std::move (folderProvider)), onChange (std::move (callback))
@@ -101,7 +95,7 @@ void PatternPresets::load (int index)
     {
         const auto& factory = kFactoryPatterns[index];
         parseCompactPattern (factory.steps, pattern());
-        applyGroove (pattern(), { factory.length, factory.swing, kDefaultRateIndex, kDefaultGate, 0, 0, 0 });
+        applyGroove (pattern(), { factory.length, factory.swing, factory.rate, factory.gate, factory.drift, factory.vary, factory.shape });
     }
     else if (isSet (index))
     {

@@ -484,6 +484,12 @@ static void factoryPatternsParse()
         for (int s = 0; s < factory.length; ++s)
             anyStep = anyStep || pattern.get (s).gate;
         CHECK (anyStep);
+        CHECK (factory.rate >= 0 && factory.rate < kNumSeqRates && factory.gate >= 0.05f && factory.gate <= 1.0f);
+        CHECK (std::abs (factory.drift) <= kMaxDrift && factory.vary >= 0 && factory.vary < factory.length);
+        CHECK (factory.shape >= 0 && factory.shape < kNumLengthShapes);
+        // the one-layer polymeters must differ from the bar: an odd length, or Drift or Vary
+        if (i >= kFirstPolymeterPattern)
+            CHECK (factory.length % 4 != 0 || factory.drift != 0 || factory.vary != 0);
         for (int j = 0; j < i; ++j) // names pick the preset back up from a saved project
             CHECK (std::string (kFactoryPatterns[j].name) != factory.name);
     }

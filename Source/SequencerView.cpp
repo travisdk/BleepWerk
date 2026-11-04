@@ -498,8 +498,13 @@ void SequencerView::showPatternMenu()
 {
     auto& presets = processor.getPatternPresets();
     juce::PopupMenu menu;
-    for (int i = 0; i < kNumFactoryPatterns; ++i)
+    for (int i = 0; i < kFirstPolymeterPattern; ++i)
         menu.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
+
+    juce::PopupMenu solo;
+    for (int i = kFirstPolymeterPattern; i < kNumFactoryPatterns; ++i)
+        solo.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
+    menu.addSubMenu ("Polymeter, one layer", solo);
 
     juce::PopupMenu sets;
     for (int i = kNumFactoryPatterns; i < kNumFactoryEntries; ++i)

@@ -18,6 +18,11 @@ struct FactoryPattern
     const char* steps; // compact notation, see parseCompactPattern
     int length;
     float swing;
+    int rate = 1;      // index into kSeqRateNames, 1/16
+    float gate = 0.5f;
+    int drift = 0;     // steps the line moves on per pass
+    int vary = 0;      // steps a pass may be shorter
+    int shape = 0;     // index into kLengthShapeNames
 };
 
 // Sixteen space-separated tokens: "-" is a rest, otherwise semitones from the root followed by
@@ -116,9 +121,36 @@ inline const FactoryPattern kFactoryPatterns[] = {
     { "Eight Stars",      "0a 7 12 7 3 7 10 7 - - - - - - - -",         8, 0.5f },
     { "Twelve Stars",     "0a 3 7 3 10 7 12 10 15 12 10 7 - - - -",    12, 0.5f },
     { "Drone Walker",     "0a 0 7 0 0 5 0 3 0a 0 7 0 0 10 0 8",        16, 0.5f },
+
+    // Polymeter in one layer: an odd length drifts against the host's bar, Drift slides the
+    // line along, and Vary shortens some passes, so the accent keeps landing somewhere new.
+    { "Seven Arp",       "0a 3 7 10 7 12 10 - - - - - - - - -", 7, 0.5f, 1, 0.7f, 0, 0, 0 },
+    { "Nine Arp",        "0a 3 7 10 12 10 7 5 3 - - - - - - -", 9, 0.5f, 1, 0.7f, 0, 0, 0 },
+    { "Eleven Arp",      "0a 3 7 10 12 15 12 10 7 5 3 - - - - -", 11, 0.5f, 1, 0.7f, 0, 0, 0 },
+    { "Thirteen Arp",    "0a 3 7 10 12 15 17 15 12 10 7 5 3 - - -", 13, 0.5f, 1, 0.7f, 0, 0, 0 },
+    { "Fifteen Arp",     "0a 3 7 10 12 10 7 3 0 3 7 10 12 15 12 -", 15, 0.5f, 1, 0.7f, 0, 0, 0 },
+    { "Five Bleeps",     "0a 7 12 7 3 - - - - - - - - - - -", 5, 0.5f, 1, 0.4f, 0, 0, 0 },
+    { "Seven Pulse",     "0a 0 12 0 7 0 10 - - - - - - - - -", 7, 0.5f, 1, 0.5f, 0, 0, 0 },
+    { "Eleven Pulse",    "0a 0 12 0 7 0 12 0 10 0 12 - - - - -", 11, 0.5f, 1, 0.5f, 0, 0, 0 },
+    { "Thirteen Walk",   "0a 1 7 1 0 1 8 1 0 1 5 3 1 - - -", 13, 0.5f, 1, 0.6f, 0, 0, 0 },
+    { "Fifteen Pulse",   "0a 0 12 0 7 0 12 0 0 12 0 10 0 12 0 -", 15, 0.5f, 1, 0.5f, 0, 0, 0 },
+    { "Triplet Seven",   "0a 7 12 15 12 7 3 - - - - - - - - -", 7, 0.5f, 3, 0.6f, 0, 0, 0 },
+    { "Slow Seven",      "0a 3 7 10 12 10 7 - - - - - - - - -", 7, 0.5f, 0, 0.9f, 0, 0, 0 },
+    { "Quick Five",      "0a 12 7 12 3 - - - - - - - - - - -", 5, 0.5f, 2, 0.5f, 0, 0, 0 },
+    { "Creeping Arp",    "0a 3 7 10 12 10 7 3 0 3 7 10 12 15 12 10", 16, 0.5f, 1, 0.7f, 1, 0, 0 },
+    { "Falling Behind",  "0a 7 12 7 3 7 10 7 0a 7 12 7 5 7 10 8", 16, 0.5f, 1, 0.7f, -1, 0, 0 },
+    { "Leap Two",        "0a 3 7 3 10 7 12 10 15 12 10 7 - - - -", 12, 0.5f, 1, 0.6f, 2, 0, 0 },
+    { "Quick Slide",     "0a 7 12 7 3 7 10 7 - - - - - - - -", 8, 0.5f, 1, 0.6f, 3, 0, 0 },
+    { "Breathing Arp",   "0a 3 7 10 12 10 7 3 0 3 7 10 12 15 12 10", 16, 0.5f, 1, 0.7f, 0, 2, 0 },
+    { "Shrinking Loop",  "0a 3 7 10 12 10 7 3 0 5 7 10 12 15 12 10", 16, 0.5f, 1, 0.6f, 0, 4, 1 },
+    { "Skipped Beat",    "0a 7 12 7 3 7 10 7 5 7 12 7 3 7 10 8", 16, 0.5f, 1, 0.6f, 0, 1, 2 },
+    { "Limping Pulse",   "0a 0 12 0 7 0 12 0 10 0 12 0 - - - -", 12, 0.5f, 1, 0.5f, 0, 3, 0 },
+    { "Slow Wander",     "0a 3 7 10 12 15 12 10 7 5 3 0 -2 - - -", 13, 0.5f, 1, 0.8f, 1, 2, 0 },
 };
 
 inline constexpr int kNumFactoryPatterns = (int) (sizeof (kFactoryPatterns) / sizeof (kFactoryPatterns[0]));
+// the single-layer polymeter patterns are the last ones; the browser puts them in a submenu
+inline constexpr int kFirstPolymeterPattern = kNumFactoryPatterns - 22;
 
 // Polymeter sets: several layers that load into slots A, B, C... at once and play together.
 // The layers have different lengths, so they drift apart and meet again only after the least
