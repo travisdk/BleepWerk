@@ -4,6 +4,7 @@
 // Sequencer engine: timing independent of the host block size, swing and gate, no stuck notes
 // after loops, jumps or stopping, layers of different lengths that stay in step, drift, hits
 // spread evenly, the two velocities, text round trips, and MIDI clips that play like the sequencer.
+#include "PatternLibrary.h"
 #include "Sequencer.h"
 #include "TestUtils.h"
 
@@ -471,6 +472,61 @@ static void clipPlaysLikeTheSequencer()
     CHECK (patternToClip (p, 40).notes.front().note == 43);
 }
 
+static void factoryPatternsParse()
+{
+    for (int i = 0; i < kNumFactoryPatterns; ++i)
+    {
+        const auto& factory = kFactoryPatterns[i];
+        Pattern pattern;
+        CHECK (parseCompactPattern (factory.steps, pattern));
+        CHECK (factory.length >= 1 && factory.length <= kMaxSteps);
+        bool anyStep = false;
+        for (int s = 0; s < factory.length; ++s)
+            anyStep = anyStep || pattern.get (s).gate;
+        CHECK (anyStep);
+        CHECK (factory.rate >= 0 && factory.rate < kNumSeqRates && factory.gate >= 0.05f && factory.gate <= 1.0f);
+        CHECK (std::abs (factory.drift) <= kMaxDrift && factory.vary >= 0 && factory.vary < factory.length);
+        CHECK (factory.shape >= 0 && factory.shape < kNumLengthShapes);
+        // the one-layer polymeters must differ from the bar: an odd length, or Drift or Vary
+        if (i >= kFirstPolymeterPattern)
+            CHECK (factory.length % 4 != 0 || factory.drift != 0 || factory.vary != 0);
+        for (int j = 0; j < i; ++j) // names pick the preset back up from a saved project
+            CHECK (std::string (kFactoryPatterns[j].name) != factory.name);
+    }
+}
+
+static long gcdOf (long a, long b) { return b == 0 ? a : gcdOf (b, a % b); }
+
+static void factorySetsArePolymeters()
+{
+    for (int i = 0; i < kNumFactorySets; ++i)
+    {
+        const auto& set = kFactorySets[i];
+        CHECK (set.numLayers >= 2 && set.numLayers <= kMaxSetLayers && set.numLayers <= kNumPatternSlots);
+        long meet = 1;
+        for (int l = 0; l < set.numLayers; ++l)
+        {
+            const auto& layer = set.layers[l];
+            Pattern pattern;
+            CHECK (parseCompactPattern (layer.steps, pattern));
+            CHECK (layer.length >= 1 && layer.length <= kMaxSteps);
+            CHECK (layer.rate >= 0 && layer.rate < kNumSeqRates && layer.gate >= 0.05f && layer.gate <= 1.0f);
+            bool anyStep = false;
+            for (int s = 0; s < layer.length; ++s)
+                anyStep = anyStep || pattern.get (s).gate;
+            CHECK (anyStep);
+            for (int s = 0; s < layer.length; ++s) // notes inside the step range
+                CHECK (pattern.get (s).note >= kMinStepNote && pattern.get (s).note <= kMaxStepNote);
+            meet = meet / gcdOf (meet, layer.length) * layer.length;
+        }
+        CHECK (meet > 16); // the layers need more than one pass of the longest to line up again
+        for (int j = 0; j < kNumFactoryPatterns; ++j)
+            CHECK (std::string (kFactoryPatterns[j].name) != set.name);
+        for (int j = 0; j < i; ++j)
+            CHECK (std::string (kFactorySets[j].name) != set.name);
+    }
+}
+
 int main()
 {
     timingIsBlockSizeIndependent();
@@ -487,5 +543,7 @@ int main()
     textRoundTrips();
     randomLinesAreMusical();
     clipPlaysLikeTheSequencer();
+    factoryPatternsParse();
+    factorySetsArePolymeters();
     return finish ("sequencer");
 }

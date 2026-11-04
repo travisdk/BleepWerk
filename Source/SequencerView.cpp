@@ -498,13 +498,23 @@ void SequencerView::showPatternMenu()
 {
     auto& presets = processor.getPatternPresets();
     juce::PopupMenu menu;
-    for (int i = 0; i < kNumFactoryPatterns; ++i)
+    for (int i = 0; i < kFirstPolymeterPattern; ++i)
         menu.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
 
-    if (presets.numEntries() > kNumFactoryPatterns)
+    juce::PopupMenu solo;
+    for (int i = kFirstPolymeterPattern; i < kNumFactoryPatterns; ++i)
+        solo.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
+    menu.addSubMenu ("Polymeter, one layer", solo);
+
+    juce::PopupMenu sets;
+    for (int i = kNumFactoryPatterns; i < kNumFactoryEntries; ++i)
+        sets.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
+    menu.addSubMenu ("Polymeter sets (layers)", sets);
+
+    if (presets.numEntries() > kNumFactoryEntries)
     {
         juce::PopupMenu user;
-        for (int i = kNumFactoryPatterns; i < presets.numEntries(); ++i)
+        for (int i = kNumFactoryEntries; i < presets.numEntries(); ++i)
             user.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
         menu.addSubMenu ("My patterns", user);
     }
