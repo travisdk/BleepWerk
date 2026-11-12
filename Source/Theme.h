@@ -93,7 +93,7 @@ public:
     {
         juce::AttributedString s;
         s.setWordWrap (juce::AttributedString::byWord);
-        s.setJustification (juce::Justification::centred);
+        s.setJustification (juce::Justification::left);
         s.append (tip, juce::FontOptions (13.0f, juce::Font::bold).withMetricsKind (getDefaultMetricsKind()), colour);
         juce::TextLayout layout;
         layout.createLayoutWithBalancedLineLengths (s, (float) kTipTextWidth);

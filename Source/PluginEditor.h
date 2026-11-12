@@ -26,7 +26,18 @@ private:
     BleepForgeProcessor& processor;
     bleepforge::theme::LookAndFeel lookAndFeel;
     MainView view;
-    juce::TooltipWindow tooltips { this, 600 }; // the buttons' tooltips
+    // The window for the controls' tooltips. Off in the settings, it shows nothing.
+    struct TipWindow : juce::TooltipWindow
+    {
+        TipWindow (juce::Component* parent, int delayMs, std::function<bool()> isOn)
+            : juce::TooltipWindow (parent, delayMs), showing (std::move (isOn)) {}
+        juce::String getTipFor (juce::Component& c) override
+        {
+            return showing() ? juce::TooltipWindow::getTipFor (c) : juce::String();
+        }
+        std::function<bool()> showing;
+    };
+    TipWindow tooltips { this, 600, [this] { return processor.getSettings().getBoolValue ("tooltips", true); } };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BleepForgeEditor)
 };

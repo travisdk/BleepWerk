@@ -137,6 +137,15 @@ void MainView::showSettingsMenu()
         menu.addItem (item);
     }
 
+    // a per-user preference like the colour: saved apart from the sound
+    menu.addSectionHeader ("Tooltips");
+    const bool tipsOn = processor.getSettings().getBoolValue ("tooltips", true);
+    menu.addItem ("Show tooltips", true, tipsOn, [this, tipsOn]
+                  {
+                      processor.getSettings().setValue ("tooltips", ! tipsOn);
+                      processor.getSettings().saveIfNeeded();
+                  });
+
     auto& presets = processor.getSoundPresets();
     const int entry = presets.current();
     const bool onUserPreset = presets.isUser (entry);
