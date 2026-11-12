@@ -89,7 +89,7 @@ void EngineView::timerCallback()
     // Length only shapes the sources that last or burst, and Motion those that move
     const auto strikeExciter = (bleepforge::StrikeExciter) (int) processor.apvts.getRawParameterValue ("strikeExciter")->load();
     strikeLength.setEnabled (strikeExciter != bleepforge::StrikeExciter::Knock);
-    motion.setEnabled (strikeExciter != bleepforge::StrikeExciter::Noise && strikeExciter != bleepforge::StrikeExciter::Crackle);
+    motion.setEnabled (strikeExciter != bleepforge::StrikeExciter::Noise);
 
     // Pulse W and the FM knobs only shape their own wave; for the others they do nothing
     const auto wave = (bleepforge::BleepWave) (int) processor.apvts.getRawParameterValue ("bleepWave")->load();

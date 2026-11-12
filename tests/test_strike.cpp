@@ -127,7 +127,7 @@ static void silentWithNoNotes()
     synth.prepare (fs);
     for (int e = 0; e < kNumStrikeExciters; ++e)
     {
-        synth.setParams (params ((StrikeExciter) e, StrikeBody::Metal));
+        synth.setParams (params ((StrikeExciter) e, StrikeBody::Wood));
         CHECK (peak (render (synth, ms (200))) == 0.0f);
     }
     CHECK (synth.activeVoices() == 0);
@@ -182,7 +182,6 @@ static void ringSetsTheRingTime()
         return rms (out, ms (300), ms (400));
     };
     CHECK (tail (StrikeBody::Wood, 0.9f) > 5.0 * tail (StrikeBody::Wood, 0.3f));
-    CHECK (tail (StrikeBody::Metal, 0.9f) > 5.0 * tail (StrikeBody::Metal, 0.3f));
     CHECK (tail (StrikeBody::Membrane, 0.5f) > tail (StrikeBody::Wood, 0.5f));
     CHECK (strikeRingSeconds (kWoodBody, 0.0f) < strikeRingSeconds (kWoodBody, 1.0f));
 }
@@ -192,8 +191,8 @@ static void lengthSetsHowLongItLasts()
 {
     for (auto exciter : { StrikeExciter::Steam, StrikeExciter::Friction })
     {
-        const auto shortOne = play (params (exciter, StrikeBody::Metal, 0.5f, 0.5f, 0.0f, 150.0f), 48, 3000);
-        const auto longOne = play (params (exciter, StrikeBody::Metal, 0.5f, 0.5f, 0.0f, 1500.0f), 48, 3000);
+        const auto shortOne = play (params (exciter, StrikeBody::Wood, 0.5f, 0.5f, 0.0f, 150.0f), 48, 3000);
+        const auto longOne = play (params (exciter, StrikeBody::Wood, 0.5f, 0.5f, 0.0f, 1500.0f), 48, 3000);
         CHECK (rms (shortOne, ms (600), ms (800)) < 0.02 * rms (shortOne, ms (20), ms (60)));
         CHECK (rms (longOne, ms (600), ms (800)) > 0.1 * rms (longOne, ms (200), ms (400)));
         CHECK (rms (longOne, ms (2800), ms (3000)) < 0.01 * rms (longOne, ms (200), ms (400)));
@@ -208,16 +207,27 @@ static void lengthSetsHowLongItLasts()
     CHECK (rms (render (synth, ms (300)), 0, ms (300)) > 1.0e-3);
 }
 
-// Noise and Crackle: Length is the burst, not the sound; a longer burst is not louder.
+// Noise: Length is the burst, not the sound; a longer burst is not louder.
 static void burstLengthDoesNotChangeTheLevelMuch()
 {
-    for (auto exciter : { StrikeExciter::Noise, StrikeExciter::Crackle })
-    {
-        const auto shortOne = play (params (exciter, StrikeBody::Metal, 0.5f, 0.5f, 0.0f, 2.0f), 48, 800);
-        const auto longOne = play (params (exciter, StrikeBody::Metal, 0.5f, 0.5f, 0.0f, 40.0f), 48, 800);
-        const double ratio = rms (longOne, 0, ms (400)) / rms (shortOne, 0, ms (400));
-        CHECK (ratio > 0.2 && ratio < 5.0);
-    }
+    const auto shortOne = play (params (StrikeExciter::Noise, StrikeBody::Wood, 0.5f, 0.5f, 0.0f, 2.0f), 48, 800);
+    const auto longOne = play (params (StrikeExciter::Noise, StrikeBody::Wood, 0.5f, 0.5f, 0.0f, 40.0f), 48, 800);
+    const double ratio = rms (longOne, 0, ms (400)) / rms (shortOne, 0, ms (400));
+    CHECK (ratio > 0.2 && ratio < 5.0);
+}
+
+// Presets and projects saved before Crackle and Metal were removed keep their sound: the old
+// choice indices map to the ones that replaced them (Crackle to Noise, Metal to Wood).
+static void oldChoicesMigrate()
+{
+    CHECK (migrateStrikeExciter (0) == (int) StrikeExciter::Knock);
+    CHECK (migrateStrikeExciter (1) == (int) StrikeExciter::Noise);
+    CHECK (migrateStrikeExciter (2) == (int) StrikeExciter::Noise);
+    CHECK (migrateStrikeExciter (3) == (int) StrikeExciter::Steam);
+    CHECK (migrateStrikeExciter (4) == (int) StrikeExciter::Friction);
+    CHECK (migrateStrikeBody (0) == (int) StrikeBody::Wood);
+    CHECK (migrateStrikeBody (1) == (int) StrikeBody::Wood);
+    CHECK (migrateStrikeBody (2) == (int) StrikeBody::Membrane);
 }
 
 // Tone: bright strikes have more high end, dark ones less.
@@ -225,8 +235,8 @@ static void toneAddsBrightness()
 {
     for (int e = 0; e < kNumStrikeExciters; ++e)
     {
-        const auto dark = play (params ((StrikeExciter) e, StrikeBody::Metal, 0.5f, 0.0f), 48, 400);
-        const auto bright = play (params ((StrikeExciter) e, StrikeBody::Metal, 0.5f, 1.0f), 48, 400);
+        const auto dark = play (params ((StrikeExciter) e, StrikeBody::Wood, 0.5f, 0.0f), 48, 400);
+        const auto bright = play (params ((StrikeExciter) e, StrikeBody::Wood, 0.5f, 1.0f), 48, 400);
         if (! (brightness (bright) > brightness (dark)))
             std::printf ("exciter %d: dark %.4f bright %.4f\n", e, brightness (dark), brightness (bright));
         CHECK (brightness (bright) > brightness (dark));
@@ -237,7 +247,7 @@ static void toneAddsBrightness()
 static void sweepSlidesIntoTheNote()
 {
     const double hz = noteHz (57);
-    auto p = params (StrikeExciter::Knock, StrikeBody::Metal, 1.0f, 0.3f);
+    auto p = params (StrikeExciter::Knock, StrikeBody::Wood, 1.0f, 0.3f);
     p.sweepSemis = 12.0f;
     const auto up = play (p, 57, 700);
     CHECK (strongestHz (up, 0, ms (8), hz * 0.4, hz * 1.2) < hz * 0.8); // starts an octave below...
@@ -253,7 +263,7 @@ static void bendMovesTheNote()
     const double hz = noteHz (57);
     StrikeSynth synth;
     synth.prepare (fs);
-    synth.setParams (params (StrikeExciter::Knock, StrikeBody::Metal, 1.0f, 0.3f));
+    synth.setParams (params (StrikeExciter::Knock, StrikeBody::Wood, 1.0f, 0.3f));
     synth.setPitchBend (12.0f);
     synth.noteOn (57, 1.0f);
     const auto out = render (synth, ms (700));
@@ -279,7 +289,7 @@ static void chaosVariesTheHits()
     {
         StrikeSynth synth;
         synth.prepare (fs);
-        synth.setParams (params (StrikeExciter::Noise, StrikeBody::Metal, 0.6f, 0.5f, 0.0f, 3.0f));
+        synth.setParams (params (StrikeExciter::Noise, StrikeBody::Wood, 0.6f, 0.5f, 0.0f, 3.0f));
         ChaosDepths depths;
         if (chaos)
             depths.pitch = depths.decay = depths.tone = 0.8f;
@@ -304,7 +314,7 @@ static void monoAndPolyBehave()
 {
     StrikeSynth synth;
     synth.prepare (fs);
-    synth.setParams (params (StrikeExciter::Steam, StrikeBody::Metal, 0.5f, 0.5f, 0.0f, 3000.0f));
+    synth.setParams (params (StrikeExciter::Steam, StrikeBody::Wood, 0.5f, 0.5f, 0.0f, 3000.0f));
     synth.setMode (StrikeSynth::Mode::Mono);
     synth.noteOn (48, 1.0f);
     synth.noteOn (55, 1.0f);
@@ -350,5 +360,6 @@ int main()
     chaosVariesTheHits();
     monoAndPolyBehave();
     retriggerDoesNotClickLoudly();
+    oldChoicesMigrate();
     return finish ("strike");
 }

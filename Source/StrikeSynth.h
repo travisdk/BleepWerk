@@ -15,31 +15,30 @@
 //   Knock     a short pulse with a little noise bite; Tone is how hard: dark is a soft mallet,
 //             bright a hard click. Motion adds small knocks while the body rings (a rattle)
 //   Noise     a decaying burst of noise, Length long
-//   Crackle   sparse clicks for Length
 //   Steam     steady noise through a bandpass that sits on the note (Tone lifts it up to four
 //             octaves above), opening with a puff; Motion makes it flutter
 //   Friction  metal rubbing on metal: a bright tone two octaves up that slides into the note,
 //             with friction hiss around it; Motion makes it waver, chatter and jump
-// What is hit (the body): Wood (a free bar), Metal (a hard part, between a bar and a plate) or
-// Membrane (a drum skin, the zeros of the Bessel functions of a circular membrane).
+// What is hit (the body): Wood (a free bar) or Membrane (a drum skin, the zeros of the Bessel
+// functions of a circular membrane).
 // Knobs:
-//   Length  Noise, Crackle: how long the burst lasts. Steam, Friction: how long the whole sound
+//   Length  Noise: how long the burst lasts. Steam, Friction: how long the whole sound
 //           lasts, fade included (it ends by itself; note-offs don't stop it). Not for Knock
 //   Ring    how long the body rings, from a dead knock to seconds. For Steam and Friction it is
 //           also how much of the body's colour is mixed into the source
 //   Tone    dark to bright: the strike's hardness and how loud the high modes are
-//   Motion  see the exciters; Noise and Crackle have none
+//   Motion  see the exciters; Noise has none
 //   Sweep   the body starts this far below the note (above, when negative) and slides to it:
 //           a drip, a drum's fall
 // The note sets the fundamental. Chaos moves the body's modes a little on every note. JUCE-free.
 namespace bleepforge
 {
-enum class StrikeExciter { Knock, Noise, Crackle, Steam, Friction };
-inline constexpr const char* kStrikeExciterNames[] = { "Knock", "Noise", "Crackle", "Steam", "Friction" };
+enum class StrikeExciter { Knock, Noise, Steam, Friction };
+inline constexpr const char* kStrikeExciterNames[] = { "Knock", "Noise", "Steam", "Friction" };
 inline constexpr int kNumStrikeExciters = (int) std::size (kStrikeExciterNames);
 
-enum class StrikeBody { Wood, Metal, Membrane };
-inline constexpr const char* kStrikeBodyNames[] = { "Wood", "Metal", "Membrane" };
+enum class StrikeBody { Wood, Membrane };
+inline constexpr const char* kStrikeBodyNames[] = { "Wood", "Membrane" };
 inline constexpr int kNumStrikeBodies = (int) std::size (kStrikeBodyNames);
 
 struct StrikeParams
@@ -64,16 +63,28 @@ struct BodyModel
     float highModeDamping;
 };
 
-// A free wooden bar (beam modes), a hard metal part (between a bar and a plate, so it reads as
-// metal rather than a bell) and a circular membrane (the Bessel zeros j01, j11, j21, j02, j31,
+// A free bar (beam modes) and a circular membrane (the Bessel zeros j01, j11, j21, j02, j31,
 // j12, j41, j22 divided by j01).
 inline constexpr BodyModel kWoodBody { { 1.0f, 2.756f, 5.404f, 8.933f, 13.34f, 18.64f, 24.81f, 31.97f }, 0.35f, 1.3f };
-inline constexpr BodyModel kMetalBody { { 1.0f, 1.51f, 2.11f, 2.73f, 3.42f, 4.31f, 5.37f, 6.62f }, 0.5f, 0.7f };
 inline constexpr BodyModel kMembraneBody { { 1.0f, 1.594f, 2.136f, 2.296f, 2.653f, 2.918f, 3.156f, 3.500f }, 2.0f, 0.25f };
 
 inline const BodyModel& bodyModel (StrikeBody body)
 {
-    return body == StrikeBody::Metal ? kMetalBody : body == StrikeBody::Membrane ? kMembraneBody : kWoodBody;
+    return body == StrikeBody::Membrane ? kMembraneBody : kWoodBody;
+}
+
+// Choice indices saved before the Crackle exciter and the Metal body were removed (projects
+// before state version 5, presets before file version 2) move to the ones that replaced them:
+// Crackle is a burst like Noise, Metal sounds like Wood.
+inline int migrateStrikeExciter (int saved)
+{
+    if (saved == 2) return (int) StrikeExciter::Noise;
+    return saved > 2 ? saved - 1 : saved;
+}
+
+inline int migrateStrikeBody (int saved)
+{
+    return saved == 2 ? (int) StrikeBody::Membrane : (int) StrikeBody::Wood;
 }
 
 // How long the body's lowest mode takes to die away (-60 dB): 20 ms .. 3 s at Ring 0..1, scaled
@@ -97,7 +108,6 @@ class StrikeVoice
 public:
     static constexpr float kLevel = 0.5f;
     static constexpr int kCoefInterval = 16; // samples between filter updates
-    static constexpr float kCracklesPerSecond = 1500.0f;
     static constexpr float kMaxModeSpread = 0.015f; // mode detuning at full Chaos pitch depth
     static constexpr float kPuffSeconds = 0.03f;    // Steam's opening puff dies away over this
     static constexpr float kFocus = 0.5f;           // how narrow Steam's band and how clean Friction's tone are
@@ -349,7 +359,7 @@ private:
         }
         stage = Stage::Idle;
         // a softer strike is a longer, gentler touch (up to twice as long at velocity 0)
-        const float touch = p.exciter == StrikeExciter::Crackle ? 1.0f : 1.0f + kSoftTouch * softness();
+        const float touch = 1.0f + kSoftTouch * softness();
         if (p.exciter == StrikeExciter::Knock)
         {
             // Tone sets the pulse: 3 ms (dark, a soft mallet) .. 0.15 ms (bright, a click)
@@ -479,13 +489,6 @@ private:
                 case StrikeExciter::Noise:
                     // decaying noise burst with unit energy
                     x = strength * noise.next() * (1.0f - (float) pos / (float) exciterLength) * std::sqrt (3.0f / (float) exciterLength);
-                    break;
-                case StrikeExciter::Crackle:
-                    // sparse impulses, about 1.5 per millisecond, scaled so a longer crackle
-                    // isn't louder
-                    if (noise.next() > 1.0f - 2.0f * kCracklesPerSecond / fs)
-                        x = strength * (0.4f + 0.6f * std::abs (noise.next()))
-                          / std::sqrt (std::max (1.0f, kCracklesPerSecond * (float) exciterLength / fs));
                     break;
                 case StrikeExciter::Steam:
                 case StrikeExciter::Friction:
