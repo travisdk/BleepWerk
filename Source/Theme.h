@@ -85,6 +85,43 @@ public:
         applyTheme();
     }
 
+    // Tooltips: narrow boxes that wrap onto more lines, with more room around the text. The
+    // lines are balanced, so a box has no short last line. JUCE's own are 400 px wide and tight.
+    static constexpr int kTipTextWidth = 220, kTipPadX = 16, kTipPadY = 10;
+
+    juce::TextLayout tipLayout (const juce::String& tip, juce::Colour colour)
+    {
+        juce::AttributedString s;
+        s.setWordWrap (juce::AttributedString::byWord);
+        s.setJustification (juce::Justification::centred);
+        s.append (tip, juce::FontOptions (13.0f, juce::Font::bold).withMetricsKind (getDefaultMetricsKind()), colour);
+        juce::TextLayout layout;
+        layout.createLayoutWithBalancedLineLengths (s, (float) kTipTextWidth);
+        return layout;
+    }
+
+    juce::Rectangle<int> getTooltipBounds (const juce::String& tip, juce::Point<int> screenPos, juce::Rectangle<int> parentArea) override
+    {
+        const auto layout = tipLayout (tip, juce::Colours::black);
+        const int w = juce::roundToInt (layout.getWidth()) + 2 * kTipPadX;
+        const int h = juce::roundToInt (layout.getHeight()) + 2 * kTipPadY;
+        return juce::Rectangle<int> (screenPos.x > parentArea.getCentreX() ? screenPos.x - (w + 12) : screenPos.x + 24,
+                                     screenPos.y > parentArea.getCentreY() ? screenPos.y - (h + 6) : screenPos.y + 6,
+                                     w, h)
+            .constrainedWithin (parentArea);
+    }
+
+    void drawTooltip (juce::Graphics& g, const juce::String& tip, int width, int height) override
+    {
+        const auto box = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height);
+        g.setColour (findColour (juce::TooltipWindow::backgroundColourId));
+        g.fillRoundedRectangle (box, 5.0f);
+        g.setColour (findColour (juce::TooltipWindow::outlineColourId));
+        g.drawRoundedRectangle (box.reduced (0.5f), 5.0f, 1.0f);
+        tipLayout (tip, findColour (juce::TooltipWindow::textColourId))
+            .draw (g, box.reduced ((float) kTipPadX, (float) kTipPadY));
+    }
+
     // Takes on the current theme; the editor then sends a look-and-feel change so every
     // component repaints and re-reads its colours.
     void applyTheme()
