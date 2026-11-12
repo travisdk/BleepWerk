@@ -443,7 +443,8 @@ void SequencerView::refresh()
     const auto shapeName = juce::String (kLengthShapeNames[juce::jlimit (0, kNumLengthShapes - 1, bank.activePattern().groove().shape)]);
     if (shapeButton.getButtonText() != shapeName)
         shapeButton.setButtonText (shapeName);
-    shapeButton.setEnabled (bank.activePattern().groove().vary > 0);
+    // dimmed rather than disabled: a disabled button gets no mouse events, so its tooltip never shows
+    shapeButton.setAlpha (bank.activePattern().groove().vary > 0 ? 1.0f : 0.4f);
     for (int i = 0; i < playDots.size(); ++i)
         playDots[i]->setToggleState (bank.isPlaying (i), juce::dontSendNotification);
     grid->repaint();
