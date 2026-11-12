@@ -15,6 +15,8 @@ class SoundPresets
 {
 public:
     static constexpr const char* kExtension = ".bfpreset";
+    // 2: the Strike exciter and body choices after Crackle and Metal were removed (see loadFile)
+    static constexpr int kFileVersion = 2;
 
     explicit SoundPresets (juce::AudioProcessorValueTreeState&);
 

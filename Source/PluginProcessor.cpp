@@ -483,6 +483,7 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
         if (xml->hasTagName (apvts.state.getType()))
         {
             auto state = juce::ValueTree::fromXml (*xml);
+            const int savedVersion = (int) state.getProperty ("stateVersion", 0);
             soundPresets.readState (state);
             patternPresets.readState (state);
             // Only the parameters stay in the tree: getStateInformation adds the rest again, so
@@ -505,6 +506,17 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
                 else
                     state.removeChild (i, nullptr);
             }
+            // before version 5 the Strike choices were longer (see migrateStrikeExciter)
+            if (savedVersion < 5)
+                for (int i = 0; i < state.getNumChildren(); ++i)
+                {
+                    auto child = state.getChild (i);
+                    const auto id = child.getProperty ("id").toString();
+                    if (id == "strikeExciter")
+                        child.setProperty ("value", (float) bleepforge::migrateStrikeExciter (juce::roundToInt ((float) child.getProperty ("value"))), nullptr);
+                    else if (id == "strikeBody")
+                        child.setProperty ("value", (float) bleepforge::migrateStrikeBody (juce::roundToInt ((float) child.getProperty ("value"))), nullptr);
+                }
             // before version 3 the delay time was one list; it becomes a time and a feel
             if (auto old = state.getChildWithProperty ("id", "delayTime"); old.isValid())
             {

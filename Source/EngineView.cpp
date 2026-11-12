@@ -10,7 +10,6 @@ namespace
 {
 constexpr int kPadding = 10, kLeftWidth = 280, kKnobWidth = 50, kDiameter = 47, kKeyDiameter = 62;
 constexpr int kSelectorTop = 27, kSelectorHeight = 48; // Strike's two rows of buttons
-constexpr float kMembraneSweep = -3.0f; // semitones: the body starts this far above the note
 } // namespace
 
 EngineView::EngineView (BleepForgeProcessor& p)
@@ -43,7 +42,7 @@ EngineView::EngineView (BleepForgeProcessor& p)
     engine.buttonHeight = 40; // the main choice, so larger buttons
     dice.onClick = [this] { rollSound(); };
     back.onClick = [this] { undoRoll(); };
-    back.setEnabled (false);
+    back.setActive (false);
 
     // the ones that matter most for each sound, drawn larger: pitch envelope and decay for the
     // bleep, ring and tone for the strike
@@ -59,13 +58,6 @@ EngineView::EngineView (BleepForgeProcessor& p)
             if (auto* knob = dynamic_cast<Knob*> (c))
                 knob->setMaxDiameter (isKey (list, i) ? kKeyDiameter : kDiameter);
         }
-    // a drum skin falls in pitch when it is hit, so picking the membrane sets Sweep to a small fall
-    body.onSelect = [this] (int index)
-    {
-        if (index == (int) bleepforge::StrikeBody::Membrane)
-            if (auto* param = processor.apvts.getParameter ("strikeSweep"))
-                bleepforge::files::setParameterValue (*param, kMembraneSweep);
-    };
     for (auto* knob : { &glide, &bend, &output })
         knob->setMaxDiameter (kDiameter);
 
@@ -88,14 +80,14 @@ void EngineView::timerCallback()
 
     // Length only shapes the sources that last or burst, and Motion those that move
     const auto strikeExciter = (bleepforge::StrikeExciter) (int) processor.apvts.getRawParameterValue ("strikeExciter")->load();
-    strikeLength.setEnabled (strikeExciter != bleepforge::StrikeExciter::Knock);
-    motion.setEnabled (strikeExciter != bleepforge::StrikeExciter::Noise && strikeExciter != bleepforge::StrikeExciter::Crackle);
+    strikeLength.setActive (strikeExciter != bleepforge::StrikeExciter::Knock);
+    motion.setActive (strikeExciter != bleepforge::StrikeExciter::Noise);
 
     // Pulse W and the FM knobs only shape their own wave; for the others they do nothing
     const auto wave = (bleepforge::BleepWave) (int) processor.apvts.getRawParameterValue ("bleepWave")->load();
-    pulseWidth.setEnabled (wave == bleepforge::BleepWave::Pulse);
-    fmRatio.setEnabled (wave == bleepforge::BleepWave::FM);
-    fmAmount.setEnabled (wave == bleepforge::BleepWave::FM);
+    pulseWidth.setActive (wave == bleepforge::BleepWave::Pulse);
+    fmRatio.setActive (wave == bleepforge::BleepWave::FM);
+    fmAmount.setActive (wave == bleepforge::BleepWave::FM);
     const int selected = (int) processor.apvts.getRawParameterValue ("engine")->load();
     if (selected != shownEngine)
     {
@@ -141,7 +133,7 @@ void EngineView::rollSound()
     presets.setCurrent (-1, "Random " + juce::String (kEngineNames[engineIndex]));
 
     beforeRoll = std::move (before);
-    back.setEnabled (true);
+    back.setActive (true);
 }
 
 // One step back only: the arrow is spent once used.
@@ -155,7 +147,7 @@ void EngineView::undoRoll()
             files::setParameterValue (*param, beforeRoll->values[i]);
     processor.getSoundPresets().setCurrent (beforeRoll->entry, beforeRoll->name);
     beforeRoll.reset();
-    back.setEnabled (false);
+    back.setActive (false);
 }
 
 void EngineView::paint (juce::Graphics& g)

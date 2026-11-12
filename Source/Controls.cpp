@@ -3,6 +3,7 @@
 
 #include "Controls.h"
 #include "Theme.h"
+#include "Tooltips.h"
 
 namespace
 {
@@ -25,6 +26,8 @@ Knob::Knob (juce::AudioProcessorValueTreeState& apvts, const juce::String& param
     if (auto* parameter = apvts.getParameter (parameterId))
         slider.setDoubleClickReturnValue (true, parameter->convertFrom0to1 (parameter->getDefaultValue()));
     addAndMakeVisible (slider);
+    if (auto* tip = bleepforge::tooltips::forParameter (parameterId.toRawUTF8()))
+        setTooltip (tip);
 }
 
 void Knob::resized()
@@ -49,6 +52,8 @@ Choice::Choice (juce::AudioProcessorValueTreeState& apvts, const juce::String& p
     styleName (label, name);
     addAndMakeVisible (label);
     addAndMakeVisible (box);
+    if (auto* tip = bleepforge::tooltips::forParameter (parameterId.toRawUTF8()))
+        setTooltip (tip);
 }
 
 void Choice::resized()
@@ -87,6 +92,15 @@ Toggle::Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& p
     }
     lookAndFeelChanged();
     update();
+    if (auto* tip = bleepforge::tooltips::forParameter (parameterId.toRawUTF8()))
+        setTooltip (tip);
+}
+
+void Toggle::setTooltip (const juce::String& text)
+{
+    SettableTooltipClient::setTooltip (text);
+    for (auto* button : buttons)
+        button->setTooltip (text);
 }
 
 void Toggle::lookAndFeelChanged()
@@ -129,7 +143,7 @@ IconButton::IconButton (Icon i, const juce::String& tooltip)
 void IconButton::paintButton (juce::Graphics& g, bool highlighted, bool down)
 {
     using namespace bleepforge;
-    const auto colour = ! isEnabled() ? theme::outline : down ? theme::primary() : highlighted ? theme::text : theme::dimText;
+    const auto colour = ! isEnabled() || ! active ? theme::outline : down ? theme::primary() : highlighted ? theme::text : theme::dimText;
     g.setColour (colour);
     const auto bounds = getLocalBounds().toFloat();
     const float side = juce::jmin (bounds.getWidth(), bounds.getHeight()) - 4.0f;

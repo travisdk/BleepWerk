@@ -40,7 +40,7 @@ inline constexpr SoundParam kSoundParams[] = {
     { "bleepPitchDecay", 1, 500, 25 },
     { "bleepAttack", 0, 50, 0.5f },
     { "bleepDecay", 5, 2000, 180 },
-    { "bleepRelease", 1, 500, 30 },
+    { "bleepRelease", 1, 2000, 30 },
     { "bleepNoise", 0, 1, 0 },
 
     { "strikeExciter", 0, kNumStrikeExciters - 1, (float) StrikeExciter::Knock },

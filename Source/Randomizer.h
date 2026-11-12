@@ -95,7 +95,7 @@ inline std::vector<PresetValue> randomSound (Engine engine, DiceRng& rng)
         const int exciter = rng.below (kNumStrikeExciters);
         set ("strikeExciter", (float) exciter);
         set ("strikeBody", (float) rng.below (kNumStrikeBodies));
-        // a burst of noise or crackle is short; steam and friction last from a puff to a bar
+        // a burst of noise is short; steam and friction last from a puff to a bar
         set ("strikeLength", strikeIsSteady ((StrikeExciter) exciter) ? std::round (rng.logBetween (150, 2500))
                                                                       : round (rng.logBetween (0.2f, 40), 0.01f));
         // never the seconds-long rings at the top of the range: a percussive part

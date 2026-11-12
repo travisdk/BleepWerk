@@ -28,6 +28,9 @@ MainView::MainView (BleepForgeProcessor& p)
     presetPrev.onClick = [this] { stepPreset (-1); };
     presetNext.onClick = [this] { stepPreset (1); };
     presetButton.onClick = [this] { showPresetMenu(); };
+    presetPrev.setTooltip ("Previous sound preset");
+    presetNext.setTooltip ("Next sound preset");
+    saveButton.setTooltip ("Save the current sound as a preset");
     saveButton.onClick = [this]
     {
         auto& presets = processor.getSoundPresets();
@@ -133,6 +136,15 @@ void MainView::showSettingsMenu()
         item.action = [this, i] { chooseTheme (i); };
         menu.addItem (item);
     }
+
+    // a per-user preference like the colour: saved apart from the sound
+    menu.addSectionHeader ("Tooltips");
+    const bool tipsOn = processor.getSettings().getBoolValue ("tooltips", true);
+    menu.addItem ("Show tooltips", true, tipsOn, [this, tipsOn]
+                  {
+                      processor.getSettings().setValue ("tooltips", ! tipsOn);
+                      processor.getSettings().saveIfNeeded();
+                  });
 
     auto& presets = processor.getSoundPresets();
     const int entry = presets.current();

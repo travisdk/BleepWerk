@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "SoundPresets.h"
+#include "StrikeSynth.h"
 #include "PresetFiles.h"
 
 using namespace bleepforge;
@@ -60,7 +61,7 @@ bool SoundPresets::save (const juce::String& presetName)
         return false;
 
     juce::XmlElement xml ("BleepForgePreset");
-    xml.setAttribute ("version", 1);
+    xml.setAttribute ("version", kFileVersion);
     xml.setAttribute ("name", presetName.trim());
     for (auto* p : state.processor.getParameters())
         if (auto* param = dynamic_cast<juce::RangedAudioParameter*> (p); param != nullptr && isSoundParameter (param->paramID))
@@ -89,7 +90,9 @@ bool SoundPresets::loadFile (const juce::File& file)
     if (xml == nullptr || ! xml->hasTagName ("BleepForgePreset"))
         return false;
 
-    // files saved before 0.11 have one delay time list instead of a time and a feel
+    // files saved before 0.11 have one delay time list instead of a time and a feel; files
+    // before version 2 have the Strike choices of before Crackle and Metal were removed
+    const bool oldStrikeChoices = xml->getIntAttribute ("version", 1) < 2;
     int oldDelayNote = -1, oldDelayFeel = -1;
     if (auto* old = xml->getChildByAttribute ("id", "delayTime"); old != nullptr && ! std::isnan (old->getDoubleAttribute ("value")))
         bleepforge::splitOldDelayTime (juce::roundToInt (old->getDoubleAttribute ("value")), oldDelayNote, oldDelayFeel);
@@ -107,6 +110,10 @@ bool SoundPresets::loadFile (const juce::File& file)
                 value = (float) oldDelayNote;
             else if (oldDelayFeel >= 0 && param->paramID == "delayFeel")
                 value = (float) oldDelayFeel;
+            if (oldStrikeChoices && param->paramID == "strikeExciter")
+                value = (float) bleepforge::migrateStrikeExciter (juce::roundToInt (value));
+            else if (oldStrikeChoices && param->paramID == "strikeBody")
+                value = (float) bleepforge::migrateStrikeBody (juce::roundToInt (value));
             files::setParameterValue (*param, value);
         }
     return true;
