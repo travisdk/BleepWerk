@@ -10,7 +10,6 @@ namespace
 {
 constexpr int kPadding = 10, kLeftWidth = 280, kKnobWidth = 50, kDiameter = 47, kKeyDiameter = 62;
 constexpr int kSelectorTop = 27, kSelectorHeight = 48; // Strike's two rows of buttons
-constexpr float kMembraneSweep = -3.0f; // semitones: the body starts this far above the note
 } // namespace
 
 EngineView::EngineView (BleepForgeProcessor& p)
@@ -59,13 +58,6 @@ EngineView::EngineView (BleepForgeProcessor& p)
             if (auto* knob = dynamic_cast<Knob*> (c))
                 knob->setMaxDiameter (isKey (list, i) ? kKeyDiameter : kDiameter);
         }
-    // a drum skin falls in pitch when it is hit, so picking the membrane sets Sweep to a small fall
-    body.onSelect = [this] (int index)
-    {
-        if (index == (int) bleepforge::StrikeBody::Membrane)
-            if (auto* param = processor.apvts.getParameter ("strikeSweep"))
-                bleepforge::files::setParameterValue (*param, kMembraneSweep);
-    };
     for (auto* knob : { &glide, &bend, &output })
         knob->setMaxDiameter (kDiameter);
 
