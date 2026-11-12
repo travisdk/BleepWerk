@@ -44,8 +44,8 @@ void EffectsView::timerCallback()
 {
     delayFeel.update();
     const bool filterOn = (int) processor.apvts.getRawParameterValue ("filterType")->load() != (int) bleepforge::FilterType::Off;
-    cutoff.setEnabled (filterOn);
-    resonance.setEnabled (filterOn);
+    cutoff.setActive (filterOn);
+    resonance.setActive (filterOn);
 }
 
 void EffectsView::paint (juce::Graphics& g)

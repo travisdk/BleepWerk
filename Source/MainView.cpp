@@ -28,6 +28,9 @@ MainView::MainView (BleepForgeProcessor& p)
     presetPrev.onClick = [this] { stepPreset (-1); };
     presetNext.onClick = [this] { stepPreset (1); };
     presetButton.onClick = [this] { showPresetMenu(); };
+    presetPrev.setTooltip ("Previous sound preset");
+    presetNext.setTooltip ("Next sound preset");
+    saveButton.setTooltip ("Save the current sound as a preset");
     saveButton.onClick = [this]
     {
         auto& presets = processor.getSoundPresets();

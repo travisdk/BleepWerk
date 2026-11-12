@@ -233,6 +233,9 @@ private:
 // pattern and are stored with it, so they are no parameters.
 struct SequencerView::GrooveKnob : juce::Component, juce::SettableTooltipClient
 {
+    // the slider is what the mouse is over, so it needs the text too
+    void setTooltip (const juce::String& text) { SettableTooltipClient::setTooltip (text); slider.setTooltip (text); }
+
     GrooveKnob (const juce::String& name, double min, double max, double step, std::function<double()> read,
                 std::function<void (double)> write, std::function<juce::String (double)> text, double defaultValue)
         : readValue (std::move (read))
@@ -393,6 +396,10 @@ SequencerView::SequencerView (BleepForgeProcessor& p)
     vary = std::make_unique<GrooveKnob> ("Vary", 0, kMaxSteps - 1, 1, [activeGroove] { return (double) activeGroove().vary; },
                                          [&bank, &presets] (double v) { bank.activePattern().setVary ((int) std::lround (v)); presets.markEdited(); },
                                          [] (double v) { const int n = (int) std::lround (v); return n == 0 ? juce::String ("Off") : "-" + juce::String (n); }, 0);
+    length->setTooltip ("Number of steps in the pattern, up to 16");
+    rate->setTooltip ("Length of each step: 1/8, 1/16 or 1/32 note, or the triplet 1/8T or 1/16T");
+    swing->setTooltip ("Delays every second step: 0.5 is straight, higher swings more");
+    gate->setTooltip ("How long each note sounds, as a share of its step");
     vary->setTooltip ("Lets the length change from pass to pass, by up to this many steps shorter, so the pattern never settles");
     shapeButton.setTooltip ("How the length changes: Walk steps down and up, Random follows a fixed series, Skip plays one short pass in three");
     shapeButton.onClick = [this, &bank, &presets]
