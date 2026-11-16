@@ -279,13 +279,6 @@ inline const std::vector<FactoryPreset>& factoryPresets()
                                     { "strikeTone", 1 }, { "strikeSweep", -24 }, { "chaosAmount", 0.8f }, { "chaosPan", 1 },
                                     { "delayNote", N16 }, { "delayFeel", Straight }, { "delayFeedback", 0.88f }, { "delayMix", 0.55f },
                                     { "roomSize", 1 }, { "roomDecay", 3 }, { "roomTone", 0.8f }, { "roomMix", 0.45f } } },
-        { "Supernova", "Cosmic", { { "bleepWave", FM }, { "bleepFmRatio", 3.5f }, { "bleepFmAmount", 0.9f }, { "bleepPitchAmount", 36 }, { "bleepPitchDecay", 30 },
-                                   { "bleepDecay", 900 }, { "bleepRelease", 400 }, { "bleepNoise", 0.4f },
-                                   { "driveType", Fold }, { "drivePost", Post }, { "driveAmount", 0.9f }, { "driveMix", 0.7f },
-                                   { "crushBits", 8 }, { "crushRate", 12000 },
-                                   { "chaosAmount", 1 }, { "chaosPitch", 1 }, { "chaosDecay", 1 }, { "chaosTone", 1 }, { "chaosPan", 1 }, { "chaosVelocity", 1 },
-                                   { "delayNote", N16 }, { "delayFeel", Dotted }, { "delayFeedback", 0.75f }, { "delayMix", 0.5f },
-                                   { "roomSize", 1 }, { "roomDecay", 2.5f }, { "roomMix", 0.6f } } },
 
         // ---- Drive: the distortion before the filter (Pre) and after the reverb (Post)
         { "Tape Blip", "Drive", { { "bleepPitchAmount", 7 }, { "bleepPitchDecay", 30 }, { "bleepDecay", 220 }, { "driveType", Warm }, { "drivePost", Pre },
