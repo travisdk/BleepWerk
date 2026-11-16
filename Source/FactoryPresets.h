@@ -71,6 +71,15 @@ inline const std::vector<FactoryPreset>& factoryPresets()
                                      { "bleepRelease", 150 }, { "filterType", LP }, { "filterCutoff", 1800 } } },
         { "Glide Sine", "Bleeps", { { "voiceMode", Mono }, { "glide", 80 }, { "bleepPitchAmount", 0 }, { "bleepDecay", 400 },
                                     { "bleepRelease", 120 } } },
+        // Played high (around C6) so the band-pass sits near the note
+        { "Sonar Ping", "Bleeps", { { "bleepPitchAmount", 1 }, { "bleepPitchDecay", 300 }, { "bleepAttack", 2 }, { "bleepDecay", 1500 },
+                                    { "bleepRelease", 2000 }, { "filterType", BP }, { "filterCutoff", 1200 }, { "filterResonance", 0.15f },
+                                    { "delayNote", N4 }, { "delayFeel", Dotted }, { "delayFeedback", 0.4f }, { "delayMix", 0.25f },
+                                    { "roomSize", 0.85f }, { "roomDecay", 4 }, { "roomTone", 0.3f }, { "roomMix", 0.35f } } },
+        { "Radar Blip", "Bleeps", { { "bleepPitchAmount", 2 }, { "bleepPitchDecay", 80 }, { "bleepAttack", 1 }, { "bleepDecay", 350 },
+                                    { "bleepRelease", 300 }, { "filterType", BP }, { "filterCutoff", 1800 }, { "filterResonance", 0.2f },
+                                    { "delayNote", N8 }, { "delayFeel", Dotted }, { "delayFeedback", 0.45f }, { "delayMix", 0.3f },
+                                    { "roomSize", 0.7f }, { "roomDecay", 2.5f }, { "roomTone", 0.4f }, { "roomMix", 0.2f } } },
 
         // ---- Pulses
         { "Square Bleep", "Pulses", { { "bleepWave", Pulse }, { "bleepPitchAmount", 0 }, { "bleepDecay", 150 },
