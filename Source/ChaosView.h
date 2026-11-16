@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -11,7 +11,7 @@
 class ChaosView : public juce::Component
 {
 public:
-    explicit ChaosView (BleepForgeProcessor&);
+    explicit ChaosView (BleepWerkProcessor&);
 
     void paint (juce::Graphics&) override;
     void resized() override;

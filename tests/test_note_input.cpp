@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // MIDI input: note-on and note-off (also as velocity 0), the sustain pedal, all-notes-off,
@@ -12,7 +12,7 @@
 #include <cmath>
 #include <vector>
 
-using namespace bleepforge;
+using namespace bleepwerk;
 
 constexpr double fs = 48000.0;
 

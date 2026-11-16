@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "PluginProcessor.h"
@@ -52,41 +52,33 @@ std::unique_ptr<juce::AudioParameterFloat> floatParam (const char* id, const cha
                                                             .withStringFromValueFunction (toText)
                                                             .withValueFromStringFunction (fromText));
 }
-// Per-user preferences, not per project (the colour theme): ~/.config/BleepForge/BleepForge.settings
-// on Linux. (From SubForge.)
+// Per-user preferences (the colour theme): ~/.config/BleepWerk/BleepWerk.settings on Linux. The
+// first run after the rename brings the folders of the old name along (see PresetFiles.h).
 juce::PropertiesFile::Options settingsOptions()
 {
-    juce::PropertiesFile::Options options;
-    options.applicationName = "BleepForge";
-   #if JUCE_LINUX
-    options.folderName = ".config/BleepForge"; // JUCE puts Linux settings straight under ~ otherwise
-   #else
-    options.folderName = "BleepForge";
-   #endif
-    options.filenameSuffix = "settings";
-    options.osxLibrarySubFolder = "Application Support";
-    return options;
+    bleepwerk::files::migrateLegacyUserData ("BleepWerk");
+    return bleepwerk::files::settingsOptions ("BleepWerk");
 }
 } // namespace
 
-BleepForgeProcessor::BleepForgeProcessor()
+BleepWerkProcessor::BleepWerkProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "PARAMS", createParameterLayout()),
       userSettings (settingsOptions())
 {
 }
 
-juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createParameterLayout()
+juce::AudioProcessorValueTreeState::ParameterLayout BleepWerkProcessor::createParameterLayout()
 {
     using namespace juce;
-    using bleepforge::soundDefault;
+    using bleepwerk::soundDefault;
     std::vector<std::unique_ptr<RangedAudioParameter>> params;
 
-    // Sound parameters take their range and default from bleepforge::kSoundParams, which the
+    // Sound parameters take their range and default from bleepwerk::kSoundParams, which the
     // factory presets are checked against; only the skew or step is set here.
     auto info = [] (const char* id)
     {
-        const auto* p = bleepforge::findSoundParam (id);
+        const auto* p = bleepwerk::findSoundParam (id);
         jassert (p != nullptr);
         return *p;
     };
@@ -104,10 +96,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
         return names;
     };
 
-    choice ("engine", "Engine", namesOf (bleepforge::kEngineNames));
+    choice ("engine", "Engine", namesOf (bleepwerk::kEngineNames));
 
     // Bleep engine
-    choice ("bleepWave", "Wave", namesOf (bleepforge::kBleepWaveNames));
+    choice ("bleepWave", "Wave", namesOf (bleepwerk::kBleepWaveNames));
     sound ("bleepPulseWidth", "Pulse Width", linear ("bleepPulseWidth"));
     sound ("bleepFmRatio", "FM Ratio", linear ("bleepFmRatio", 0.5f), "x");
     sound ("bleepFmAmount", "FM Amount", linear ("bleepFmAmount"));
@@ -119,8 +111,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     sound ("bleepNoise", "Noise", linear ("bleepNoise"));
 
     // Strike engine
-    choice ("strikeExciter", "Hit With", namesOf (bleepforge::kStrikeExciterNames));
-    choice ("strikeBody", "Hit On", namesOf (bleepforge::kStrikeBodyNames));
+    choice ("strikeExciter", "Hit With", namesOf (bleepwerk::kStrikeExciterNames));
+    choice ("strikeBody", "Hit On", namesOf (bleepwerk::kStrikeBodyNames));
     sound ("strikeLength", "Strike Length", skewed ("strikeLength", 30.0f), "ms");
     sound ("strikeRing", "Ring", linear ("strikeRing"));
     sound ("strikeTone", "Strike Tone", linear ("strikeTone"));
@@ -133,7 +125,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     choice ("seqEnabled", "Sequencer", { "Off", "On" });
     {
         StringArray slotNames;
-        for (int i = 0; i < bleepforge::kNumPatternSlots; ++i)
+        for (int i = 0; i < bleepwerk::kNumPatternSlots; ++i)
             slotNames.add (String::charToString ((juce_wchar) ('A' + i)));
         params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqPattern", 1 }, "Sequencer Pattern", slotNames, 0));
     }
@@ -174,16 +166,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
 
     // Effects, in signal order. Bits and Rate read "Off" at the top of their values, where they
     // do nothing; their knobs run backwards so that is fully left.
-    choice ("filterType", "Filter", namesOf (bleepforge::kFilterTypeNames));
+    choice ("filterType", "Filter", namesOf (bleepwerk::kFilterTypeNames));
     sound ("filterCutoff", "Cutoff", skewed ("filterCutoff", 1000.0f), "Hz");
     sound ("filterResonance", "Resonance", linear ("filterResonance"));
     params.push_back (std::make_unique<AudioParameterFloat> (
         ParameterID { "crushBits", 1 }, "Bits", reversedRange (linear ("crushBits")), soundDefault ("crushBits"),
         AudioParameterFloatAttributes()
-            .withStringFromValueFunction ([] (float v, int) { return v >= bleepforge::kCrushBitsOff - 0.01f ? String ("Off") : String (v, 1) + " bit"; })
+            .withStringFromValueFunction ([] (float v, int) { return v >= bleepwerk::kCrushBitsOff - 0.01f ? String ("Off") : String (v, 1) + " bit"; })
             .withValueFromStringFunction ([] (const String& t)
                                           {
-                                              return t.trim().equalsIgnoreCase ("off") ? bleepforge::kCrushBitsOff
+                                              return t.trim().equalsIgnoreCase ("off") ? bleepwerk::kCrushBitsOff
                                                                                       : t.retainCharacters ("0123456789.").getFloatValue();
                                           })));
     params.push_back (std::make_unique<AudioParameterFloat> (
@@ -191,7 +183,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
         AudioParameterFloatAttributes()
             .withStringFromValueFunction ([] (float v, int)
                                           {
-                                              if (v >= bleepforge::kCrushRateOff - 1.0f)
+                                              if (v >= bleepwerk::kCrushRateOff - 1.0f)
                                                   return String ("Off");
                                               return v < 1000.0f ? String (roundToInt (v)) + " Hz" : String (v / 1000.0f, 1) + " kHz";
                                           })
@@ -199,12 +191,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
                                           {
                                               const auto text = t.trim().toLowerCase();
                                               if (text == "off")
-                                                  return bleepforge::kCrushRateOff;
+                                                  return bleepwerk::kCrushRateOff;
                                               const float value = text.retainCharacters ("0123456789.").getFloatValue();
                                               return text.contains ("k") ? value * 1000.0f : value;
                                           })));
-    choice ("delayNote", "Delay Time", namesOf (bleepforge::kDelayNoteNames));
-    choice ("delayFeel", "Delay Feel", namesOf (bleepforge::kDelayFeelNames));
+    choice ("delayNote", "Delay Time", namesOf (bleepwerk::kDelayNoteNames));
+    choice ("delayFeel", "Delay Feel", namesOf (bleepwerk::kDelayFeelNames));
     sound ("delayFeedback", "Delay Feedback", linear ("delayFeedback"));
     sound ("delayMix", "Delay Mix", linear ("delayMix"));
     sound ("roomSize", "Reverb Size", linear ("roomSize"));
@@ -213,8 +205,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     sound ("roomMix", "Reverb Mix", linear ("roomMix"));
     sound ("roomDuck", "Reverb Duck", linear ("roomDuck"));
     // Drive sits first or last in the chain, so it is the one effect not in signal order here
-    choice ("driveType", "Drive Type", namesOf (bleepforge::kDriveTypeNames));
-    choice ("drivePost", "Drive Place", namesOf (bleepforge::kDrivePlaceNames));
+    choice ("driveType", "Drive Type", namesOf (bleepwerk::kDriveTypeNames));
+    choice ("drivePost", "Drive Place", namesOf (bleepwerk::kDrivePlaceNames));
     sound ("driveAmount", "Drive", linear ("driveAmount"));
     sound ("driveMix", "Drive Mix", linear ("driveMix"));
 
@@ -223,7 +215,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepForgeProcessor::createP
     return { params.begin(), params.end() };
 }
 
-void BleepForgeProcessor::prepareToPlay (double sampleRate, int)
+void BleepWerkProcessor::prepareToPlay (double sampleRate, int)
 {
     bleep.prepare (sampleRate);
     strike.prepare (sampleRate);
@@ -239,20 +231,20 @@ void BleepForgeProcessor::prepareToPlay (double sampleRate, int)
     outputGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (apvts.getRawParameterValue ("outputGain")->load()));
 }
 
-bool BleepForgeProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool BleepWerkProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     const auto out = layouts.getMainOutputChannelSet();
     return out == juce::AudioChannelSet::mono() || out == juce::AudioChannelSet::stereo();
 }
 
-void BleepForgeProcessor::readParams()
+void BleepWerkProcessor::readParams()
 {
-    patch = bleepforge::readPatch ([this] (const char* id) { return apvts.getRawParameterValue (id)->load(); });
+    patch = bleepwerk::readPatch ([this] (const char* id) { return apvts.getRawParameterValue (id)->load(); });
 
     bleep.setParams (patch.bleep);
     strike.setParams (patch.strike);
-    bleep.setMode (patch.mono ? bleepforge::BleepSynth::Mode::Mono : bleepforge::BleepSynth::Mode::Poly);
-    strike.setMode (patch.mono ? bleepforge::StrikeSynth::Mode::Mono : bleepforge::StrikeSynth::Mode::Poly);
+    bleep.setMode (patch.mono ? bleepwerk::BleepSynth::Mode::Mono : bleepwerk::BleepSynth::Mode::Poly);
+    strike.setMode (patch.mono ? bleepwerk::StrikeSynth::Mode::Mono : bleepwerk::StrikeSynth::Mode::Poly);
     bleep.setGlideMs (patch.glideMs);
     strike.setGlideMs (patch.glideMs);
     bleep.setChaos (patch.chaos);
@@ -261,35 +253,35 @@ void BleepForgeProcessor::readParams()
     Engines { *this }.pitchBend (noteInput.currentBend());
 }
 
-void BleepForgeProcessor::Engines::noteOn (int note, float velocity)
+void BleepWerkProcessor::Engines::noteOn (int note, float velocity)
 {
     switch (p.patch.engine)
     {
-        case bleepforge::Engine::Bleep: p.bleep.noteOn (note, velocity); break;
-        case bleepforge::Engine::Strike: p.strike.noteOn (note, velocity); break;
+        case bleepwerk::Engine::Bleep: p.bleep.noteOn (note, velocity); break;
+        case bleepwerk::Engine::Strike: p.strike.noteOn (note, velocity); break;
     }
 }
 
-void BleepForgeProcessor::Engines::noteOff (int note)
+void BleepWerkProcessor::Engines::noteOff (int note)
 {
     p.bleep.noteOff (note);
     p.strike.noteOff (note);
 }
 
-void BleepForgeProcessor::Engines::pitchBend (float amount)
+void BleepWerkProcessor::Engines::pitchBend (float amount)
 {
     const float semis = amount * p.apvts.getRawParameterValue ("bendRange")->load();
     p.bleep.setPitchBend (semis);
     p.strike.setPitchBend (semis);
 }
 
-void BleepForgeProcessor::allNotesOff()
+void BleepWerkProcessor::allNotesOff()
 {
     bleep.allNotesOff();
     strike.allNotesOff();
 }
 
-void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+void BleepWerkProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
     readParams();
@@ -343,13 +335,13 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         patternBank.select (slot);
     }
 
-    bleepforge::SequencerSettings settings;
+    bleepwerk::SequencerSettings settings;
     settings.enabled = wanted;
     settings.rootNote = numHeldKeys > 0 ? heldKeys[(size_t) numHeldKeys - 1] : (int) apvts.getRawParameterValue ("seqRoot")->load();
-    for (int layer = 0; layer < bleepforge::kNumPatternSlots; ++layer)
+    for (int layer = 0; layer < bleepwerk::kNumPatternSlots; ++layer)
     {
         // a layer that doesn't play is run as stopped, which lets go of its note
-        bleepforge::SequencerSettings layerSettings = settings;
+        bleepwerk::SequencerSettings layerSettings = settings;
         layerSettings.enabled = wanted && patternBank.isPlaying (layer);
         if (layerSettings.enabled || layers[(size_t) layer].getCurrentStep() >= 0)
             layers[(size_t) layer].process (layerSettings.enabled, ppq, hostBpm, getSampleRate(), numSamples, layerSettings,
@@ -415,7 +407,7 @@ void BleepForgeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
 // While bypassed the host's note-offs don't reach the engines, so every note is let go and
 // nothing hangs once the plug-in plays again. The effects' tails are cut, as a bypass expects.
-void BleepForgeProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+void BleepWerkProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     buffer.clear();
     noteInput.reset();
@@ -427,7 +419,7 @@ void BleepForgeProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer
 }
 
 // The delay's synced time follows the host's tempo, kept from the last block that had one.
-void BleepForgeProcessor::readTempo()
+void BleepWerkProcessor::readTempo()
 {
     if (auto* hostPlayHead = getPlayHead())
         if (auto position = hostPlayHead->getPosition())
@@ -437,7 +429,7 @@ void BleepForgeProcessor::readTempo()
 
 // The host's position in quarter notes and whether it plays; false when it has none (a plain
 // player), where the sequencer stays silent.
-bool BleepForgeProcessor::readTransport (double& ppq, bool& playing)
+bool BleepWerkProcessor::readTransport (double& ppq, bool& playing)
 {
     if (auto* hostPlayHead = getPlayHead())
         if (auto position = hostPlayHead->getPosition())
@@ -450,19 +442,19 @@ bool BleepForgeProcessor::readTransport (double& ppq, bool& playing)
     return false;
 }
 
-juce::File BleepForgeProcessor::patternFolder()
+juce::File BleepWerkProcessor::patternFolder()
 {
-    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("BleepForge/Patterns");
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("BleepWerk/Patterns");
 }
 
-juce::AudioProcessorEditor* BleepForgeProcessor::createEditor()
+juce::AudioProcessorEditor* BleepWerkProcessor::createEditor()
 {
-    return new BleepForgeEditor (*this);
+    return new BleepWerkEditor (*this);
 }
 
 // The preset name and other non-parameter data are stored with the APVTS state, so one XML
 // blob holds the whole project.
-void BleepForgeProcessor::getStateInformation (juce::MemoryBlock& destData)
+void BleepWerkProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     state.setProperty ("stateVersion", kStateVersion, nullptr);
@@ -473,9 +465,9 @@ void BleepForgeProcessor::getStateInformation (juce::MemoryBlock& destData)
         copyXmlToBinary (*xml, destData);
 }
 
-void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes)
+void BleepWerkProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    if (! bleepforge::files::isPlausibleXml (data, (size_t) juce::jmax (0, sizeInBytes)))
+    if (! bleepwerk::files::isPlausibleXml (data, (size_t) juce::jmax (0, sizeInBytes)))
         return;
 
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
@@ -491,7 +483,7 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
             // the patterns are saved as properties of the tree, and added again on saving
             for (auto id : { "stateVersion", "presetName", "presetIndex", "patternPlaying", "patternEdited" })
                 state.removeProperty (id, nullptr);
-            for (int i = 0; i < bleepforge::kNumPatternSlots; ++i)
+            for (int i = 0; i < bleepwerk::kNumPatternSlots; ++i)
                 for (auto prefix : { "pattern", "patternName", "patternGroove" })
                     state.removeProperty (juce::String (prefix) + juce::String::charToString ((juce::juce_wchar) ('A' + i)), nullptr);
             // A value that is not a number (a damaged project) loads as the parameter's default,
@@ -513,15 +505,15 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
                     auto child = state.getChild (i);
                     const auto id = child.getProperty ("id").toString();
                     if (id == "strikeExciter")
-                        child.setProperty ("value", (float) bleepforge::migrateStrikeExciter (juce::roundToInt ((float) child.getProperty ("value"))), nullptr);
+                        child.setProperty ("value", (float) bleepwerk::migrateStrikeExciter (juce::roundToInt ((float) child.getProperty ("value"))), nullptr);
                     else if (id == "strikeBody")
-                        child.setProperty ("value", (float) bleepforge::migrateStrikeBody (juce::roundToInt ((float) child.getProperty ("value"))), nullptr);
+                        child.setProperty ("value", (float) bleepwerk::migrateStrikeBody (juce::roundToInt ((float) child.getProperty ("value"))), nullptr);
                 }
             // before version 3 the delay time was one list; it becomes a time and a feel
             if (auto old = state.getChildWithProperty ("id", "delayTime"); old.isValid())
             {
                 int note = 0, feel = 0;
-                bleepforge::splitOldDelayTime (juce::roundToInt ((float) old.getProperty ("value")), note, feel);
+                bleepwerk::splitOldDelayTime (juce::roundToInt ((float) old.getProperty ("value")), note, feel);
                 for (auto [id, value] : { std::pair { "delayNote", note }, std::pair { "delayFeel", feel } })
                 {
                     juce::ValueTree param ("PARAM");
@@ -544,5 +536,5 @@ void BleepForgeProcessor::setStateInformation (const void* data, int sizeInBytes
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new BleepForgeProcessor();
+    return new BleepWerkProcessor();
 }

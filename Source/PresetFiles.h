@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -6,7 +6,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 // File and parameter helpers for the presets. (From SubForge, same author and licence.)
-namespace bleepforge::files
+namespace bleepwerk::files
 {
 
 // The user's files with the given extension in a folder, sorted by name.
@@ -42,6 +42,46 @@ inline std::unique_ptr<juce::XmlElement> parseXmlFile (const juce::File& file)
     if (file.getSize() > (juce::int64) kMaxXmlBytes || ! file.loadFileAsData (data) || ! isPlausibleXml (data.getData(), data.getSize()))
         return nullptr;
     return juce::parseXML (juce::String::createStringFromData (data.getData(), (int) data.getSize()));
+}
+
+// Per-user preferences, not per project (the colour theme): ~/.config/<name>/<name>.settings on
+// Linux. (From SubForge.)
+inline juce::PropertiesFile::Options settingsOptions (const juce::String& name)
+{
+    juce::PropertiesFile::Options options;
+    options.applicationName = name;
+   #if JUCE_LINUX
+    options.folderName = ".config/" + name; // JUCE puts Linux settings straight under ~ otherwise
+   #else
+    options.folderName = name;
+   #endif
+    options.filenameSuffix = "settings";
+    options.osxLibrarySubFolder = "Application Support";
+    return options;
+}
+
+// The plug-in was called BleepForge before its release. These are the folders it then used
+// (the only place the old name is kept), copied once to the new name so the user's own presets,
+// patterns and theme follow.
+inline const char* legacyName() { return "BleepForge"; }
+inline juce::File documentsFolder (const juce::String& name)
+{
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile (name);
+}
+inline juce::File settingsFile (const juce::String& name) { return settingsOptions (name).getDefaultFile(); }
+
+// Copies a folder under the old name to the new one if the new one does not exist yet; never
+// touches the old one or overwrites anything. Message thread only (file I/O).
+inline void migrateLegacyUserData (const juce::String& newName)
+{
+    const auto oldDocs = documentsFolder (legacyName()), newDocs = documentsFolder (newName);
+    if (oldDocs.isDirectory() && ! newDocs.exists())
+        oldDocs.copyDirectoryTo (newDocs);
+
+    const auto oldSettings = settingsFile (legacyName()), newSettings = settingsFile (newName);
+    const auto oldFolder = oldSettings.getParentDirectory(), newFolder = newSettings.getParentDirectory();
+    if (oldSettings.existsAsFile() && ! newFolder.exists() && oldFolder.copyDirectoryTo (newFolder))
+        newFolder.getChildFile (oldSettings.getFileName()).moveFileTo (newSettings);
 }
 
 // Sets a parameter as one host-visible gesture.
@@ -97,4 +137,4 @@ inline bool moveToTrash (const juce::File& file)
     return file.moveToTrash();
 }
 
-} // namespace bleepforge::files
+} // namespace bleepwerk::files

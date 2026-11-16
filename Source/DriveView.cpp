@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "DriveView.h"
@@ -9,7 +9,7 @@ namespace
 constexpr int kPadding = 10, kTitleHeight = 12, kChoiceWidth = 72, kPlaceWidth = 88, kKnobWidth = 72;
 } // namespace
 
-DriveView::DriveView (BleepForgeProcessor& p)
+DriveView::DriveView (BleepWerkProcessor& p)
     : type (p.apvts, "driveType", "Type"),
       place (p.apvts, "drivePost", "", true, { "Pre filter", "Post reverb" }),
       amount (p.apvts, "driveAmount", "Drive"),
@@ -36,7 +36,7 @@ void DriveView::timerCallback()
 
 void DriveView::paint (juce::Graphics& g)
 {
-    using namespace bleepforge;
+    using namespace bleepwerk;
     const auto area = getLocalBounds().toFloat();
     theme::paintPanel (g, area);
 

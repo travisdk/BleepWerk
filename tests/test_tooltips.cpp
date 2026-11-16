@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Every control tied to a parameter has a hover text: each sound parameter has one, and so do the
@@ -9,7 +9,7 @@
 
 #include <cstring>
 
-using namespace bleepforge;
+using namespace bleepwerk;
 
 static void everySoundParameterHasATooltip()
 {

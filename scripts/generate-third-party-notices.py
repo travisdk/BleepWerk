@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+# Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 # SPDX-License-Identifier: AGPL-3.0-only
 
 """Builds THIRD-PARTY-NOTICES.txt from the licence files that ship with the
@@ -20,15 +20,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 HOME = Path.home()
 
-HEADER = """BleepForge – Third-party notices
+HEADER = """BleepWerk – Third-party notices
 © 2026 Henrik Juhl
 
-BleepForge is free software under the GNU Affero General Public License v3
-(see the LICENSE file). Source code: https://github.com/travisdk/BleepForge
+BleepWerk is free software under the GNU Affero General Public License v3
+(see the LICENSE file). Source code: https://github.com/travisdk/BleepWerk
 Built with JUCE, used under the AGPLv3.
 VST is a registered trademark of Steinberg Media Technologies GmbH.
 
-BleepForge includes the third-party components listed below. Each section
+BleepWerk includes the third-party components listed below. Each section
 reproduces the component's licence text exactly as it appears in the
 component's own licence file.
 """

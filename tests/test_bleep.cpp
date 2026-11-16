@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // The Bleep engine: pitch, pitch bend, envelopes ending by themselves, no DC or onset clicks,
@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <vector>
 
-using namespace bleepforge;
+using namespace bleepwerk;
 
 constexpr double fs = 48000.0;
 

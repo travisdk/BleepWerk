@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "EffectsView.h"
@@ -9,7 +9,7 @@ namespace
 constexpr int kPadding = 10, kTitleHeight = 12, kChoiceWidth = 72, kFeelWidth = 36, kGroupGap = 11;
 } // namespace
 
-EffectsView::EffectsView (BleepForgeProcessor& p)
+EffectsView::EffectsView (BleepWerkProcessor& p)
     : processor (p),
       filterType (p.apvts, "filterType", "Type"),
       cutoff (p.apvts, "filterCutoff", "Cutoff"),
@@ -43,14 +43,14 @@ EffectsView::~EffectsView()
 void EffectsView::timerCallback()
 {
     delayFeel.update();
-    const bool filterOn = (int) processor.apvts.getRawParameterValue ("filterType")->load() != (int) bleepforge::FilterType::Off;
+    const bool filterOn = (int) processor.apvts.getRawParameterValue ("filterType")->load() != (int) bleepwerk::FilterType::Off;
     cutoff.setActive (filterOn);
     resonance.setActive (filterOn);
 }
 
 void EffectsView::paint (juce::Graphics& g)
 {
-    using namespace bleepforge;
+    using namespace bleepwerk;
     const auto area = getLocalBounds().toFloat();
     theme::paintPanel (g, area);
 

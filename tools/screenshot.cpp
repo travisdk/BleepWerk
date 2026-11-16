@@ -1,8 +1,8 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Renders the interface of a fresh instance to a PNG, for checking the layout and for the
-// README: BleepForge_Screenshot <output.png> [scale] [strike] [seq]
+// README: BleepWerk_Screenshot <output.png> [scale] [strike] [seq]
 
 #include "MainView.h"
 #include "Theme.h"
@@ -11,14 +11,14 @@ int main (int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "usage: BleepForge_Screenshot <output.png> [scale] [strike] [seq]\n";
+        std::cerr << "usage: BleepWerk_Screenshot <output.png> [scale] [strike] [seq]\n";
         return 1;
     }
 
     const juce::ScopedJuceInitialiser_GUI gui;
     const std::unique_ptr<juce::AudioProcessor> plugin (createPluginFilter());
-    auto& processor = dynamic_cast<BleepForgeProcessor&> (*plugin);
-    bleepforge::theme::LookAndFeel lookAndFeel;
+    auto& processor = dynamic_cast<BleepWerkProcessor&> (*plugin);
+    bleepwerk::theme::LookAndFeel lookAndFeel;
     juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
     const float scale = argc > 2 ? juce::String (argv[2]).getFloatValue() : 1.0f;
     for (int i = 3; i < argc; ++i)

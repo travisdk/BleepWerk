@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -12,7 +12,7 @@
 // one (knobs, titles, probability, the root rows); the deeper one marks the other values
 // (velocity, ratchets). Both stay well clear of the dark background, which the tests check by
 // contrast ratio. JUCE-free so the tests can read it; colours are 0xRRGGBB.
-namespace bleepforge
+namespace bleepwerk
 {
 inline constexpr uint32_t kBackgroundRgb = 0x121315, kPanelRgb = 0x1c1f24, kPanelAltRgb = 0x20242c;
 
@@ -47,4 +47,4 @@ inline double contrastRatio (uint32_t a, uint32_t b)
     const double la = relativeLuminance (a), lb = relativeLuminance (b);
     return (std::max (la, lb) + 0.05) / (std::min (la, lb) + 0.05);
 }
-} // namespace bleepforge
+} // namespace bleepwerk

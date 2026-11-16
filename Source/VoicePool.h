@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -17,7 +17,7 @@
 // isReleasing(), getNote(), getLevel(), start (int note, float velocity, bool glide,
 // const Variation&), glideTo (int note), release(), setBend (float semis), and render (float* out,
 // int numSamples, const Params&, float glideCoef), which adds to out.
-namespace bleepforge
+namespace bleepwerk
 {
 // How one note differs from the patch, drawn by Chaos.
 struct Variation
@@ -263,4 +263,4 @@ private:
     std::array<int, 16> held {}; // Mono: keys held, last pressed at the end
     int numHeld = 0;
 };
-} // namespace bleepforge
+} // namespace bleepwerk

@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -7,10 +7,10 @@
 #include "Fonts.h"
 #include "Themes.h"
 
-// BleepForge's colours and the look of the standard JUCE controls it uses. The two theme
+// BleepWerk's colours and the look of the standard JUCE controls it uses. The two theme
 // shades come from the chosen colour theme (Themes.h), a per-user setting shared by every
 // instance; the rest is fixed.
-namespace bleepforge::theme
+namespace bleepwerk::theme
 {
 inline const juce::Colour background { 0xff000000 | kBackgroundRgb };
 inline const juce::Colour panel { 0xff000000 | kPanelRgb };
@@ -213,4 +213,4 @@ public:
         return label;
     }
 };
-} // namespace bleepforge::theme
+} // namespace bleepwerk::theme

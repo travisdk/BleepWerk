@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "EngineView.h"
@@ -12,7 +12,7 @@ constexpr int kPadding = 10, kLeftWidth = 280, kKnobWidth = 50, kDiameter = 47, 
 constexpr int kSelectorTop = 27, kSelectorHeight = 48; // Strike's two rows of buttons
 } // namespace
 
-EngineView::EngineView (BleepForgeProcessor& p)
+EngineView::EngineView (BleepWerkProcessor& p)
     : processor (p),
       engine (p.apvts, "engine", "Engine"),
       voices (p.apvts, "voiceMode", "Voices"),
@@ -79,15 +79,15 @@ void EngineView::timerCallback()
     body.update();
 
     // Length only shapes the sources that last or burst, and Motion those that move
-    const auto strikeExciter = (bleepforge::StrikeExciter) (int) processor.apvts.getRawParameterValue ("strikeExciter")->load();
-    strikeLength.setActive (strikeExciter != bleepforge::StrikeExciter::Knock);
-    motion.setActive (strikeExciter != bleepforge::StrikeExciter::Noise);
+    const auto strikeExciter = (bleepwerk::StrikeExciter) (int) processor.apvts.getRawParameterValue ("strikeExciter")->load();
+    strikeLength.setActive (strikeExciter != bleepwerk::StrikeExciter::Knock);
+    motion.setActive (strikeExciter != bleepwerk::StrikeExciter::Noise);
 
     // Pulse W and the FM knobs only shape their own wave; for the others they do nothing
-    const auto wave = (bleepforge::BleepWave) (int) processor.apvts.getRawParameterValue ("bleepWave")->load();
-    pulseWidth.setActive (wave == bleepforge::BleepWave::Pulse);
-    fmRatio.setActive (wave == bleepforge::BleepWave::FM);
-    fmAmount.setActive (wave == bleepforge::BleepWave::FM);
+    const auto wave = (bleepwerk::BleepWave) (int) processor.apvts.getRawParameterValue ("bleepWave")->load();
+    pulseWidth.setActive (wave == bleepwerk::BleepWave::Pulse);
+    fmRatio.setActive (wave == bleepwerk::BleepWave::FM);
+    fmAmount.setActive (wave == bleepwerk::BleepWave::FM);
     const int selected = (int) processor.apvts.getRawParameterValue ("engine")->load();
     if (selected != shownEngine)
     {
@@ -105,9 +105,9 @@ bool EngineView::isKey (const std::vector<juce::Component*>* list, size_t index)
 void EngineView::showEngine (int engineIndex)
 {
     for (auto* c : bleepControls)
-        c->setVisible (engineIndex == (int) bleepforge::Engine::Bleep);
+        c->setVisible (engineIndex == (int) bleepwerk::Engine::Bleep);
     for (auto* c : strikeControls)
-        c->setVisible (engineIndex == (int) bleepforge::Engine::Strike);
+        c->setVisible (engineIndex == (int) bleepwerk::Engine::Strike);
     repaint();
 }
 
@@ -116,7 +116,7 @@ void EngineView::showEngine (int engineIndex)
 // to save.
 void EngineView::rollSound()
 {
-    using namespace bleepforge;
+    using namespace bleepwerk;
     auto& apvts = processor.apvts;
     auto& presets = processor.getSoundPresets();
     auto value = [&apvts] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
@@ -139,7 +139,7 @@ void EngineView::rollSound()
 // One step back only: the arrow is spent once used.
 void EngineView::undoRoll()
 {
-    using namespace bleepforge;
+    using namespace bleepwerk;
     if (! beforeRoll.has_value())
         return;
     for (size_t i = 0; i < std::size (kSoundParams); ++i)
@@ -152,7 +152,7 @@ void EngineView::undoRoll()
 
 void EngineView::paint (juce::Graphics& g)
 {
-    using namespace bleepforge;
+    using namespace bleepwerk;
     const auto area = getLocalBounds().toFloat();
     theme::paintPanel (g, area);
 

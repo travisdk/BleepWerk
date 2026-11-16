@@ -1,10 +1,10 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "PatternPresets.h"
 #include "PresetFiles.h"
 
-using namespace bleepforge;
+using namespace bleepwerk;
 
 PatternPresets::PatternPresets (juce::AudioProcessorValueTreeState& s, PatternBank& b, std::function<juce::File()> folderProvider,
                                 std::function<void()> callback)
@@ -83,7 +83,7 @@ void PatternPresets::load (int index)
     if (isUser (index))
     {
         const auto xml = files::parseXmlFile (userFiles[index - kNumFactoryEntries]);
-        if (xml == nullptr || ! xml->hasTagName ("BleepForgePattern")
+        if (xml == nullptr || ! xml->hasTagName ("BleepWerkPattern")
             || ! parseCompactPattern (xml->getStringAttribute ("steps").toRawUTF8(), pattern()))
             return;
         // files from before rate and gate were stored leave the current values
@@ -140,7 +140,7 @@ bool PatternPresets::save (const juce::String& patternName)
     if (! file.getParentDirectory().createDirectory())
         return false;
 
-    juce::XmlElement xml ("BleepForgePattern");
+    juce::XmlElement xml ("BleepWerkPattern");
     xml.setAttribute ("version", 2);
     xml.setAttribute ("name", patternName.trim());
     const auto groove = pattern().groove();
@@ -214,7 +214,7 @@ juce::File PatternPresets::exportMidi (int slotIndex)
     constexpr int ticksPerQuarter = 960;
     const auto clip = patternToClip (bank.slot (slotIndex), (int) state.getRawParameterValue ("seqRoot")->load());
 
-    const auto name = "BleepForge " + juce::String::charToString ((juce::juce_wchar) ('A' + slotIndex)) + " - "
+    const auto name = "BleepWerk " + juce::String::charToString ((juce::juce_wchar) ('A' + slotIndex)) + " - "
                       + slots[(size_t) slotIndex].name.trimCharactersAtEnd (" *");
     juce::MidiMessageSequence sequence;
     sequence.addEvent (juce::MidiMessage::textMetaEvent (3, name)); // track name

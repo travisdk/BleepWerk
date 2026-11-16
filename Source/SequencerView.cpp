@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "SequencerView.h"
@@ -6,7 +6,7 @@
 #include "Theme.h"
 #include "Fonts.h"
 
-using namespace bleepforge;
+using namespace bleepwerk;
 
 namespace
 {
@@ -20,7 +20,7 @@ constexpr int kPixelsPerSemitone = 4;
 class SequencerView::StepGrid : public juce::Component
 {
 public:
-    explicit StepGrid (BleepForgeProcessor& p) : processor (p) { setWantsKeyboardFocus (false); }
+    explicit StepGrid (BleepWerkProcessor& p) : processor (p) { setWantsKeyboardFocus (false); }
 
     void setPlayhead (int step)
     {
@@ -222,7 +222,7 @@ private:
         repaint();
     }
 
-    BleepForgeProcessor& processor;
+    BleepWerkProcessor& processor;
     int playhead = -1, dragStep = -1, dragStartNote = 0;
     Row dragRow = Row::None;
     bool dragged = false;
@@ -334,7 +334,7 @@ struct SequencerView::PlayDot : juce::Button
 };
 
 //==============================================================================
-SequencerView::SequencerView (BleepForgeProcessor& p)
+SequencerView::SequencerView (BleepWerkProcessor& p)
     : processor (p), root (p.apvts, "seqRoot", "Root")
 {
     auto& bank = processor.getPatternBank();
@@ -541,7 +541,7 @@ void SequencerView::showPatternMenu()
         menu.addItem ("Delete \"" + presets.entryName (entry) + "\"", [this, entry] { if (onDelete) onDelete (entry); });
     menu.addItem ("Open pattern folder", []
                   {
-                      auto folder = BleepForgeProcessor::patternFolder();
+                      auto folder = BleepWerkProcessor::patternFolder();
                       folder.createDirectory();
                       files::openFolder (folder);
                   });

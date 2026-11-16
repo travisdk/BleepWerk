@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // The sound dice: every value names a sound parameter of the right engine and sits in its
@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <cstring>
 
-using namespace bleepforge;
+using namespace bleepwerk;
 
 static Patch patchFor (const std::vector<PresetValue>& values, Engine engine)
 {

@@ -1,11 +1,11 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "SoundPresets.h"
 #include "StrikeSynth.h"
 #include "PresetFiles.h"
 
-using namespace bleepforge;
+using namespace bleepwerk;
 
 SoundPresets::SoundPresets (juce::AudioProcessorValueTreeState& s)
     : state (s), matchedGains (factoryPresets().size())
@@ -29,7 +29,7 @@ juce::String SoundPresets::entryCategory (int index) const
 
 juce::File SoundPresets::folder()
 {
-    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("BleepForge/Presets");
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("BleepWerk/Presets");
 }
 
 bool SoundPresets::exists (const juce::String& presetName) const
@@ -60,7 +60,7 @@ bool SoundPresets::save (const juce::String& presetName)
     if (! file.getParentDirectory().createDirectory())
         return false;
 
-    juce::XmlElement xml ("BleepForgePreset");
+    juce::XmlElement xml ("BleepWerkPreset");
     xml.setAttribute ("version", kFileVersion);
     xml.setAttribute ("name", presetName.trim());
     for (auto* p : state.processor.getParameters())
@@ -87,7 +87,7 @@ bool SoundPresets::save (const juce::String& presetName)
 bool SoundPresets::loadFile (const juce::File& file)
 {
     const auto xml = files::parseXmlFile (file);
-    if (xml == nullptr || ! xml->hasTagName ("BleepForgePreset"))
+    if (xml == nullptr || ! xml->hasTagName ("BleepWerkPreset"))
         return false;
 
     // files saved before 0.11 have one delay time list instead of a time and a feel; files
@@ -95,7 +95,7 @@ bool SoundPresets::loadFile (const juce::File& file)
     const bool oldStrikeChoices = xml->getIntAttribute ("version", 1) < 2;
     int oldDelayNote = -1, oldDelayFeel = -1;
     if (auto* old = xml->getChildByAttribute ("id", "delayTime"); old != nullptr && ! std::isnan (old->getDoubleAttribute ("value")))
-        bleepforge::splitOldDelayTime (juce::roundToInt (old->getDoubleAttribute ("value")), oldDelayNote, oldDelayFeel);
+        bleepwerk::splitOldDelayTime (juce::roundToInt (old->getDoubleAttribute ("value")), oldDelayNote, oldDelayFeel);
 
     for (auto* p : state.processor.getParameters())
         if (auto* param = dynamic_cast<juce::RangedAudioParameter*> (p); param != nullptr && isSoundParameter (param->paramID))
@@ -111,9 +111,9 @@ bool SoundPresets::loadFile (const juce::File& file)
             else if (oldDelayFeel >= 0 && param->paramID == "delayFeel")
                 value = (float) oldDelayFeel;
             if (oldStrikeChoices && param->paramID == "strikeExciter")
-                value = (float) bleepforge::migrateStrikeExciter (juce::roundToInt (value));
+                value = (float) bleepwerk::migrateStrikeExciter (juce::roundToInt (value));
             else if (oldStrikeChoices && param->paramID == "strikeBody")
-                value = (float) bleepforge::migrateStrikeBody (juce::roundToInt (value));
+                value = (float) bleepwerk::migrateStrikeBody (juce::roundToInt (value));
             files::setParameterValue (*param, value);
         }
     return true;

@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -23,7 +23,7 @@
 // polymeter). A pattern's Drift moves it on a few steps every time it has played through, so a
 // sparse line slowly shifts against the beat, and Vary makes its length change from one pass to
 // the next, so it never settles. JUCE-free so it can be tested on its own.
-namespace bleepforge
+namespace bleepwerk
 {
 
 constexpr int kMaxSteps = 16;
@@ -523,4 +523,4 @@ inline PatternClip patternToClip (const Pattern& pattern, int rootNote)
     return clip;
 }
 
-} // namespace bleepforge
+} // namespace bleepwerk

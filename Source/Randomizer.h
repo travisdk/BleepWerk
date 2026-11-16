@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -16,7 +16,7 @@
 // draws from ranges that suit short percussive tones, with the effects off more often than
 // on. Runs on the message thread; the generator is our own so a seed gives the same result on
 // every platform (the tests rely on it). JUCE-free.
-namespace bleepforge
+namespace bleepwerk
 {
 // xorshift64*: small, fast and the same everywhere, unlike std::uniform_*_distribution.
 class DiceRng
@@ -170,4 +170,4 @@ std::vector<PresetValue> randomMatchedSound (Engine engine, DiceRng& rng, Get&& 
     }
     return values;
 }
-} // namespace bleepforge
+} // namespace bleepwerk
