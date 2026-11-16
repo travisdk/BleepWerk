@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // The factory presets: every value names a real sound parameter and sits in its range, names
@@ -12,7 +12,7 @@
 #include <set>
 #include <string>
 
-using namespace bleepforge;
+using namespace bleepwerk;
 
 static Patch patchFor (const FactoryPreset& preset)
 {

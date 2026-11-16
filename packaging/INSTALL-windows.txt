@@ -1,13 +1,13 @@
-BleepForge – installation on Windows
+BleepWerk – installation on Windows
 ====================================
 
-The archive contains BleepForge in two plug-in formats, CLAP and VST®3.
+The archive contains BleepWerk in two plug-in formats, CLAP and VST®3.
 Install the one your DAW uses, or both.
 
 For your user only (no administrator rights needed):
 
-    CLAP:  copy BleepForge.clap to   %LOCALAPPDATA%\Programs\Common\CLAP\
-    VST3:  copy the BleepForge.vst3 folder to   %LOCALAPPDATA%\Programs\Common\VST3\
+    CLAP:  copy BleepWerk.clap to   %LOCALAPPDATA%\Programs\Common\CLAP\
+    VST3:  copy the BleepWerk.vst3 folder to   %LOCALAPPDATA%\Programs\Common\VST3\
 
 For all users (needs administrator rights):
 
@@ -15,18 +15,18 @@ For all users (needs administrator rights):
     VST3:  C:\Program Files\Common Files\VST3\
 
 Create the folder if it does not exist, then restart your DAW or rescan
-plug-ins. BleepForge appears as an instrument.
+plug-ins. BleepWerk appears as an instrument.
 
-If the BleepForge window looks blurry, is the wrong size or is cut off when
+If the BleepWerk window looks blurry, is the wrong size or is cut off when
 Windows display scaling is above 100 %, your DAW is probably stretching the
-plug-in window. BleepForge scales itself, so turn that DAW setting off for
-BleepForge. In Ableton Live: right-click BleepForge in the browser and untick
+plug-in window. BleepWerk scales itself, so turn that DAW setting off for
+BleepWerk. In Ableton Live: right-click BleepWerk in the browser and untick
 "Auto-Scale Plug-in Window", then reopen the plug-in.
 
-BleepForge is free software: you can redistribute it and/or modify it under
+BleepWerk is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License, version 3 (LICENSE.txt).
 It comes with no warranty. Source code and releases:
-https://github.com/travisdk/BleepForge
+https://github.com/travisdk/BleepWerk
 
 Third-party licences are listed in THIRD-PARTY-NOTICES.txt.
 

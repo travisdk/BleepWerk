@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -16,7 +16,7 @@
 // check the factory presets against it. readPatch() turns parameter values into the engines'
 // settings, for the plug-in and for rendering a patch offline (tests, loudness matching).
 // JUCE-free.
-namespace bleepforge
+namespace bleepwerk
 {
 enum class Engine { Bleep, Strike };
 inline constexpr const char* kEngineNames[] = { "Bleep", "Strike" };
@@ -280,4 +280,4 @@ inline float matchedOutputDb (const Patch& patch)
     const float gain = std::min (kTargetLoudness / level.loudest, kMaxPeak / level.peak);
     return std::clamp (20.0f * std::log10 (gain), -24.0f, 12.0f);
 }
-} // namespace bleepforge
+} // namespace bleepwerk

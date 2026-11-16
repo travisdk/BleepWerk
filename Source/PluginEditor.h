@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -10,11 +10,11 @@
 
 // Hosts MainView and scales it as a whole between 75 % and 200 % of its design size, keeping
 // the aspect ratio while the resize corner is dragged.
-class BleepForgeEditor : public juce::AudioProcessorEditor
+class BleepWerkEditor : public juce::AudioProcessorEditor
 {
 public:
-    explicit BleepForgeEditor (BleepForgeProcessor&);
-    ~BleepForgeEditor() override;
+    explicit BleepWerkEditor (BleepWerkProcessor&);
+    ~BleepWerkEditor() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -23,8 +23,8 @@ public:
 private:
     void applyDesignSize (float scale);
 
-    BleepForgeProcessor& processor;
-    bleepforge::theme::LookAndFeel lookAndFeel;
+    BleepWerkProcessor& processor;
+    bleepwerk::theme::LookAndFeel lookAndFeel;
     MainView view;
     // The window for the controls' tooltips. Off in the settings, it shows nothing.
     struct TipWindow : juce::TooltipWindow
@@ -39,5 +39,5 @@ private:
     };
     TipWindow tooltips { this, 600, [this] { return processor.getSettings().getBoolValue ("tooltips", true); } };
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BleepForgeEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BleepWerkEditor)
 };

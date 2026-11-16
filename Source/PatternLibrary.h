@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -9,7 +9,7 @@
 
 // Factory sequencer patterns: original lines for melodic percussion in hypnotic and minimal
 // techno (not transcriptions of existing records).
-namespace bleepforge
+namespace bleepwerk
 {
 
 struct FactoryPattern
@@ -230,4 +230,4 @@ inline constexpr int kNumFactorySets = (int) (sizeof (kFactorySets) / sizeof (kF
 // the browser lists the single patterns first, then the sets, then the user's files
 inline constexpr int kNumFactoryEntries = kNumFactoryPatterns + kNumFactorySets;
 
-} // namespace bleepforge
+} // namespace bleepwerk

@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -12,7 +12,7 @@
 // The Bleep engine: one oscillator (sine, saw, pulse with variable width, or 2-operator
 // FM) with a fast pitch envelope, a short amp envelope and a noise blend. BleepSynth plays
 // them through a VoicePool (Mono or Poly). JUCE-free.
-namespace bleepforge
+namespace bleepwerk
 {
 // Saw took Triangle's place (index 1), which sounded too close to the sine to tell apart, so
 // older projects and presets that chose Triangle now get Saw.
@@ -185,4 +185,4 @@ private:
 };
 
 using BleepSynth = VoicePool<BleepVoice, BleepParams>;
-} // namespace bleepforge
+} // namespace bleepwerk

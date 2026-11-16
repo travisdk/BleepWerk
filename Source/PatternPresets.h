@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -18,14 +18,14 @@ class PatternPresets
 public:
     static constexpr const char* kExtension = ".bfpattern";
 
-    PatternPresets (juce::AudioProcessorValueTreeState&, bleepforge::PatternBank&, std::function<juce::File()> folderProvider,
+    PatternPresets (juce::AudioProcessorValueTreeState&, bleepwerk::PatternBank&, std::function<juce::File()> folderProvider,
                     std::function<void()> onChange);
 
     // browser: factory entries first, then user files
-    int numEntries() const { return bleepforge::kNumFactoryEntries + userFiles.size(); }
+    int numEntries() const { return bleepwerk::kNumFactoryEntries + userFiles.size(); }
     juce::String entryName (int index) const;
-    bool isUser (int index) const { return index >= bleepforge::kNumFactoryEntries && index < numEntries(); }
-    bool isSet (int index) const { return index >= bleepforge::kNumFactoryPatterns && index < bleepforge::kNumFactoryEntries; }
+    bool isUser (int index) const { return index >= bleepwerk::kNumFactoryEntries && index < numEntries(); }
+    bool isSet (int index) const { return index >= bleepwerk::kNumFactoryPatterns && index < bleepwerk::kNumFactoryEntries; }
     int current() const { return slot().entry; }
     juce::String name() const { return slot().name; }
     juce::String slotName (int slotIndex) const { return slots[(size_t) slotIndex].name; }
@@ -36,7 +36,7 @@ public:
     void markEdited(); // a step was changed in the grid
     void copySlot (int from, int to);
 
-    // A slot as a one-pass MIDI clip, "BleepForge B - Lonely Pulse.mid" in the MIDI
+    // A slot as a one-pass MIDI clip, "BleepWerk B - Lonely Pulse.mid" in the MIDI
     // folder (next to the pattern folder), replacing an earlier export of the same
     // name. Returns the file, or a default File if it could not be written.
     juce::File exportMidi (int slotIndex);
@@ -56,7 +56,7 @@ private:
     // groove settings read from a file or text; missing ones leave the slot's value
     struct LoadedGroove
     {
-        int length = bleepforge::kMaxSteps;
+        int length = bleepwerk::kMaxSteps;
         float swing = 0.5f;
         int rateIndex = -1;  // -1: leave the current rate
         float gate = -1.0f;  // < 0: leave the current gate
@@ -73,21 +73,21 @@ private:
 
     Slot& slot() { return slots[(size_t) bank.active()]; }
     const Slot& slot() const { return slots[(size_t) bank.active()]; }
-    bleepforge::Pattern& pattern() { return bank.activePattern(); }
-    const bleepforge::Pattern& pattern() const { return bank.activePattern(); }
+    bleepwerk::Pattern& pattern() { return bank.activePattern(); }
+    const bleepwerk::Pattern& pattern() const { return bank.activePattern(); }
     int entryNamed (const juce::String& wanted) const;
-    void applyGroove (bleepforge::Pattern&, const LoadedGroove&);
+    void applyGroove (bleepwerk::Pattern&, const LoadedGroove&);
     void loadSet (int setIndex);
     static int rateIndexFor (const juce::String& rateName);
     void changed() { onChange(); }
 
     juce::AudioProcessorValueTreeState& state;
-    bleepforge::PatternBank& bank;
+    bleepwerk::PatternBank& bank;
     std::function<juce::File()> getFolder;
     std::function<void()> onChange;
 
     juce::Array<juce::File> userFiles;
-    std::array<Slot, bleepforge::kNumPatternSlots> slots;
+    std::array<Slot, bleepwerk::kNumPatternSlots> slots;
     int randomCount = 0;
     std::mt19937 rng { std::random_device {}() };
 };

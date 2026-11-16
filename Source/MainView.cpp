@@ -1,21 +1,21 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "MainView.h"
 #include "PresetFiles.h"
 #include "Theme.h"
-#include "BleepForgeVersion.h"
+#include "BleepWerkVersion.h"
 
 namespace
 {
 constexpr int kMargin = 16, kHeaderHeight = 40, kEngineHeight = 212, kChaosHeight = 128, kGap = 10, kChaosWidth = 420;
 } // namespace
 
-MainView::MainView (BleepForgeProcessor& p)
+MainView::MainView (BleepWerkProcessor& p)
     : processor (p), engineView (p), chaosView (p), driveView (p), effectsView (p), sequencerView (p)
 {
     setSize (kWidth, kHeight);
-    using namespace bleepforge;
+    using namespace bleepwerk;
 
     // header: settings and the sound preset browser
     settingsButton.setTooltip ("Settings");
@@ -42,14 +42,14 @@ MainView::MainView (BleepForgeProcessor& p)
         addAndMakeVisible (*button);
 
     // the sequencer: this button folds the panel out below the effects and switches the
-    // sequencer on; folded in, BleepForge is as it is without one
+    // sequencer on; folded in, BleepWerk is as it is without one
     sequencerButton.setTooltip ("Show the step sequencer, which plays against the host's transport. Hidden, it is off.");
     sequencerButton.setClickingTogglesState (false);
-    sequencerButton.setColour (juce::TextButton::textColourOnId, bleepforge::theme::primary());
+    sequencerButton.setColour (juce::TextButton::textColourOnId, bleepwerk::theme::primary());
     sequencerButton.onClick = [this]
     {
         if (auto* param = processor.apvts.getParameter ("seqEnabled"))
-            bleepforge::files::setParameterValue (*param, sequencerShown ? 0.0f : 1.0f);
+            bleepwerk::files::setParameterValue (*param, sequencerShown ? 0.0f : 1.0f);
         refreshSequencer();
     };
     addAndMakeVisible (sequencerButton);
@@ -59,7 +59,7 @@ MainView::MainView (BleepForgeProcessor& p)
         auto& patterns = processor.getPatternPresets();
         const auto suggestion = patterns.isUser (patterns.current()) ? patterns.name().trimCharactersAtEnd (" *")
                                                                       : "My " + patterns.name().trimCharactersAtEnd (" *");
-        showNameDialog ("Save pattern", "Saved to " + BleepForgeProcessor::patternFolder().getFullPathName(), suggestion,
+        showNameDialog ("Save pattern", "Saved to " + BleepWerkProcessor::patternFolder().getFullPathName(), suggestion,
                         [this] (const juce::String& name) { savePattern (name); });
     };
     sequencerView.onDelete = [this] (int entry)
@@ -107,15 +107,15 @@ void MainView::refreshSequencer()
         onDesignSizeChanged();
 }
 
-// For every open BleepForge editor of this process, and saved for the next ones.
+// For every open BleepWerk editor of this process, and saved for the next ones.
 void MainView::chooseTheme (int index)
 {
-    bleepforge::theme::currentIndex() = index;
-    processor.getSettings().setValue ("theme", bleepforge::kThemes[(size_t) index].name);
+    bleepwerk::theme::currentIndex() = index;
+    processor.getSettings().setValue ("theme", bleepwerk::kThemes[(size_t) index].name);
     processor.getSettings().saveIfNeeded();
     if (auto* editor = findParentComponentOfClass<juce::AudioProcessorEditor>())
     {
-        if (auto* look = dynamic_cast<bleepforge::theme::LookAndFeel*> (&editor->getLookAndFeel()))
+        if (auto* look = dynamic_cast<bleepwerk::theme::LookAndFeel*> (&editor->getLookAndFeel()))
             look->applyTheme();
         editor->sendLookAndFeelChange();
         editor->repaint();
@@ -128,11 +128,11 @@ void MainView::showSettingsMenu()
 
     // each theme in its bright shade
     menu.addSectionHeader ("Colour");
-    for (int i = 0; i < bleepforge::kNumThemes; ++i)
+    for (int i = 0; i < bleepwerk::kNumThemes; ++i)
     {
-        juce::PopupMenu::Item item (bleepforge::kThemes[i].name);
-        item.colour = juce::Colour (0xff000000 | bleepforge::kThemes[i].primary);
-        item.isTicked = i == bleepforge::theme::currentIndex();
+        juce::PopupMenu::Item item (bleepwerk::kThemes[i].name);
+        item.colour = juce::Colour (0xff000000 | bleepwerk::kThemes[i].primary);
+        item.isTicked = i == bleepwerk::theme::currentIndex();
         item.action = [this, i] { chooseTheme (i); };
         menu.addItem (item);
     }
@@ -154,7 +154,7 @@ void MainView::showSettingsMenu()
                   {
                       auto folder = SoundPresets::folder();
                       folder.createDirectory();
-                      bleepforge::files::openFolder (folder);
+                      bleepwerk::files::openFolder (folder);
                   });
     menu.addItem ("Rescan presets", [&presets] { presets.rescan(); });
     menu.addItem ("Delete \"" + (onUserPreset ? presets.entryName (entry) : juce::String ("user preset")) + "\"", onUserPreset, false,
@@ -240,7 +240,7 @@ void MainView::savePattern (const juce::String& name)
     auto save = [this, name]
     {
         if (! processor.getPatternPresets().save (name))
-            confirm ("Could not save", "Writing to " + BleepForgeProcessor::patternFolder().getFullPathName() + " failed.", "OK", {});
+            confirm ("Could not save", "Writing to " + BleepWerkProcessor::patternFolder().getFullPathName() + " failed.", "OK", {});
     };
 
     if (processor.getPatternPresets().exists (name))
@@ -296,7 +296,7 @@ void MainView::confirm (const juce::String& title, const juce::String& message, 
 
 void MainView::GearButton::paintButton (juce::Graphics& g, bool highlighted, bool down)
 {
-    using namespace bleepforge;
+    using namespace bleepwerk;
     const auto area = getLocalBounds().toFloat().reduced (4.0f);
     const auto centre = area.getCentre();
     const float outer = juce::jmin (area.getWidth(), area.getHeight()) * 0.5f, inner = outer * 0.72f;
@@ -332,7 +332,7 @@ juce::Rectangle<int> MainView::headerArea() const
 
 void MainView::paint (juce::Graphics& g)
 {
-    using namespace bleepforge;
+    using namespace bleepwerk;
     g.fillAll (theme::background);
 
     // the wordmark: a little square pulse, the bleep itself, then BLEEP in the theme colour and
@@ -364,13 +364,13 @@ void MainView::paint (juce::Graphics& g)
 
     g.setColour (theme::dimText);
     g.setFont (fonts::value (11.0f));
-    g.drawText (BLEEPFORGE_VERSION_STRING, header.withTrimmedLeft (textX + bleepWidth + forgeWidth + 12.0f - header.getX()).withTrimmedTop (8.0f),
+    g.drawText (BLEEPWERK_VERSION_STRING, header.withTrimmedLeft (textX + bleepWidth + forgeWidth + 12.0f - header.getX()).withTrimmedTop (8.0f),
                 juce::Justification::centredLeft);
 }
 
 void MainView::lookAndFeelChanged()
 {
-    sequencerButton.setColour (juce::TextButton::textColourOnId, bleepforge::theme::primary());
+    sequencerButton.setColour (juce::TextButton::textColourOnId, bleepwerk::theme::primary());
 }
 
 void MainView::resized()

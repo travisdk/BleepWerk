@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -10,11 +10,11 @@
 #include "PatternPresets.h"
 #include "Sequencer.h"
 
-class BleepForgeProcessor : public juce::AudioProcessor
+class BleepWerkProcessor : public juce::AudioProcessor
 {
 public:
-    BleepForgeProcessor();
-    ~BleepForgeProcessor() override = default;
+    BleepWerkProcessor();
+    ~BleepWerkProcessor() override = default;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -53,7 +53,7 @@ public:
 
     // The step sequencer: eight patterns, which of them plays, and the pattern files. The
     // sequencer plays while it is switched on and the host's transport runs.
-    bleepforge::PatternBank& getPatternBank() { return patternBank; }
+    bleepwerk::PatternBank& getPatternBank() { return patternBank; }
     PatternPresets& getPatternPresets() { return patternPresets; }
     bool isSequencerRunning() const { return sequencerRunning.load(); }
     int getSequencerStep() const { return layers[(size_t) patternBank.active()].getCurrentStep(); } // of the slot the panel shows
@@ -71,7 +71,7 @@ private:
     // three, so a note that started before an engine switch still ends.
     struct Engines
     {
-        BleepForgeProcessor& p;
+        BleepWerkProcessor& p;
         void noteOn (int note, float velocity);
         void noteOff (int note);
         void allNotesOff() { p.allNotesOff(); }
@@ -90,21 +90,21 @@ private:
 
     // Every engine renders every block, so switching lets the old one ring out; notes go to
     // the selected one.
-    bleepforge::BleepSynth bleep;
-    bleepforge::StrikeSynth strike;
-    bleepforge::Patch patch; // this block's sound parameters
+    bleepwerk::BleepSynth bleep;
+    bleepwerk::StrikeSynth strike;
+    bleepwerk::Patch patch; // this block's sound parameters
     SoundPresets soundPresets { apvts };
-    bleepforge::Effects effects;
+    bleepwerk::Effects effects;
     double hostBpm = 120.0; // for the delay's synced time, also while the host is stopped
-    bleepforge::NoteInput noteInput;
-    bleepforge::PatternBank patternBank;
-    std::array<bleepforge::SequencerEngine, bleepforge::kNumPatternSlots> layers; // one engine for each pattern that plays
-    PatternPresets patternPresets { apvts, patternBank, [] { return BleepForgeProcessor::patternFolder(); }, [this] { patternsChanged(); } };
+    bleepwerk::NoteInput noteInput;
+    bleepwerk::PatternBank patternBank;
+    std::array<bleepwerk::SequencerEngine, bleepwerk::kNumPatternSlots> layers; // one engine for each pattern that plays
+    PatternPresets patternPresets { apvts, patternBank, [] { return BleepWerkProcessor::patternFolder(); }, [this] { patternsChanged(); } };
     std::atomic<bool> sequencerRunning { false };
     std::atomic<int> lastPatternParam { 0 };
     std::array<int, 16> heldKeys {}; // keys held while the sequencer runs; the last one is the root
     int numHeldKeys = 0;
     juce::LinearSmoothedValue<float> outputGain { 1.0f };
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BleepForgeProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BleepWerkProcessor)
 };

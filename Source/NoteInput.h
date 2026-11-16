@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -14,7 +14,7 @@
 //
 // The engines object provides noteOn (int note, float velocity), noteOff (int note),
 // allNotesOff() and pitchBend (float amount), with amount -1..1 of the bend range.
-namespace bleepforge
+namespace bleepwerk
 {
 class NoteInput
 {
@@ -117,4 +117,4 @@ private:
     bool pedalDown = false;
     float bend = 0.0f; // -1..1
 };
-} // namespace bleepforge
+} // namespace bleepwerk

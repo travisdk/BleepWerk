@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "PluginEditor.h"
@@ -8,7 +8,7 @@ namespace
 constexpr float kMinScale = 0.75f, kMaxScale = 2.0f;
 } // namespace
 
-BleepForgeEditor::BleepForgeEditor (BleepForgeProcessor& p)
+BleepWerkEditor::BleepWerkEditor (BleepWerkProcessor& p)
     : AudioProcessorEditor (&p), processor (p), view (p)
 {
     // the saved theme, before the look is set: setting it tells every component to re-read
@@ -16,7 +16,7 @@ BleepForgeEditor::BleepForgeEditor (BleepForgeProcessor& p)
     // one later doesn't): the knobs' value boxes kept JUCE's default white outline and the
     // toggles the default theme.
     addAndMakeVisible (view);
-    bleepforge::theme::currentIndex() = bleepforge::theme::indexOf (p.getSettings().getValue ("theme"));
+    bleepwerk::theme::currentIndex() = bleepwerk::theme::indexOf (p.getSettings().getValue ("theme"));
     lookAndFeel.applyTheme();
     setLookAndFeel (&lookAndFeel);
 
@@ -28,7 +28,7 @@ BleepForgeEditor::BleepForgeEditor (BleepForgeProcessor& p)
 
 // The limits and the aspect ratio for the height the view has now, and the window at that
 // height and the given scale.
-void BleepForgeEditor::applyDesignSize (float scale)
+void BleepWerkEditor::applyDesignSize (float scale)
 {
     const int height = view.designHeight();
     setResizeLimits (juce::roundToInt (MainView::kWidth * kMinScale), juce::roundToInt ((float) height * kMinScale),
@@ -37,17 +37,17 @@ void BleepForgeEditor::applyDesignSize (float scale)
     setSize (juce::roundToInt ((float) MainView::kWidth * scale), juce::roundToInt ((float) height * scale));
 }
 
-BleepForgeEditor::~BleepForgeEditor()
+BleepWerkEditor::~BleepWerkEditor()
 {
     setLookAndFeel (nullptr);
 }
 
-void BleepForgeEditor::paint (juce::Graphics& g)
+void BleepWerkEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (bleepforge::theme::background);
+    g.fillAll (bleepwerk::theme::background);
 }
 
-void BleepForgeEditor::resized()
+void BleepWerkEditor::resized()
 {
     // vector drawing throughout, so a transform keeps everything sharp at any scale; a
     // host-set size with another aspect ratio leaves the view centred with margins
@@ -59,7 +59,7 @@ void BleepForgeEditor::resized()
         ((float) getHeight() - (float) height * scale) * 0.5f));
 }
 
-void BleepForgeEditor::parentHierarchyChanged()
+void BleepWerkEditor::parentHierarchyChanged()
 {
    #if JUCE_WINDOWS
     // Taken from SubForge: the CLAP wrapper (the only one that leaves wrapperType undefined)

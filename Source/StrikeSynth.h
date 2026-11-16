@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -31,7 +31,7 @@
 //   Sweep   the body starts this far below the note (above, when negative) and slides to it:
 //           a drip, a drum's fall
 // The note sets the fundamental. Chaos moves the body's modes a little on every note. JUCE-free.
-namespace bleepforge
+namespace bleepwerk
 {
 enum class StrikeExciter { Knock, Noise, Steam, Friction };
 inline constexpr const char* kStrikeExciterNames[] = { "Knock", "Noise", "Steam", "Friction" };
@@ -609,4 +609,4 @@ private:
 };
 
 using StrikeSynth = VoicePool<StrikeVoice, StrikeParams>;
-} // namespace bleepforge
+} // namespace bleepwerk

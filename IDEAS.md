@@ -21,5 +21,5 @@ is one more entry in the Type menu, with no new page or control. A few factory p
 come with it.
 
 Composite sounds (a heavy rumble that then hits something screeching) stay a job for several
-BleepForge instances on their own tracks; building layers into one sound would need an extra
+BleepWerk instances on their own tracks; building layers into one sound would need an extra
 layer in the UI.

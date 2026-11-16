@@ -1,4 +1,4 @@
-# Licensgennemgang – BleepForge
+# Licensgennemgang – BleepWerk
 
 **Dato:** 2026-10-18
 **Omfang:** DSP-algoritmer i `Source/`, der bygger på andres publicerede arbejde. Afhængigheder

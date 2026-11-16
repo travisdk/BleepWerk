@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -15,7 +15,7 @@ class EffectsView : public juce::Component, private juce::Timer
 public:
     static constexpr int kHeight = 120;
 
-    explicit EffectsView (BleepForgeProcessor&);
+    explicit EffectsView (BleepWerkProcessor&);
     ~EffectsView() override;
 
     void paint (juce::Graphics&) override;
@@ -24,7 +24,7 @@ public:
 private:
     void timerCallback() override;
 
-    BleepForgeProcessor& processor;
+    BleepWerkProcessor& processor;
     Choice filterType;
     Knob cutoff, resonance, bits, rate, delayTime, feedback, delayMix, roomSize, roomDecay, roomTone, roomMix, roomDuck;
     Toggle delayFeel; // straight, triplet or dotted, stacked beside Time

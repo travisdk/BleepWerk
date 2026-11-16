@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -11,7 +11,7 @@
 // changes from the defaults in kSoundParams; everything else, the output gain included, is
 // reset on loading. The output gain is set by matchedOutputDb() so they all play about
 // equally loud. A preset never touches the pitch bend range, a setting of the player. JUCE-free.
-namespace bleepforge
+namespace bleepwerk
 {
 struct PresetValue
 {
@@ -259,4 +259,4 @@ inline const std::vector<FactoryPreset>& factoryPresets()
     };
     return presets;
 }
-} // namespace bleepforge
+} // namespace bleepwerk

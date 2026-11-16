@@ -1,8 +1,8 @@
-# BleepForge: Project Brief (working name)
+# BleepWerk: Project Brief (working name)
 
 ## 1. Concept
 
-BleepForge is a melodic instrument plugin for hypnotic and minimal techno. It produces short, percussive, organic sounds: classic bleeps and blips plus foley-like tones (drips, metallic tinks, wooden knocks, crackles). It is played from MIDI notes: sequencing is done in the DAW.
+BleepWerk is a melodic instrument plugin for hypnotic and minimal techno. It produces short, percussive, organic sounds: classic bleeps and blips plus foley-like tones (drips, metallic tinks, wooden knocks, crackles). It is played from MIDI notes: sequencing is done in the DAW.
 
 Hypnotic techno (target since 2026-10-18) leans on long loops that drift out of phase, slow change over many bars, rolling polyrhythms and space (dub delay, room). Features are weighed against that.
 

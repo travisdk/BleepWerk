@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -14,7 +14,7 @@
 // transparent at its default (filter Off, Bits and Rate Off, mixes at 0), so a patch that
 // doesn't use them sounds as before. Buffers are sized in prepare(); the audio thread never
 // allocates. JUCE-free.
-namespace bleepforge
+namespace bleepwerk
 {
 enum class FilterType { Off, LowPass, BandPass, HighPass };
 inline constexpr const char* kFilterTypeNames[] = { "Off", "LP", "BP", "HP" };
@@ -890,4 +890,4 @@ private:
     Plate room;
     Drive drive;
 };
-} // namespace bleepforge
+} // namespace bleepwerk

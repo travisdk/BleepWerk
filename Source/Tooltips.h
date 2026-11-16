@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -8,7 +8,7 @@
 // The hover text of every control that is tied to a parameter, by parameter id. The knobs,
 // drop-downs and choice buttons look their text up here, so a new parameter needs an entry
 // here or it has no tooltip (test_tooltips checks the sound parameters have one). JUCE-free.
-namespace bleepforge::tooltips
+namespace bleepwerk::tooltips
 {
 struct Entry
 {
@@ -85,4 +85,4 @@ inline const char* forParameter (const char* id)
             return entry.text;
     return nullptr;
 }
-} // namespace bleepforge::tooltips
+} // namespace bleepwerk::tooltips

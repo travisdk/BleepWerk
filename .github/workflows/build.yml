@@ -1,7 +1,7 @@
-# Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+# Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 # SPDX-License-Identifier: AGPL-3.0-only
 
-# Builds BleepForge (CLAP + VST3) on Linux (Windows is dropped for now), runs the unit tests,
+# Builds BleepWerk (CLAP + VST3) on Linux (Windows is dropped for now), runs the unit tests,
 # checks the third-party notices and uploads the release archives.
 # Runs on GitHub only after a push; nothing here is needed for local builds.
 name: Build
@@ -72,13 +72,13 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release
           -DJUCE_DIR=_sdks/JUCE
           -DCLAP_JUCE_EXTENSIONS_DIR=_sdks/clap-juce-extensions
-          -DBLEEPFORGE_INSTALL_AFTER_BUILD=OFF
-          -DBLEEPFORGE_LTO=ON
+          -DBLEEPWERK_INSTALL_AFTER_BUILD=OFF
+          -DBLEEPWERK_LTO=ON
 
       - name: Build
         run: >
           cmake --build build --config Release --parallel
-          --target BleepForge_CLAP BleepForge_VST3 BleepForge_Tests
+          --target BleepWerk_CLAP BleepWerk_VST3 BleepWerk_Tests
 
       - name: Unit tests
         run: ctest --no-tests=error --test-dir build -C Release --output-on-failure
@@ -91,6 +91,6 @@ jobs:
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: BleepForge-${{ matrix.name }}
+          name: BleepWerk-${{ matrix.name }}
           path: dist/*
           if-no-files-found: error

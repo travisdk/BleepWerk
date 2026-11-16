@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Sequencer engine: timing independent of the host block size, swing and gate, no stuck notes
@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-using namespace bleepforge;
+using namespace bleepwerk;
 
 constexpr double sampleRate = 48000.0, bpm = 120.0;
 

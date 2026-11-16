@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "Controls.h"
@@ -10,9 +10,9 @@ namespace
 void styleName (juce::Label& label, const juce::String& name)
 {
     label.setText (name, juce::dontSendNotification);
-    label.setFont (bleepforge::fonts::label (14.0f));
+    label.setFont (bleepwerk::fonts::label (14.0f));
     label.setJustificationType (juce::Justification::centred);
-    label.setColour (juce::Label::textColourId, bleepforge::theme::dimText);
+    label.setColour (juce::Label::textColourId, bleepwerk::theme::dimText);
     label.setInterceptsMouseClicks (false, false);
 }
 } // namespace
@@ -26,7 +26,7 @@ Knob::Knob (juce::AudioProcessorValueTreeState& apvts, const juce::String& param
     if (auto* parameter = apvts.getParameter (parameterId))
         slider.setDoubleClickReturnValue (true, parameter->convertFrom0to1 (parameter->getDefaultValue()));
     addAndMakeVisible (slider);
-    if (auto* tip = bleepforge::tooltips::forParameter (parameterId.toRawUTF8()))
+    if (auto* tip = bleepwerk::tooltips::forParameter (parameterId.toRawUTF8()))
         setTooltip (tip);
 }
 
@@ -52,7 +52,7 @@ Choice::Choice (juce::AudioProcessorValueTreeState& apvts, const juce::String& p
     styleName (label, name);
     addAndMakeVisible (label);
     addAndMakeVisible (box);
-    if (auto* tip = bleepforge::tooltips::forParameter (parameterId.toRawUTF8()))
+    if (auto* tip = bleepwerk::tooltips::forParameter (parameterId.toRawUTF8()))
         setTooltip (tip);
 }
 
@@ -92,7 +92,7 @@ Toggle::Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& p
     }
     lookAndFeelChanged();
     update();
-    if (auto* tip = bleepforge::tooltips::forParameter (parameterId.toRawUTF8()))
+    if (auto* tip = bleepwerk::tooltips::forParameter (parameterId.toRawUTF8()))
         setTooltip (tip);
 }
 
@@ -106,7 +106,7 @@ void Toggle::setTooltip (const juce::String& text)
 void Toggle::lookAndFeelChanged()
 {
     for (auto* button : buttons)
-        button->setColour (juce::TextButton::textColourOnId, bleepforge::theme::primary());
+        button->setColour (juce::TextButton::textColourOnId, bleepwerk::theme::primary());
 }
 
 void Toggle::update()
@@ -142,7 +142,7 @@ IconButton::IconButton (Icon i, const juce::String& tooltip)
 
 void IconButton::paintButton (juce::Graphics& g, bool highlighted, bool down)
 {
-    using namespace bleepforge;
+    using namespace bleepwerk;
     const auto colour = ! isEnabled() || ! active ? theme::outline : down ? theme::primary() : highlighted ? theme::text : theme::dimText;
     g.setColour (colour);
     const auto bounds = getLocalBounds().toFloat();

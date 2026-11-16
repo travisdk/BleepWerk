@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "ChaosView.h"
@@ -10,7 +10,7 @@ namespace
 constexpr int kPadding = 10, kTitleHeight = 12, kKnobWidth = 64;
 } // namespace
 
-ChaosView::ChaosView (BleepForgeProcessor& p)
+ChaosView::ChaosView (BleepWerkProcessor& p)
     : amount (p.apvts, "chaosAmount", "Amount"),
       pitch (p.apvts, "chaosPitch", "Pitch"),
       decay (p.apvts, "chaosDecay", "Decay"),
@@ -27,7 +27,7 @@ ChaosView::ChaosView (BleepForgeProcessor& p)
 
 void ChaosView::paint (juce::Graphics& g)
 {
-    using namespace bleepforge;
+    using namespace bleepwerk;
     const auto area = getLocalBounds().toFloat();
     theme::paintPanel (g, area);
 

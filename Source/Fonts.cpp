@@ -1,10 +1,10 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "Fonts.h"
 #include "BinaryData.h"
 
-namespace bleepforge::fonts
+namespace bleepwerk::fonts
 {
 namespace
 {
@@ -36,4 +36,4 @@ juce::Font value (float height)
     static const auto face = load (BinaryData::IBMPlexMonoMedium_ttf, BinaryData::IBMPlexMonoMedium_ttfSize);
     return juce::Font (juce::FontOptions (face).withHeight (height));
 }
-} // namespace bleepforge::fonts
+} // namespace bleepwerk::fonts

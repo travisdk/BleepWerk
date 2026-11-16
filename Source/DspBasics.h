@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -9,7 +9,7 @@
 
 // Small DSP building blocks shared by the engines. JUCE-free so the unit tests can use them.
 // The band-limiting helpers and the envelope come from SubForge (same author, same licence).
-namespace bleepforge
+namespace bleepwerk
 {
 inline constexpr float kPi = 3.14159265358979f;
 inline constexpr float kTwoPi = 2.0f * kPi;
@@ -52,7 +52,7 @@ inline float wrapPhase (float phase)
 }
 
 // Attack, exponential decay to the sustain level, exponential release. With sustain 0 it is
-// a percussive AD envelope that ends by itself, which is what most BleepForge sounds use.
+// a percussive AD envelope that ends by itself, which is what most BleepWerk sounds use.
 struct Envelope
 {
     enum class Stage { Idle, Attack, Decay, Release };
@@ -127,4 +127,4 @@ struct WhiteNoise
         return (float) (int32_t) state * (1.0f / 2147483648.0f);
     }
 };
-} // namespace bleepforge
+} // namespace bleepwerk

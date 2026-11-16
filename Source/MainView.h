@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -25,7 +25,7 @@ public:
     int designHeight() const { return kHeight + (sequencerShown ? kSequencerExtra : 0); }
     std::function<void()> onDesignSizeChanged;
 
-    explicit MainView (BleepForgeProcessor&);
+    explicit MainView (BleepWerkProcessor&);
     ~MainView() override;
 
     void paint (juce::Graphics&) override;
@@ -54,7 +54,7 @@ private:
         void paintButton (juce::Graphics&, bool highlighted, bool down) override;
     };
 
-    BleepForgeProcessor& processor;
+    BleepWerkProcessor& processor;
     EngineView engineView;
     ChaosView chaosView;
     DriveView driveView;

@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #pragma once
@@ -20,10 +20,10 @@ public:
 
     explicit SoundPresets (juce::AudioProcessorValueTreeState&);
 
-    static bool isSoundParameter (const juce::String& id) { return bleepforge::findSoundParam (id.toRawUTF8()) != nullptr; }
+    static bool isSoundParameter (const juce::String& id) { return bleepwerk::findSoundParam (id.toRawUTF8()) != nullptr; }
 
     // factory entries first, then user files
-    int numFactory() const { return (int) bleepforge::factoryPresets().size(); }
+    int numFactory() const { return (int) bleepwerk::factoryPresets().size(); }
     int numEntries() const { return numFactory() + userFiles.size(); }
     juce::String entryName (int index) const;
     juce::String entryCategory (int index) const; // "User" for the user's files

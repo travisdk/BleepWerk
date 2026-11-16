@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Henrik Juhl. Part of BleepForge, licensed under the GNU AGPLv3 (see LICENSE).
+// Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Damaged or hostile projects and preset files, and other input from outside, through the real
@@ -19,7 +19,7 @@ constexpr double kSampleRate = 48000.0;
 constexpr int kBlockSize = 512;
 
 // Two seconds with a note held; true if every sample is finite.
-bool rendersFinite (BleepForgeProcessor& processor)
+bool rendersFinite (BleepWerkProcessor& processor)
 {
     processor.setRateAndBufferSizeDetails (kSampleRate, kBlockSize);
     processor.prepareToPlay (kSampleRate, kBlockSize);
@@ -39,7 +39,7 @@ bool rendersFinite (BleepForgeProcessor& processor)
     return finite;
 }
 
-bool parametersFinite (BleepForgeProcessor& processor)
+bool parametersFinite (BleepWerkProcessor& processor)
 {
     for (auto* param : processor.getParameters())
         if (! std::isfinite (param->getValue()))
@@ -47,20 +47,20 @@ bool parametersFinite (BleepForgeProcessor& processor)
     return true;
 }
 
-bool isDefault (BleepForgeProcessor& processor, const char* id)
+bool isDefault (BleepWerkProcessor& processor, const char* id)
 {
     auto* param = processor.apvts.getParameter (id);
     return juce::approximatelyEqual (param->getValue(), param->getDefaultValue());
 }
 
-void setState (BleepForgeProcessor& processor, const juce::XmlElement& xml)
+void setState (BleepWerkProcessor& processor, const juce::XmlElement& xml)
 {
     juce::MemoryBlock data;
     juce::AudioProcessor::copyXmlToBinary (xml, data);
     processor.setStateInformation (data.getData(), (int) data.getSize());
 }
 
-std::unique_ptr<juce::XmlElement> savedState (BleepForgeProcessor& processor)
+std::unique_ptr<juce::XmlElement> savedState (BleepWerkProcessor& processor)
 {
     juce::MemoryBlock data;
     processor.getStateInformation (data);
@@ -87,7 +87,7 @@ void notNumbers()
 {
     for (auto* text : kNotNumbers)
     {
-        BleepForgeProcessor processor;
+        BleepWerkProcessor processor;
         auto xml = savedState (processor);
         CHECK (xml != nullptr);
         for (auto* param : xml->getChildIterator())
@@ -104,8 +104,8 @@ void notNumbers()
    #if JUCE_LINUX
     for (auto* text : kNotNumbers)
     {
-        BleepForgeProcessor processor;
-        juce::XmlElement xml ("BleepForgePreset");
+        BleepWerkProcessor processor;
+        juce::XmlElement xml ("BleepWerkPreset");
         for (auto* param : processor.getParameters())
             if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*> (param))
             {
@@ -147,7 +147,7 @@ void openFolder()
 
     const auto folder = root.getChildFile ("Bleeps $(: >injected)");
     CHECK (folder.createDirectory());
-    CHECK (bleepforge::files::openFolder (folder));
+    CHECK (bleepwerk::files::openFolder (folder));
     for (int waited = 0; waited < 5000 && ! opened.existsAsFile(); waited += 10)
         juce::Thread::sleep (10);
     CHECK (opened.loadFileAsString() == folder.getFullPathName());
@@ -162,7 +162,7 @@ void hugeXml()
     const auto nested = juce::String::repeatedString ("<a>", deep) + juce::String::repeatedString ("</a>", deep);
     const auto huge = juce::String::repeatedString ("x", 2 << 20);
 
-    BleepForgeProcessor processor;
+    BleepWerkProcessor processor;
     auto& presets = processor.getSoundPresets();
     juce::MemoryOutputStream deepState;
     deepState.writeInt (0x21324356); // copyXmlToBinary's format: magic, size, text
@@ -178,8 +178,8 @@ void hugeXml()
 
    #if JUCE_LINUX
     CHECK (SoundPresets::folder().createDirectory());
-    CHECK (SoundPresets::folder().getChildFile ("Deep.bfpreset").replaceWithText ("<BleepForgePreset>" + nested + "</BleepForgePreset>"));
-    CHECK (SoundPresets::folder().getChildFile ("Huge.bfpreset").replaceWithText ("<BleepForgePreset name=\"" + huge + "\"/>"));
+    CHECK (SoundPresets::folder().getChildFile ("Deep.bfpreset").replaceWithText ("<BleepWerkPreset>" + nested + "</BleepWerkPreset>"));
+    CHECK (SoundPresets::folder().getChildFile ("Huge.bfpreset").replaceWithText ("<BleepWerkPreset name=\"" + huge + "\"/>"));
     for (auto* name : { "Deep", "Huge" })
     {
         CHECK (loadUserPreset (presets, name));
@@ -191,7 +191,7 @@ void hugeXml()
 // wherever the number wrapped around to.
 void typedNumbers()
 {
-    BleepForgeProcessor processor;
+    BleepWerkProcessor processor;
     auto* bendRange = processor.apvts.getParameter ("bendRange");
     CHECK (juce::approximatelyEqual (bendRange->getValueForText ("4294967298"), 1.0f));
     CHECK (juce::approximatelyEqual (bendRange->getValueForText ("99999999999999999999999 st"), 1.0f));
@@ -202,12 +202,43 @@ void typedNumbers()
 void namelessPreset()
 {
    #if JUCE_LINUX
-    BleepForgeProcessor processor;
+    BleepWerkProcessor processor;
     auto& presets = processor.getSoundPresets();
     CHECK (! presets.save ("///"));
     CHECK (! SoundPresets::folder().getChildFile (SoundPresets::kExtension).exists());
     CHECK (presets.save ("Blip/2"));
     CHECK (SoundPresets::folder().getChildFile ("Blip2.bfpreset").existsAsFile());
+   #endif
+}
+// The plug-in went by another name before its release: its presets, patterns and theme are copied to the
+// BleepWerk folders once, and nothing already there is overwritten.
+void migratesOldFolders()
+{
+   #if JUCE_LINUX
+    using namespace bleepwerk;
+    const auto oldPreset = files::documentsFolder (files::legacyName()).getChildFile ("Presets/Mine.bfpreset");
+    const auto oldPattern = files::documentsFolder (files::legacyName()).getChildFile ("Patterns/Groove.bfpattern");
+    const auto oldSettings = files::settingsFile (files::legacyName());
+    CHECK (oldPreset.getParentDirectory().createDirectory() && oldPreset.replaceWithText ("my sound"));
+    CHECK (oldPattern.getParentDirectory().createDirectory() && oldPattern.replaceWithText ("my pattern"));
+    CHECK (oldSettings.getParentDirectory().createDirectory() && oldSettings.replaceWithText ("<PROPERTIES/>"));
+
+    BleepWerkProcessor first; // the first run after the rename
+    const auto newPreset = SoundPresets::folder().getChildFile ("Mine.bfpreset");
+    const auto newSettings = files::settingsFile ("BleepWerk");
+    CHECK (newPreset.loadFileAsString() == "my sound");
+    CHECK (files::documentsFolder ("BleepWerk").getChildFile ("Patterns/Groove.bfpattern").loadFileAsString() == "my pattern");
+    CHECK (newSettings.existsAsFile());
+    CHECK (! newSettings.getParentDirectory().getChildFile (oldSettings.getFileName()).exists());
+    CHECK (oldPreset.existsAsFile() && oldSettings.existsAsFile()); // the old ones are left alone
+
+    // later runs: the new folders win, and a preset deleted from them does not come back
+    CHECK (newPreset.replaceWithText ("changed"));
+    BleepWerkProcessor second;
+    CHECK (newPreset.loadFileAsString() == "changed");
+    CHECK (newPreset.deleteFile());
+    BleepWerkProcessor third;
+    CHECK (! newPreset.exists());
    #endif
 }
 } // namespace
@@ -220,6 +251,7 @@ int main (int argc, char* argv[])
         { "huge-xml", hugeXml },
         { "typed-numbers", typedNumbers },
         { "nameless-preset", namelessPreset },
+        { "migrate-old-folders", migratesOldFolders },
     };
     const juce::String name = argc > 1 ? argv[1] : "";
     const auto testCase = cases.find (name);
@@ -231,7 +263,7 @@ int main (int argc, char* argv[])
 
     const juce::ScopedJuceInitialiser_GUI juceInit;
     const auto root = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                          .getNonexistentChildFile ("BleepForgeTest", {}, false);
+                          .getNonexistentChildFile ("BleepWerkTest", {}, false);
     CHECK (root.createDirectory());
    #if JUCE_LINUX
     setenv ("HOME", root.getFullPathName().toRawUTF8(), 1);
