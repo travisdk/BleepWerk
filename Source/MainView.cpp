@@ -335,18 +335,24 @@ void MainView::paint (juce::Graphics& g)
     using namespace bleepwerk;
     g.fillAll (theme::background);
 
-    // the wordmark: a little square pulse, the bleep itself, then BLEEP in the theme colour and
-    // FORGE in white
+    // the wordmark: a little radar, then BLEEP in the theme colour and WERK in white. The radar
+    // is two rings, a sweep arm and a blip spotted off to one side, with a faint ping around it.
     auto header = headerArea().toFloat();
-    const float midY = header.getCentreY();
-    juce::Path pulse;
     const float x0 = header.getX() + 1.0f;
-    pulse.startNewSubPath (x0, midY + 9.0f);
-    for (auto [dx, y] : { std::pair { 6.0f, 9.0f }, { 6.0f, -9.0f }, { 14.0f, -9.0f }, { 14.0f, 9.0f }, { 20.0f, 9.0f },
-                          { 20.0f, 1.0f }, { 26.0f, 1.0f }, { 26.0f, 9.0f }, { 32.0f, 9.0f } })
-        pulse.lineTo (x0 + dx, midY + y);
+    const auto centre = juce::Point<float> (x0 + 16.0f, header.getCentreY());
+    constexpr float kRadius = 15.0f;
+    g.setColour (theme::primary().withAlpha (0.55f));
+    g.drawEllipse (centre.x - kRadius, centre.y - kRadius, 2.0f * kRadius, 2.0f * kRadius, 1.6f);
+    g.setColour (theme::primary().withAlpha (0.25f));
+    g.drawEllipse (centre.x - 0.5f * kRadius, centre.y - 0.5f * kRadius, kRadius, kRadius, 1.2f);
+    constexpr float kSweep = -0.62f * juce::MathConstants<float>::pi; // radians, 0 is to the right
     g.setColour (theme::primary());
-    g.strokePath (pulse, juce::PathStrokeType (2.6f, juce::PathStrokeType::mitered, juce::PathStrokeType::butt));
+    g.drawLine (centre.x, centre.y, centre.x + kRadius * std::cos (kSweep), centre.y + kRadius * std::sin (kSweep), 2.0f);
+    const auto blip = centre + juce::Point<float> (7.5f, 4.5f);
+    g.setColour (theme::primary().withAlpha (0.4f));
+    g.drawEllipse (blip.x - 4.5f, blip.y - 4.5f, 9.0f, 9.0f, 1.2f);
+    g.setColour (theme::primary());
+    g.fillEllipse (blip.x - 2.6f, blip.y - 2.6f, 5.2f, 5.2f);
 
     const auto wordmark = fonts::title (30.0f);
     auto widthOf = [&wordmark] (const juce::String& text)
@@ -355,16 +361,16 @@ void MainView::paint (juce::Graphics& g)
         glyphs.addLineOfText (wordmark, text, 0.0f, 0.0f);
         return glyphs.getBoundingBox (0, -1, true).getWidth() + 2.0f;
     };
-    const float textX = x0 + 44.0f, bleepWidth = widthOf ("BLEEP"), forgeWidth = widthOf ("FORGE");
+    const float textX = x0 + 44.0f, bleepWidth = widthOf ("BLEEP"), werkWidth = widthOf ("WERK");
     g.setFont (wordmark);
     g.setColour (theme::primary());
     g.drawText ("BLEEP", juce::Rectangle<float> (textX, header.getY(), bleepWidth, header.getHeight()), juce::Justification::centredLeft);
     g.setColour (theme::text);
-    g.drawText ("FORGE", juce::Rectangle<float> (textX + bleepWidth, header.getY(), forgeWidth, header.getHeight()), juce::Justification::centredLeft);
+    g.drawText ("WERK", juce::Rectangle<float> (textX + bleepWidth, header.getY(), werkWidth, header.getHeight()), juce::Justification::centredLeft);
 
     g.setColour (theme::dimText);
     g.setFont (fonts::value (11.0f));
-    g.drawText (BLEEPWERK_VERSION_STRING, header.withTrimmedLeft (textX + bleepWidth + forgeWidth + 12.0f - header.getX()).withTrimmedTop (8.0f),
+    g.drawText (BLEEPWERK_VERSION_STRING, header.withTrimmedLeft (textX + bleepWidth + werkWidth + 12.0f - header.getX()).withTrimmedTop (8.0f),
                 juce::Justification::centredLeft);
 }
 
