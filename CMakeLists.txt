@@ -79,7 +79,8 @@ target_sources(BleepWerk PRIVATE
     Source/EffectsView.cpp
     Source/SoundPresets.cpp
     Source/PatternPresets.cpp
-    Source/SequencerView.cpp)
+    Source/SequencerView.cpp
+    Source/AboutView.cpp)
 
 # BLEEPWERK_VERSION_STRING in BleepWerkVersion.h: "git describe --tags --dirty", refreshed at
 # every build so it always names the exact commit; project VERSION when git is unavailable.
@@ -108,9 +109,14 @@ juce_add_binary_data(BleepWerkAssets SOURCES
     Resources/Fonts/IBMPlexMono/IBMPlexMono-Medium.ttf)
 set_target_properties(BleepWerkAssets PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
+# The licence texts, built in for the Licences button in About (LicenceData::THIRDPARTYNOTICES_txt)
+juce_add_binary_data(BleepWerkLicences HEADER_NAME LicenceData.h NAMESPACE LicenceData SOURCES THIRD-PARTY-NOTICES.txt)
+set_target_properties(BleepWerkLicences PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
 target_link_libraries(BleepWerk
     PRIVATE
         BleepWerkAssets
+        BleepWerkLicences
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC

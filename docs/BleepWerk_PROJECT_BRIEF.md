@@ -110,14 +110,15 @@ patterns A-H, locked to the host's transport (sample-accurate, loops and jumps h
 ## 7. Presets
 
 - Factory presets defined in code or as bundled parameter files (no audio content)
-- A large factory set (over 100), grouped by category: bleeps, pulses, FM, lo-fi, dub, wood, drums, industrial, air and friction, drips, textures, drive
+- A large factory set (over 100), grouped by category: bleeps, pulses, FM, lo-fi, dub, wood, drums, industrial, air and friction, drive, cosmic
 - Sound presets never change the Bend Range
 
 ## 8. Quality and testing
 
-- Linux is the only target for now (decided 2026-10-31). The Windows code paths (the package-windows
-  target, the install notes, the MIDI drag-out) stay but are not built or tested, and the CI
-  matrix has no Windows job; the last Windows build error found, the std::array iterator, is fixed
+- Linux and Windows are both built and tested by the CI matrix (Windows was left out from 2026-10-31
+  and is back). The Windows-only code: the CLAP editor is kept at 1:1 under Windows display scaling
+  (`parentHierarchyChanged`, the same fix as in SubForge and Progrezzor), the package-windows target,
+  the install notes and the MIDI drag-out.
 
 - JUCE-free unit tests for the engines, effects, presets, dice and MIDI input (sustain,
   all-notes-off, mono last-note priority, pitch bend)

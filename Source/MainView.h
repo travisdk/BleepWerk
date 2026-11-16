@@ -10,6 +10,7 @@
 #include "DriveView.h"
 #include "EffectsView.h"
 #include "SequencerView.h"
+#include "AboutView.h"
 
 // Everything in the editor, laid out at a fixed design size; the editor scales it as a whole.
 // Top: title, the sound preset browser and a settings menu (colour theme, preset files).
@@ -31,6 +32,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
     void lookAndFeelChanged() override; // the theme changed
+    void showAbout();                   // the About panel over the view (Settings menu)
 
 private:
     void timerCallback() override;
@@ -38,6 +40,7 @@ private:
     void refreshSequencer();
     juce::Rectangle<int> headerArea() const;
     void showSettingsMenu();
+    void closeAbout();
     void showPresetMenu();
     void stepPreset (int delta);
     void refreshPreset();
@@ -65,6 +68,7 @@ private:
     GearButton settingsButton;
     juce::TextButton presetPrev { "<" }, presetButton, presetNext { ">" }, saveButton { "Save" };
     int shownPresetVersion = -1;
+    std::unique_ptr<AboutView> about; // a panel over the whole view while it is open
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainView)
 };

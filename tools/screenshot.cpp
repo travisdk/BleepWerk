@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Renders the interface of a fresh instance to a PNG, for checking the layout and for the
-// README: BleepWerk_Screenshot <output.png> [scale] [strike] [seq]
+// README: BleepWerk_Screenshot <output.png> [scale] [strike] [seq] [about]
 
 #include "MainView.h"
 #include "Theme.h"
@@ -11,7 +11,7 @@ int main (int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "usage: BleepWerk_Screenshot <output.png> [scale] [strike] [seq]\n";
+        std::cerr << "usage: BleepWerk_Screenshot <output.png> [scale] [strike] [seq] [about]\n";
         return 1;
     }
 
@@ -21,17 +21,22 @@ int main (int argc, char* argv[])
     bleepwerk::theme::LookAndFeel lookAndFeel;
     juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
     const float scale = argc > 2 ? juce::String (argv[2]).getFloatValue() : 1.0f;
+    bool wantsAbout = false;
     for (int i = 3; i < argc; ++i)
     {
         const juce::String option (argv[i]);
         if (option == "strike")
             processor.apvts.getParameter ("engine")->setValueNotifyingHost (1.0f);
+        else if (option == "about")
+            wantsAbout = true;
         else if (option == "seq")
             processor.apvts.getParameter ("seqEnabled")->setValueNotifyingHost (1.0f);
     }
 
     auto view = std::make_unique<MainView> (processor);
     view->setSize (MainView::kWidth, view->designHeight());
+    if (wantsAbout)
+        view->showAbout();
     const auto image = view->createComponentSnapshot (view->getLocalBounds(), true, scale);
     view.reset();
     juce::LookAndFeel::setDefaultLookAndFeel (nullptr);

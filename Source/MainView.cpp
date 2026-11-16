@@ -164,7 +164,29 @@ void MainView::showSettingsMenu()
                       confirm ("Delete preset?", "\"" + p.entryName (entry) + "\" will be moved to the trash.", "Delete",
                                [&p, entry] { p.remove (entry); });
                   });
+    menu.addSeparator();
+    menu.addItem (juce::String::fromUTF8 ("About BleepWerk\xe2\x80\xa6"), [this] { showAbout(); });
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (settingsButton).withDeletionCheck (*this));
+}
+
+void MainView::showAbout()
+{
+    if (about != nullptr)
+        return;
+    about = std::make_unique<AboutView> ([safe = juce::Component::SafePointer<MainView> (this)]
+                                         {
+                                             if (safe != nullptr)
+                                                 safe->closeAbout();
+                                         });
+    addAndMakeVisible (*about);
+    about->setBounds (getLocalBounds());
+    about->toFront (true);
+    about->grabKeyboardFocus();
+}
+
+void MainView::closeAbout()
+{
+    about.reset();
 }
 
 // One submenu per category, in the factory order, and the user's presets last.
@@ -381,6 +403,8 @@ void MainView::lookAndFeelChanged()
 
 void MainView::resized()
 {
+    if (about != nullptr)
+        about->setBounds (getLocalBounds());
     auto area = getLocalBounds().reduced (kMargin);
 
     // header: the title, then the preset browser and settings on the right
