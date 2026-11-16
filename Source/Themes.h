@@ -23,10 +23,11 @@ struct ThemeChoice
 };
 
 inline constexpr ThemeChoice kThemes[] = {
-    { "Hazard", 0xf5c518, 0xd9780f }, // warning yellow and orange: the control-panel look, the default
+    { "Cyan", 0x40d7f5, 0x0a9dbb },   // the default (the first one, which is also the fallback for an unknown name)
+    { "Hazard", 0xf5c518, 0xd9780f }, // warning yellow and orange: the control-panel look
     { "Mint", 0x4fe0b0, 0x1ba477 },   { "Lime", 0x97d912, 0x6e9e0d },   { "Amber", 0xffb92e, 0xc48300 },
     { "Orange", 0xff9d57, 0xeb6200 }, { "Coral", 0xfc9a8f, 0xfa4e3b },  { "Pink", 0xfc94c8, 0xfa3d9c },
-    { "Violet", 0xcaa5fd, 0xa96ffb }, { "Blue", 0x8db5fc, 0x4789fa },   { "Cyan", 0x40d7f5, 0x0a9dbb },
+    { "Violet", 0xcaa5fd, 0xa96ffb }, { "Blue", 0x8db5fc, 0x4789fa },
     { "Silver", 0xc0c6ce, 0x8690a0 },
 };
 inline constexpr int kNumThemes = (int) std::size (kThemes);
