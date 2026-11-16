@@ -129,9 +129,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepWerkProcessor::createPa
             slotNames.add (String::charToString ((juce_wchar) ('A' + i)));
         params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqPattern", 1 }, "Sequencer Pattern", slotNames, 0));
     }
-    // shown as a note name (the pattern's root), not a number
+    // shown as a note name (the pattern's root), not a number. The default is C3 (MIDI 60, middle C):
+    // bleeps sit high, so a root an octave lower would put most of a pattern below them
     params.push_back (std::make_unique<AudioParameterInt> (
-        ParameterID { "seqRoot", 1 }, "Sequencer Root", 24, 84, 48,
+        ParameterID { "seqRoot", 1 }, "Sequencer Root", 24, 84, 60,
         AudioParameterIntAttributes()
             .withStringFromValueFunction ([] (int v, int) { return MidiMessage::getMidiNoteName (jlimit (0, 127, v), true, true, 3); })
             .withValueFromStringFunction ([] (const String& text)
