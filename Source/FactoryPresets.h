@@ -223,28 +223,6 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Brake Squeal", "Air & Friction", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 1200 }, { "strikeRing", 0.4f }, { "strikeTone", 0.85f }, { "strikeMotion", 0.75f }, { "chaosAmount", 0.3f }, { "chaosPitch", 0.3f } } },
         { "Metal Scrape", "Air & Friction", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 600 }, { "strikeTone", 0.45f }, { "strikeMotion", 0.5f } } },
 
-        // ---- Drips and water: the sweep slides each hit into its note
-        { "Drip", "Drips", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.23f }, { "strikeSweep", 12 } } },
-        { "Water Drop", "Drips", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.38f }, { "strikeTone", 0.4f }, { "strikeSweep", 19 }, { "delayMix", 0.2f } } },
-
-        { "Bloop", "Drips", { Strike, { "strikeRing", 0.42f }, { "strikeTone", 0.3f }, { "strikeSweep", 24 } } },
-        { "Cave Drip", "Drips", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.46f }, { "strikeSweep", 12 }, { "delayNote", 3 }, { "delayFeel", 0 }, { "delayFeedback", 0.4f }, { "delayMix", 0.2f }, { "roomSize", 0.9f }, { "roomDecay", 1.4f }, { "roomMix", 0.45f } } },
-        { "Falling Drop", "Drips", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.37f } } },
-
-        { "Rain Drops", "Drips", { Strike, { "strikeExciter", Noise }, { "strikeBody", Membrane }, { "strikeLength", 30 }, { "strikeRing", 0.2f }, { "strikeSweep", 7 }, { "chaosAmount", 0.8f } } },
-        { "Sine Drip", "Drips", { { "bleepPitchAmount", -19 }, { "bleepPitchDecay", 18 }, { "bleepDecay", 60 }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
-
-        // ---- Textures: crackles and scrapes
-        { "Crackle", "Textures", { Strike, { "strikeExciter", Noise }, { "strikeLength", 40 }, { "strikeRing", 0.38f }, { "strikeTone", 0.8f }, { "chaosAmount", 0.7f }, { "chaosPan", 0.8f } } },
-        { "Vinyl Dust", "Textures", { Strike, { "strikeExciter", Noise }, { "strikeLength", 60 }, { "strikeRing", 0.43f }, { "strikeTone", 1 }, { "crushBits", 10 }, { "chaosAmount", 0.5f } } },
-        { "Static Burst", "Textures", { Strike, { "strikeExciter", Noise }, { "strikeBody", Membrane }, { "strikeLength", 80 }, { "strikeRing", 0.07f }, { "strikeTone", 1 }, { "crushBits", 6 } } },
-        { "Gravel", "Textures", { Strike, { "strikeExciter", Noise }, { "strikeLength", 60 }, { "strikeRing", 0.42f }, { "strikeTone", 0.7f } } },
-
-        { "Embers", "Textures", { Strike, { "strikeExciter", Noise }, { "strikeBody", Membrane }, { "strikeLength", 200 }, { "strikeRing", 0.11f }, { "strikeTone", 0.4f }, { "roomDecay", 0.7f }, { "roomMix", 0.35f }, { "chaosAmount", 0.8f } } },
-        { "Paper Crunch", "Textures", { Strike, { "strikeExciter", Noise }, { "strikeLength", 12 }, { "strikeRing", 0.43f }, { "strikeTone", 0.9f } } },
-        { "Scrape", "Textures", { Strike, { "strikeExciter", Noise }, { "strikeBody", Membrane }, { "strikeLength", 80 }, { "strikeRing", 0.24f }, { "strikeTone", 0.6f }, { "strikeSweep", 5 } } },
-        { "Rattle Echo", "Textures", { Strike, { "strikeExciter", Noise }, { "strikeBody", Membrane }, { "strikeLength", 50 }, { "strikeRing", 0.18f }, { "strikeTone", 0.7f }, { "delayNote", 1 }, { "delayFeel", 2 }, { "delayFeedback", 0.5f }, { "delayMix", 0.35f } } },
-
         // ---- Drive: the distortion before the filter (Pre) and after the reverb (Post)
         { "Tape Blip", "Drive", { { "bleepPitchAmount", 7 }, { "bleepPitchDecay", 30 }, { "bleepDecay", 220 }, { "driveType", Warm }, { "drivePost", Pre },
                                   { "driveAmount", 0.45f }, { "driveMix", 0.7f }, { "filterType", LP }, { "filterCutoff", 4000 } } },
