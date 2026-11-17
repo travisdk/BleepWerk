@@ -38,7 +38,7 @@ EngineView::EngineView (BleepWerkProcessor& p)
 {
     for (auto* c : std::initializer_list<juce::Component*> { &engine, &voices, &glide, &bend, &output, &dice, &back })
         addAndMakeVisible (c);
-    engine.buttonHeight = 40; // the main choice, so larger buttons
+    engine.buttonHeight = 28; // the main choice, so a little larger than the others
     dice.onClick = [this] { rollSound(); };
     back.onClick = [this] { undoRoll(); };
     back.setActive (false);
@@ -168,16 +168,16 @@ void EngineView::resized()
     auto area = getLocalBounds().reduced (kPadding);
     const int knobHeight = Knob::heightFor (kDiameter);
 
-    // shared: the engine across the full width, so all three names fit, then Voices, Glide,
-    // Bend and Output below it, on the same lines as the engine's own knobs
+    // shared: the engine across the full width, so all three names fit, with Voices right under
+    // it, and Glide, Bend and Output spread over the width on the same line as the engine's own knobs
     auto left = area.removeFromLeft (kLeftWidth - kPadding * 2);
-    engine.setBounds (left.removeFromTop (Knob::kLabelHeight + 40));
+    engine.setBounds (left.removeFromTop (Knob::kLabelHeight + engine.buttonHeight));
+    left.removeFromTop (10);
+    voices.setBounds (left.removeFromTop (Knob::kLabelHeight + voices.buttonHeight));
     auto leftRow = left.removeFromBottom (knobHeight);
-    voices.setBounds (leftRow.removeFromLeft (leftRow.getWidth() - 3 * kKnobWidth - 6).withTrimmedBottom (Knob::kValueHeight));
-    leftRow.removeFromLeft (6);
-    glide.setBounds (leftRow.removeFromLeft (kKnobWidth));
-    bend.setBounds (leftRow.removeFromLeft (kKnobWidth));
-    output.setBounds (leftRow.removeFromLeft (kKnobWidth));
+    const int leftSlot = leftRow.getWidth() / 3;
+    for (auto* knob : { &glide, &bend, &output })
+        knob->setBounds (leftRow.removeFromLeft (leftSlot).withSizeKeepingCentre (kKnobWidth + 14, knobHeight));
 
     // the engine's own: its choice first, then the knobs
     area.removeFromLeft (kPadding * 2);
