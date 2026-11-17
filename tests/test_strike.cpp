@@ -3,7 +3,7 @@
 
 // The Strike engine: every exciter on every body gives finite output at a sensible level, it is
 // silent with no notes, every voice ends by itself (note-offs or not), the body rings on the
-// note, Ring sets how long, Length sets how long Blow and Rub last, Sweep slides into the
+// note, Ring sets how long, Length sets how long Blow and Squeal last, Sweep slides into the
 // note, bend moves it, and Chaos and velocity behave.
 #include "StrikeSynth.h"
 #include "TestUtils.h"
@@ -106,7 +106,7 @@ static void everyCombinationIsSane()
                     {
                         auto p = params ((StrikeExciter) e, (StrikeBody) b, ring, tone, motion, 200.0f);
                         p.sweepSemis = motion > 0.5f ? 12.0f : -12.0f;
-                        // Rub sounds two octaves above the note, so the top note is beyond what can be played
+                        // Squeal sounds two octaves above the note, so the top note is beyond what can be played
                         for (int note : { 12, 60, 120 })
                         {
                             if (p.exciter == StrikeExciter::Friction && note > 90)
@@ -173,7 +173,7 @@ static void bodyRingsOnTheNote()
         }
 }
 
-// Ring sets how long it rings, and each body has its own scale: a skin rings longer than a bar.
+// Ring sets how long it rings, and each body has its own scale.
 static void ringSetsTheRingTime()
 {
     auto tail = [] (StrikeBody body, float ring)
@@ -182,11 +182,32 @@ static void ringSetsTheRingTime()
         return rms (out, ms (300), ms (400));
     };
     CHECK (tail (StrikeBody::Wood, 0.9f) > 5.0 * tail (StrikeBody::Wood, 0.3f));
-    CHECK (tail (StrikeBody::Membrane, 0.5f) > tail (StrikeBody::Wood, 0.5f));
     CHECK (strikeRingSeconds (kWoodBody, 0.0f) < strikeRingSeconds (kWoodBody, 1.0f));
 }
 
-// Length sets how long Blow and Rub last, fade included, and note-offs don't stop them.
+// A skin is a drum, not a plate: it rings only a little longer than a bar, its high modes die much
+// faster than its low ones, and the low modes are the loudest.
+static void aSkinSoundsLikeADrum()
+{
+    for (float ring : { 0.2f, 0.5f, 0.8f })
+    {
+        const float ratio = strikeRingSeconds (kMembraneBody, ring) / strikeRingSeconds (kWoodBody, ring);
+        CHECK (ratio >= 1.0f && ratio <= 1.6f);
+    }
+    // each mode's ring time falls with its ratio (as updateCoefs sets it); the top one is a short
+    // colour: under a tenth of the fundamental's ring, and every mode rings shorter than the one below it
+    for (size_t k = 1; k < kMembraneBody.ratios.size(); ++k)
+        CHECK (std::pow (kMembraneBody.ratios[k], -kMembraneBody.highModeDamping) < std::pow (kMembraneBody.ratios[k - 1], -kMembraneBody.highModeDamping));
+    CHECK (std::pow (kMembraneBody.ratios.back(), -kMembraneBody.highModeDamping) < 0.1f);
+    CHECK (kMembraneBody.extraTilt > kWoodBody.extraTilt);
+
+    // heard: a hit's tail is dominated by the fundamental, so the hit decays to a low note, not a ring of
+    // high partials; compare the level of the first 20 ms with a late stretch
+    const auto out = play (params (StrikeExciter::Knock, StrikeBody::Membrane, 0.5f, 0.5f), 48, 1500);
+    CHECK (rms (out, 0, ms (20)) > 3.0 * rms (out, ms (300), ms (400)));
+}
+
+// Length sets how long Blow and Squeal last, fade included, and note-offs don't stop them.
 static void lengthSetsHowLongItLasts()
 {
     for (auto exciter : { StrikeExciter::Steam, StrikeExciter::Friction })
@@ -351,6 +372,7 @@ int main()
     voicesEndByThemselves();
     bodyRingsOnTheNote();
     ringSetsTheRingTime();
+    aSkinSoundsLikeADrum();
     lengthSetsHowLongItLasts();
     burstLengthDoesNotChangeTheLevelMuch();
     toneAddsBrightness();
