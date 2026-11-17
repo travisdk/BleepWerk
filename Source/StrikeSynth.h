@@ -9,36 +9,40 @@
 #include <array>
 #include <iterator>
 
-// The Strike engine: something hits something. Two choices and five knobs.
+// The Strike engine: you play something on an object. Two choices and five knobs. The choices
+// read as an action on an object: "Play" (the exciter) "On" (the body). The code keeps the
+// older names (exciter, body, Noise, Steam, Friction, Wood, Membrane); the saved indices are
+// the same, so the names on screen are the only thing that changed.
 //
-// What hits (the exciter), into a bank of eight tuned two-pole bandpass resonators:
+// Play (the exciter), into a bank of eight tuned two-pole bandpass resonators:
 //   Knock     a short pulse with a little noise bite; Tone is how hard: dark is a soft mallet,
-//             bright a hard click. Motion adds small knocks while the body rings (a rattle)
-//   Noise     a decaying burst of noise, Length long
-//   Steam     steady noise through a bandpass that sits on the note (Tone lifts it up to four
+//             bright a hard click. Motion adds small knocks while the object rings (a rattle)
+//   Brush     a decaying burst of noise, Length long (StrikeExciter::Noise)
+//   Blow      steady noise through a bandpass that sits on the note (Tone lifts it up to four
 //             octaves above), opening with a puff; Motion makes it flutter
-//   Friction  metal rubbing on metal: a bright tone two octaves up that slides into the note,
-//             with friction hiss around it; Motion makes it waver, chatter and jump
-// What is hit (the body): Wood (a free bar) or Membrane (a drum skin, the zeros of the Bessel
-// functions of a circular membrane).
+//   Rub       metal rubbing on the object: a bright tone two octaves up that slides into the
+//             note, with a hiss around it; Motion makes it waver, chatter and jump
+//             (StrikeExciter::Friction)
+// On (the body): Bar (a free bar of wood or metal; StrikeBody::Wood) or Skin (a drum skin, the
+// zeros of the Bessel functions of a circular membrane; StrikeBody::Membrane).
 // Knobs:
-//   Length  Noise: how long the burst lasts. Steam, Friction: how long the whole sound
+//   Length  Brush: how long the burst lasts. Blow, Rub: how long the whole sound
 //           lasts, fade included (it ends by itself; note-offs don't stop it). Not for Knock
-//   Ring    how long the body rings, from a dead knock to seconds. For Steam and Friction it is
-//           also how much of the body's colour is mixed into the source
+//   Ring    how long the object rings, from a dead knock to seconds. For Blow and Rub it is
+//           also how much of the object's colour is mixed into the source
 //   Tone    dark to bright: the strike's hardness and how loud the high modes are
-//   Motion  see the exciters; Noise has none
+//   Motion  see the actions; Brush has none
 //   Sweep   the body starts this far below the note (above, when negative) and slides to it:
 //           a drip, a drum's fall
 // The note sets the fundamental. Chaos moves the body's modes a little on every note. JUCE-free.
 namespace bleepwerk
 {
 enum class StrikeExciter { Knock, Noise, Steam, Friction };
-inline constexpr const char* kStrikeExciterNames[] = { "Knock", "Noise", "Steam", "Friction" };
+inline constexpr const char* kStrikeExciterNames[] = { "Knock", "Brush", "Blow", "Rub" };
 inline constexpr int kNumStrikeExciters = (int) std::size (kStrikeExciterNames);
 
 enum class StrikeBody { Wood, Membrane };
-inline constexpr const char* kStrikeBodyNames[] = { "Wood", "Membrane" };
+inline constexpr const char* kStrikeBodyNames[] = { "Bar", "Skin" };
 inline constexpr int kNumStrikeBodies = (int) std::size (kStrikeBodyNames);
 
 struct StrikeParams
@@ -63,7 +67,7 @@ struct BodyModel
     float highModeDamping;
 };
 
-// A free bar (beam modes) and a circular membrane (the Bessel zeros j01, j11, j21, j02, j31,
+// A free bar (beam modes; Bar) and a circular membrane (Skin; the Bessel zeros j01, j11, j21, j02, j31,
 // j12, j41, j22 divided by j01).
 inline constexpr BodyModel kWoodBody { { 1.0f, 2.756f, 5.404f, 8.933f, 13.34f, 18.64f, 24.81f, 31.97f }, 0.35f, 1.3f };
 inline constexpr BodyModel kMembraneBody { { 1.0f, 1.594f, 2.136f, 2.296f, 2.653f, 2.918f, 3.156f, 3.500f }, 2.0f, 0.25f };
@@ -75,7 +79,7 @@ inline const BodyModel& bodyModel (StrikeBody body)
 
 // Choice indices saved before the Crackle exciter and the Metal body were removed (projects
 // before state version 5, presets before file version 2) move to the ones that replaced them:
-// Crackle is a burst like Noise, Metal sounds like Wood.
+// Crackle is a burst like Brush (then Noise), Metal sounds like Bar (then Wood).
 inline int migrateStrikeExciter (int saved)
 {
     if (saved == 2) return (int) StrikeExciter::Noise;
@@ -100,7 +104,7 @@ inline float strikeMotionHz (float motion)
     return motion <= 0.0f ? 0.0f : 0.1f * std::pow (160.0f, std::clamp (motion, 0.0f, 1.0f));
 }
 
-// Steam and Friction are steady sources that Length shapes; the others are one-off strikes.
+// Blow and Rub are steady sources that Length shapes; the others are one-off strikes.
 inline bool strikeIsSteady (StrikeExciter e) { return e == StrikeExciter::Steam || e == StrikeExciter::Friction; }
 
 class StrikeVoice
@@ -109,14 +113,14 @@ public:
     static constexpr float kLevel = 0.5f;
     static constexpr int kCoefInterval = 16; // samples between filter updates
     static constexpr float kMaxModeSpread = 0.015f; // mode detuning at full Chaos pitch depth
-    static constexpr float kPuffSeconds = 0.03f;    // Steam's opening puff dies away over this
-    static constexpr float kFocus = 0.5f;           // how narrow Steam's band and how clean Friction's tone are
-    static constexpr float kScreechSemis = 24.0f;   // Friction sounds this far above the note
+    static constexpr float kPuffSeconds = 0.03f;    // Blow's opening puff dies away over this
+    static constexpr float kFocus = 0.5f;           // how narrow Blow's band and how clean Rub's tone are
+    static constexpr float kScreechSemis = 24.0f;   // Rub sounds this far above the note
     static constexpr float kScreechSlideSemis = -1.0f; // it starts this far below and slides up
     static constexpr float kScreechSlideSeconds = 0.15f;
     static constexpr float kScreechWaver = 0.025f;  // pitch wobble at full Motion, as a fraction
 
-    // Friction's partials (odd and even, so it is bright rather than hollow), at full Tone;
+    // Rub's partials (odd and even, so it is bright rather than hollow), at full Tone;
     // the 4th, 6th and 7th make it rasp rather than whistle on low notes
     static constexpr std::array<float, 7> kScreechPartials { 1.0f, 0.5f, 0.35f, 0.32f, 0.15f, 0.24f, 0.2f };
     static constexpr std::array<float, 7> kScreechPartialPhases { 0.0f, 0.3f, 0.0f, 1.1f, 0.0f, 0.0f, 0.5f };
@@ -263,7 +267,7 @@ public:
             const float lfo = moving ? 0.5f - 0.5f * std::cos (kTwoPi * lfoPhase) : 0.0f;
             lfoPhase = wrapPhase (lfoPhase + lfoInc);
 
-            // Steam: a puff as the valve opens, brighter and louder for the first tens of ms;
+            // Blow: a puff as the valve opens, brighter and louder for the first tens of ms;
             // Motion lowers the band as the pressure drops, and back
             const float puff = strength * std::exp (-(float) elapsed / (kPuffSeconds * fs));
             hissShift = 12.0f * puff - 9.0f * lfo;
@@ -382,7 +386,7 @@ private:
     }
     float sweepOffset() const { return sweepSemis * sweepEnv; }
 
-    // The body's coefficients and gains, and Steam's bandpass and Friction's partials. A
+    // The body's coefficients and gains, and Blow's bandpass and Rub's partials. A
     // one-off strike gets each mode at its share of the unit pulse; a steady source gets unity
     // gain at each peak, and render() matches the ring to the source's level.
     void updateCoefs (const StrikeParams& p, float tone)
@@ -390,7 +394,7 @@ private:
         needsCoefs = false;
         sweepSemis = p.sweepSemis;
         const bool friction = p.exciter == StrikeExciter::Friction;
-        // Friction's body follows the note it sounds, not its wavering, so the squeal swells
+        // Rub's body follows the note it sounds, not its wavering, so the squeal swells
         // and fades as it passes the modes
         const float f0 = pitchHz (friction ? kScreechSemis : 0.0f);
         const auto& body = bodyModel (p.body);
@@ -506,7 +510,7 @@ private:
     }
 
     // White noise through a bandpass. Tone lifts the centre from the note up to four octaves
-    // above it, since steam hisses high. Every note opens with a puff, up to twice as loud and
+    // above it, since a blown hiss is high. Every note opens with a puff, up to twice as loud and
     // an octave higher. Motion makes the hiss flutter: the level dips deeply and the band drops.
     float hiss (float lfo, float puff)
     {
@@ -520,8 +524,8 @@ private:
         return v1 * svfK * svfGain * (1.0f - 0.85f * lfo) * (1.0f + puff);
     }
 
-    // Friction: metal sticks and slips against metal. A bright tone two octaves above the note
-    // slides up into it over 150 ms (the part straining), with friction hiss around it, driven
+    // Rub: metal sticks and slips against metal. A bright tone two octaves above the note
+    // slides up into it over 150 ms (the part straining), with a rubbing hiss around it, driven
     // so it rasps instead of whistling: harder as Tone goes up, cleaner when dark. Motion makes
     // the pitch waver and the level chatter, from a slow stutter to 30 times a second; above
     // half way the screech jumps to another mode now and then (a fourth or a seventh up) and
@@ -551,7 +555,7 @@ private:
             if ((float) (k + 1) * f < 0.45f * fs)
                 partials += screechAmps[k] * std::sin ((float) (k + 1) * w + kScreechPartialPhases[k]);
 
-        // the friction hiss: noise through a bandpass (Q 6) from the tone (dark) up to two
+        // the rubbing hiss: noise through a bandpass (Q 6) from the tone (dark) up to two
         // octaves above it (bright), kept at about the same level whatever the pitch
         if (elapsed % kCoefInterval == 1)
         {
@@ -596,9 +600,9 @@ private:
     float bend = 0.0f, bendTarget = 0.0f, bendCoef = 0.1f;
     float dryPower = 0.0f, wetPower = 0.0f, wetGain = 1.0f; // the ring matched to a steady source
     float biteLowpass = 0.0f, biteHighpass = 0.0f, biteHighpassCoef = 0.2f; // Knock
-    float ic1 = 0.0f, ic2 = 0.0f, svfG = 0.1f, svfK = 1.0f, svfGain = 1.0f; // Steam
-    float hissShift = 0.0f; // semitones the puff and Motion move Steam's band
-    std::array<float, kScreechPartials.size()> screechAmps {}; // Friction
+    float ic1 = 0.0f, ic2 = 0.0f, svfG = 0.1f, svfK = 1.0f, svfGain = 1.0f; // Blow
+    float hissShift = 0.0f; // semitones the puff and Motion move Blow's band
+    std::array<float, kScreechPartials.size()> screechAmps {}; // Rub
     float screechPhase = 0.0f, chatterPhase = 0.0f, hopRatio = 1.0f;
     int hopMode = 0, hopCountdown = 0;
     float sc1 = 0.0f, sc2 = 0.0f, screechG = 0.1f, screechHissGain = 1.0f;

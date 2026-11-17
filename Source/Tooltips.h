@@ -37,13 +37,13 @@ inline constexpr Entry kEntries[] = {
     { "bleepNoise", "How much noise is mixed into the bleep" },
 
     // Strike
-    { "strikeExciter", "What hits: Knock (a short click), Noise (a burst of noise), Steam (a steady hiss with a puff) or Friction (a bright tone that slides into the note)" },
-    { "strikeBody", "What is hit: Wood (a free bar) or Membrane (a drum skin)" },
-    { "strikeLength", "How long the burst or the steady sound lasts; not used by Knock" },
-    { "strikeRing", "How long the body rings after the hit. For Steam and Friction it is also how much of the body (Wood or Membrane) you hear: turn it up to hear the difference" },
+    { "strikeExciter", "How you play the object: Knock (a short click), Brush (a burst of noise), Blow (a steady hiss with a puff) or Rub (metal rubbing on the object, with a slide and a chatter)" },
+    { "strikeBody", "What you play on: Bar (a free bar of wood or metal) or Skin (a drum skin)" },
+    { "strikeLength", "How long a Brush burst, or a Blow or Rub, lasts; not used by Knock" },
+    { "strikeRing", "How long the object rings after you play it. For Blow and Rub it is also how much of the object (Bar or Skin) you hear: turn it up to hear the difference" },
     { "strikeTone", "Dark to bright: how hard the hit is and how loud the high parts are" },
-    { "strikeMotion", "Movement: a rattle for Knock, a flutter for Steam, a waver for Friction; not used by Noise" },
-    { "strikeSweep", "The body starts this many semitones from the note and slides in; negative starts above" },
+    { "strikeMotion", "Movement: a rattle for Knock, a flutter for Blow, a waver for Rub; not used by Brush" },
+    { "strikeSweep", "The object starts this many semitones from the note and slides in; negative starts above" },
 
     // Chaos: every hit is varied at random, by Amount times each setting
     { "chaosAmount", "How much every hit is varied at random; 0 is none, so a sound plays the same each time" },

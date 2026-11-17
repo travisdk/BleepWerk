@@ -29,8 +29,8 @@ EngineView::EngineView (BleepWerkProcessor& p)
       decay (p.apvts, "bleepDecay", "Decay"),
       release (p.apvts, "bleepRelease", "Release"),
       noise (p.apvts, "bleepNoise", "Noise"),
-      exciter (p.apvts, "strikeExciter", "Hit with"),
-      body (p.apvts, "strikeBody", "Hit on"),
+      exciter (p.apvts, "strikeExciter", "Play"),
+      body (p.apvts, "strikeBody", "On"),
       strikeLength (p.apvts, "strikeLength", "Length"),
       ring (p.apvts, "strikeRing", "Ring"),
       strikeTone (p.apvts, "strikeTone", "Tone"),
@@ -205,7 +205,7 @@ void EngineView::resized()
                              .removeFromBottom (Knob::heightFor (key ? kKeyDiameter : kDiameter)));
     }
 
-    // Strike: what hits and what is hit side by side, and the five knobs spread over the width
+    // Strike: Play and On side by side, and the five knobs spread over the width
     auto selectors = juce::Rectangle<int> (area.getX(), kSelectorTop, area.getWidth(), kSelectorHeight);
     exciter.setBounds (selectors.removeFromLeft ((selectors.getWidth() - 16) * 5 / 8));
     selectors.removeFromLeft (16);

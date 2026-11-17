@@ -111,8 +111,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepWerkProcessor::createPa
     sound ("bleepNoise", "Noise", linear ("bleepNoise"));
 
     // Strike engine
-    choice ("strikeExciter", "Hit With", namesOf (bleepwerk::kStrikeExciterNames));
-    choice ("strikeBody", "Hit On", namesOf (bleepwerk::kStrikeBodyNames));
+    choice ("strikeExciter", "Play", namesOf (bleepwerk::kStrikeExciterNames));
+    choice ("strikeBody", "On", namesOf (bleepwerk::kStrikeBodyNames));
     sound ("strikeLength", "Strike Length", skewed ("strikeLength", 30.0f), "ms");
     sound ("strikeRing", "Ring", linear ("strikeRing"));
     sound ("strikeTone", "Strike Tone", linear ("strikeTone"));
