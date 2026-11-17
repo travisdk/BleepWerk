@@ -42,6 +42,7 @@ void PatternPresets::applyGroove (Pattern& target, const LoadedGroove& loaded)
     target.setDrift (loaded.drift);
     target.setVary (loaded.vary);
     target.setShape (loaded.shape);
+    target.setTranspose (loaded.transpose);
 }
 
 bool PatternPresets::exists (const juce::String& patternName) const
@@ -89,13 +90,13 @@ void PatternPresets::load (int index)
         // files from before rate and gate were stored leave the current values
         applyGroove (pattern(), { xml->getIntAttribute ("length", kMaxSteps), (float) xml->getDoubleAttribute ("swing", 0.5),
                        rateIndexFor (xml->getStringAttribute ("rate")), (float) xml->getDoubleAttribute ("gate", -1.0),
-                       xml->getIntAttribute ("drift", 0), xml->getIntAttribute ("vary", 0), xml->getIntAttribute ("shape", 0) });
+                       xml->getIntAttribute ("drift", 0), xml->getIntAttribute ("vary", 0), xml->getIntAttribute ("shape", 0), xml->getIntAttribute ("transpose", 0) });
     }
     else if (juce::isPositiveAndBelow (index, kNumFactoryPatterns))
     {
         const auto& factory = kFactoryPatterns[index];
         parseCompactPattern (factory.steps, pattern());
-        applyGroove (pattern(), { factory.length, factory.swing, factory.rate, factory.gate, factory.drift, factory.vary, factory.shape });
+        applyGroove (pattern(), { factory.length, factory.swing, factory.rate, factory.gate, factory.drift, factory.vary, factory.shape, 0 });
     }
     else if (isSet (index))
     {
@@ -123,7 +124,7 @@ void PatternPresets::loadSet (int setIndex)
         const auto& layer = set.layers[i];
         auto& target = bank.slot (i);
         parseCompactPattern (layer.steps, target);
-        applyGroove (target, { layer.length, 0.5f, layer.rate, layer.gate, 0, 0, 0 });
+        applyGroove (target, { layer.length, 0.5f, layer.rate, layer.gate, 0, 0, 0, 0 });
         slots[(size_t) i] = { juce::String (set.name) + " " + juce::String (i + 1) + "/" + juce::String (set.numLayers),
                               kNumFactoryPatterns + setIndex };
         mask |= 1u << i;
@@ -151,6 +152,7 @@ bool PatternPresets::save (const juce::String& patternName)
     xml.setAttribute ("drift", groove.drift);
     xml.setAttribute ("vary", groove.vary);
     xml.setAttribute ("shape", groove.shape);
+    xml.setAttribute ("transpose", groove.transpose);
     xml.setAttribute ("steps", juce::String (toCompactPattern (pattern())));
     if (! xml.writeTo (file))
         return false;

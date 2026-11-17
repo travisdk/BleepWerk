@@ -43,6 +43,7 @@ constexpr int kNumStepLevels = 2;
 inline constexpr float kSeqVelocities[kNumStepLevels] = { 0.65f, 1.0f };
 constexpr int kNormalLevel = 0, kAccentLevel = 1;
 constexpr int kMaxDrift = 4; // steps a pattern moves on per pass, either way
+constexpr int kMaxTranspose = 24; // semitones a pattern may sit above or below the shared root
 
 // How Vary moves the length from pass to pass (always between Length - Vary and Length).
 enum class LengthShape { Walk, Random, Skip };
@@ -69,6 +70,7 @@ struct Groove
     int drift = 0;       // steps the pattern moves on every time it has played through, -4..4
     int vary = 0;        // how many steps shorter than length a pass may be, 0 (off) .. length - 1
     int shape = 0;       // index into kLengthShapeNames
+    int transpose = 0;   // semitones from the shared root, for this pattern only, -24..24
 
     double stepBeats() const { return kSeqRateBeats[std::clamp (rate, 0, kNumSeqRates - 1)]; }
 
@@ -81,7 +83,7 @@ struct Groove
         out.precision (9);
         out << "length " << length << " rate " << kSeqRateNames[std::clamp (rate, 0, kNumSeqRates - 1)]
             << " swing " << swing << " gate " << gate << " drift " << drift << " vary " << vary << " shape "
-            << kLengthShapeNames[std::clamp (shape, 0, kNumLengthShapes - 1)];
+            << kLengthShapeNames[std::clamp (shape, 0, kNumLengthShapes - 1)] << " transpose " << transpose;
         return out.str();
     }
 
@@ -114,6 +116,8 @@ struct Groove
                 parsed.drift = std::clamp (parsed.drift, -kMaxDrift, kMaxDrift);
             else if (key == "vary" && number >> parsed.vary)
                 parsed.vary = std::clamp (parsed.vary, 0, kMaxSteps - 1);
+            else if (key == "transpose" && number >> parsed.transpose) // not in older text: stays 0
+                parsed.transpose = std::clamp (parsed.transpose, -kMaxTranspose, kMaxTranspose);
             else if (key == "shape")
             {
                 for (int i = 0; i < kNumLengthShapes; ++i)
@@ -138,7 +142,7 @@ public:
     Step get (int index) const { return unpack (steps[(size_t) index].load (std::memory_order_relaxed)); }
     void set (int index, const Step& step) { steps[(size_t) index].store (pack (step), std::memory_order_relaxed); }
 
-    Groove groove() const { return { grooveLength.load(), grooveRate.load(), grooveSwing.load(), grooveGate.load(), grooveDrift.load(), grooveVary.load(), grooveShape.load() }; }
+    Groove groove() const { return { grooveLength.load(), grooveRate.load(), grooveSwing.load(), grooveGate.load(), grooveDrift.load(), grooveVary.load(), grooveShape.load(), grooveTranspose.load() }; }
     void setGroove (const Groove& g)
     {
         setLength (g.length);
@@ -148,6 +152,7 @@ public:
         setDrift (g.drift);
         setVary (g.vary);
         setShape (g.shape);
+        setTranspose (g.transpose);
     }
     void setLength (int value) { grooveLength = std::clamp (value, 1, kMaxSteps); }
     void setRate (int value) { grooveRate = std::clamp (value, 0, kNumSeqRates - 1); }
@@ -157,6 +162,7 @@ public:
     void setDrift (int value) { grooveDrift = std::clamp (value, -kMaxDrift, kMaxDrift); }
     void setVary (int value) { grooveVary = std::clamp (value, 0, kMaxSteps - 1); }
     void setShape (int value) { grooveShape = std::clamp (value, 0, kNumLengthShapes - 1); }
+    void setTranspose (int value) { grooveTranspose = std::clamp (value, -kMaxTranspose, kMaxTranspose); }
 
     // How many of the first length steps are on, and spreading a number of hits evenly over them
     // (3 of 8 is the tresillo): the notes stay where they are, steps that come on keep theirs.
@@ -271,7 +277,7 @@ private:
     }
 
     std::array<std::atomic<uint32_t>, kMaxSteps> steps;
-    std::atomic<int> grooveLength { kMaxSteps }, grooveRate { 1 }, grooveDrift { 0 }, grooveVary { 0 }, grooveShape { 0 };
+    std::atomic<int> grooveLength { kMaxSteps }, grooveRate { 1 }, grooveDrift { 0 }, grooveVary { 0 }, grooveShape { 0 }, grooveTranspose { 0 };
     std::atomic<float> grooveSwing { 0.5f }, grooveGate { 0.5f };
 };
 
@@ -468,7 +474,7 @@ public:
             if (! step.gate)
                 continue;
 
-            const int note = std::clamp (settings.rootNote + step.note, 0, 127);
+            const int note = std::clamp (settings.rootNote + groove.transpose + step.note, 0, 127);
             emit ((int) sample, true, note, kSeqVelocities[std::clamp (step.level, 0, kNumStepLevels - 1)]);
             soundingNote = note;
             pendingOffPpq = start + (stepStartBeats (j + 1, groove) - start) * std::clamp ((double) groove.gate, 0.05, 1.0);
@@ -517,7 +523,7 @@ inline PatternClip patternToClip (const Pattern& pattern, int rootNote)
         const double start = stepStartBeats (i, groove);
         const double duration = stepStartBeats (i + 1, groove) - start;
         const double end = std::min (start + duration * std::clamp ((double) groove.gate, 0.05, 1.0), clip.lengthBeats);
-        clip.notes.push_back ({ start, end, std::clamp (rootNote + step.note, 0, 127),
+        clip.notes.push_back ({ start, end, std::clamp (rootNote + groove.transpose + step.note, 0, 127),
                                 midiVelocity (kSeqVelocities[std::clamp (step.level, 0, kNumStepLevels - 1)]) });
     }
     return clip;

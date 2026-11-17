@@ -10,7 +10,7 @@ using namespace bleepwerk;
 
 namespace
 {
-constexpr int kPadding = 10, kTopRow = 24, kGridTop = 66, kSlotWidth = 26, kKnobWidth = 46, kDiameter = 34, kNumKnobs = 8;
+constexpr int kPadding = 10, kTopRow = 24, kGridTop = 66, kSlotWidth = 26, kKnobWidth = 46, kDiameter = 34, kNumKnobs = 7, kRowGap = 6, kShapeButtonHeight = 20;
 constexpr int kLedHeight = 10, kNoteHeight = 14, kOctaveHeight = 12, kGap = 3;
 constexpr int kPixelsPerSemitone = 4;
 } // namespace
@@ -35,7 +35,8 @@ public:
     {
         auto& pattern = processor.getPatternBank().activePattern();
         const int patternLength = pattern.groove().length; // not "length" and "root", the view's own members
-        const int rootNote = (int) processor.apvts.getRawParameterValue ("seqRoot")->load();
+        // the note a step plays: the shared root, this pattern's transpose and the step's own offset
+        const int rootNote = (int) processor.apvts.getRawParameterValue ("seqRoot")->load() + pattern.groove().transpose;
         constexpr float noteSpan = (float) (kMaxStepNote - kMinStepNote);
 
         for (int i = 0; i < kMaxSteps; ++i)
@@ -391,6 +392,10 @@ SequencerView::SequencerView (BleepWerkProcessor& p)
     vary = std::make_unique<GrooveKnob> ("Vary", 0, kMaxSteps - 1, 1, [activeGroove] { return (double) activeGroove().vary; },
                                          [&bank, &presets] (double v) { bank.activePattern().setVary ((int) std::lround (v)); presets.markEdited(); },
                                          [] (double v) { const int n = (int) std::lround (v); return n == 0 ? juce::String ("Off") : "-" + juce::String (n); }, 0);
+    transpose = std::make_unique<GrooveKnob> ("Transpose", -kMaxTranspose, kMaxTranspose, 1, [activeGroove] { return (double) activeGroove().transpose; },
+                                              [&bank, &presets] (double v) { bank.activePattern().setTranspose ((int) std::lround (v)); presets.markEdited(); },
+                                              [] (double v) { const int t = (int) std::lround (v); return t > 0 ? "+" + juce::String (t) : juce::String (t); }, 0);
+    transpose->setTooltip ("Moves this pattern up or down from the shared Root, in semitones. Only this pattern: Root and the keys you hold move all layers together");
     length->setTooltip ("Number of steps in the pattern, up to 16");
     rate->setTooltip ("Length of each step: 1/8, 1/16 or 1/32 note, or the triplet 1/8T or 1/16T");
     swing->setTooltip ("Delays every second step: 0.5 is straight, higher swings more");
@@ -407,11 +412,12 @@ SequencerView::SequencerView (BleepWerkProcessor& p)
     addAndMakeVisible (shapeButton);
     drift->setTooltip ("Every time the pattern has played through, it moves on this many steps");
     hits->setTooltip ("Spreads this many hits evenly over the pattern's length, keeping the notes you have");
-    for (auto* knob : { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get(), vary.get() })
+    for (auto* knob : { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get(), vary.get(), transpose.get() })
         addAndMakeVisible (knob);
 
     root.setMaxDiameter (kDiameter);
-    root.slider.setTooltip ("The note the pattern is played from. Keys you play while it runs set the root instead.");
+    root.label.setText (juce::String (juce::CharPointer_UTF8 ("Root \xc2\xb7 all")), juce::dontSendNotification); // unlike the knobs beside it, it moves every layer
+    root.slider.setTooltip ("The note every layer is played from. Keys you play while it runs set the root instead. Transpose moves a single pattern from it.");
     addAndMakeVisible (root);
 
     refresh();
@@ -440,7 +446,7 @@ void SequencerView::refresh()
     const auto name = processor.getPatternPresets().name();
     if (patternButton.getButtonText() != name)
         patternButton.setButtonText (name);
-    for (auto* knob : { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get(), vary.get() })
+    for (auto* knob : { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get(), vary.get(), transpose.get() })
         knob->refresh();
     const auto shapeName = juce::String (kLengthShapeNames[juce::jlimit (0, kNumLengthShapes - 1, bank.activePattern().groove().shape)]);
     if (shapeButton.getButtonText() != shapeName)
@@ -471,23 +477,38 @@ void SequencerView::paint (juce::Graphics& g)
     g.drawText ("SEQUENCER", juce::Rectangle<float> ((float) kPadding, 6.0f, 120.0f, 14.0f), juce::Justification::centredLeft);
     // the divider between the steps and the groove
     theme::paintDivider (g, (float) getWidth() - (float) (kPadding + kNumKnobs * kKnobWidth + 8), (float) kTopRow, (float) getHeight() - (float) kTopRow - (float) kPadding);
+    // and the one that sets Root, which moves every layer, apart from the knobs of the shown pattern
+    const auto rootArea = rootBounds();
+    theme::paintDivider (g, (float) rootArea.getX() - 6.0f, (float) rootArea.getY(), (float) rootArea.getHeight());
+}
+
+// Root's place: the last two columns of the second row, with room for its label.
+juce::Rectangle<int> SequencerView::rootBounds() const
+{
+    const int y = kGridTop - 6 + Knob::heightFor (kDiameter) + 4 + kShapeButtonHeight + kRowGap;
+    return { getWidth() - kPadding - 2 * kKnobWidth, y, 2 * kKnobWidth, Knob::heightFor (kDiameter) };
 }
 
 void SequencerView::resized()
 {
     auto area = getLocalBounds().reduced (kPadding);
 
-    // the knobs on the right, the steps filling the rest
+    // the knobs on the right, the steps filling the rest: the shown pattern's settings in two rows,
+    // Root on its own in the second, apart from them
     auto right = area.removeFromRight (kNumKnobs * kKnobWidth);
     area.removeFromRight (16);
     right.removeFromTop (kGridTop - kPadding - 6);
-    for (auto* component : std::initializer_list<juce::Component*> { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get(), vary.get(), &root })
+    auto firstRow = right.removeFromTop (Knob::heightFor (kDiameter) + 4 + kShapeButtonHeight);
+    for (auto* component : std::initializer_list<juce::Component*> { length.get(), rate.get(), swing.get(), gate.get(), drift.get(), hits.get(), vary.get() })
     {
-        auto column = right.removeFromLeft (kKnobWidth);
-        component->setBounds (column);
+        auto column = firstRow.removeFromLeft (kKnobWidth);
+        component->setBounds (column.removeFromTop (Knob::heightFor (kDiameter)));
         if (component == vary.get())
-            shapeButton.setBounds (column.getX(), column.getY() + Knob::heightFor (kDiameter) + 4, kKnobWidth, 20);
+            shapeButton.setBounds (column.withTrimmedTop (4).withHeight (kShapeButtonHeight));
     }
+    right.removeFromTop (kRowGap);
+    transpose->setBounds (right.removeFromLeft (2 * kKnobWidth).removeFromTop (Knob::heightFor (kDiameter))); // two columns wide, for its name
+    root.setBounds (rootBounds());
 
     // the row above the steps: the slots, the pattern's name, the dice and the MIDI button
     auto top = juce::Rectangle<int> (kPadding, kTopRow, area.getWidth(), 22);

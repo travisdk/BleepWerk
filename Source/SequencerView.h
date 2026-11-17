@@ -9,7 +9,8 @@
 
 // The step sequencer's panel, below the effects: the patterns A-H, the name of the one shown
 // with its menu, the dice and the MIDI export; sixteen steps; and the groove (length, rate,
-// swing, gate, drift, hits, vary) and the root note.
+// swing, gate, drift, hits, vary, transpose; the first row and Transpose belong to the shown
+// pattern) and, apart from them, the root note, which is common to all layers.
 //   A-H:   click a letter to edit that pattern; the dot under it makes it play (as a layer, any
 //          number at once, each with its own length)
 //   step:  click the bar to switch it on or off, drag it up and down or scroll to change the
@@ -21,7 +22,7 @@
 class SequencerView : public juce::Component, private juce::Timer
 {
 public:
-    static constexpr int kHeight = 188;
+    static constexpr int kHeight = 232; // 24 + 22 + the grid, and two rows of knobs on the right
 
     explicit SequencerView (BleepWerkProcessor&);
     ~SequencerView() override;
@@ -46,6 +47,7 @@ private:
     void showExported (const juce::File&, bool layers);
     juce::File writeMidi() const;
     void refresh();
+    juce::Rectangle<int> rootBounds() const;
 
     BleepWerkProcessor& processor;
     juce::OwnedArray<juce::TextButton> slotButtons;
@@ -54,7 +56,7 @@ private:
     IconButton dice { IconButton::Icon::Dice, "A random pattern in the playing slot" };
     std::unique_ptr<MidiButton> midiButton;
     std::unique_ptr<StepGrid> grid;
-    std::unique_ptr<GrooveKnob> length, rate, swing, gate, drift, hits, vary;
+    std::unique_ptr<GrooveKnob> length, rate, swing, gate, drift, hits, vary, transpose;
     juce::TextButton shapeButton; // how Vary moves the length: Walk, Random or Skip
     Knob root;
 

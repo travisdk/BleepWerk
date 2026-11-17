@@ -71,6 +71,7 @@ private:
         int drift = 0;
         int vary = 0;
         int shape = 0;
+        int transpose = 0;
     };
 
     struct Slot

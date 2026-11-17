@@ -407,10 +407,13 @@ static void textRoundTrips()
     odd.drift = -3;
     odd.vary = 4;
     odd.shape = (int) LengthShape::Skip;
+    odd.transpose = -7;
     Groove parsed;
-    CHECK (Groove {}.toString() == "length 16 rate 1/16 swing 0.5 gate 0.5 drift 0 vary 0 shape Walk");
+    CHECK (Groove {}.toString() == "length 16 rate 1/16 swing 0.5 gate 0.5 drift 0 vary 0 shape Walk transpose 0");
     CHECK (parsed.fromString ("length 8 rate 1/8 swing 0.55 gate 0.4") && parsed.drift == 0); // text without a drift
     CHECK (parsed.fromString (odd.toString()) && parsed.toString() == odd.toString());
+    CHECK (parsed.fromString ("length 8 rate 1/8 swing 0.55 gate 0.4") && parsed.transpose == 0); // text without a transpose
+    CHECK (parsed.fromString ("length 8 rate 1/8 swing 0.55 gate 0.4 transpose -99") && parsed.transpose == -kMaxTranspose);
     CHECK (! parsed.fromString ("length 5"));
     Pattern damaged;
     damaged.setSwing (std::nanf (""));
@@ -835,6 +838,45 @@ static void factorySetsArePolymeters()
     }
 }
 
+// Transpose moves one pattern from the shared root: the engine, the single-pattern clip and the
+// layered clip all play it, and the other layers keep their pitch.
+static void transposeMovesOnePattern()
+{
+    Groove low;
+    low.transpose = -12;
+    Groove high;
+    high.transpose = 5;
+    EveryStep a (1, low), b (2, high), c (3, Groove {});
+    PatternBank bank;
+    bank.slot (0).copyFrom (a.pattern);
+    bank.slot (1).copyFrom (b.pattern);
+    bank.slot (2).copyFrom (c.pattern);
+    CHECK (bank.slot (0).groove().transpose == -12 && bank.slot (2).groove().transpose == 0);
+
+    // a pattern's setter keeps it within two octaves
+    bank.slot (2).setTranspose (99);
+    CHECK (bank.slot (2).groove().transpose == kMaxTranspose);
+    bank.slot (2).setTranspose (0);
+
+    // the single pattern: root plus transpose plus the step's note
+    const auto firstOf = [] (const Pattern& p, int root) { return patternToClip (p, root).notes.front().note; };
+    CHECK (firstOf (bank.slot (0), 60) == 60 - 12 + bank.slot (0).get (0).note);
+    CHECK (firstOf (bank.slot (2), 60) == 60 + bank.slot (2).get (0).note);
+
+    // all layers, as the engine plays them, with the root added by the clip
+    playOnly (bank, { 0, 1, 2 });
+    const int bars = 2;
+    const auto clip = layersToClip (bank, 0, bars);
+    std::vector<TickNoteKey> expected;
+    for (int layer = 0; layer < 3; ++layer)
+    {
+        const auto notes = engineNotes (bank.slot (layer), clip.lengthTicks, 480);
+        expected.insert (expected.end(), notes.begin(), notes.end());
+    }
+    CHECK (sameNotes (keysOf (clip), expected, 1));
+    playOnly (bank, {});
+}
+
 int main()
 {
     timingIsBlockSizeIndependent();
@@ -852,6 +894,7 @@ int main()
     randomLinesAreMusical();
     clipPlaysLikeTheSequencer();
     layeredClipMatchesTheEngine();
+    transposeMovesOnePattern();
     samePitchAtTheSameTimeIsOneNote();
     aNewNoteCutsTheOldOneOff();
     cycleLengthIsFound();
