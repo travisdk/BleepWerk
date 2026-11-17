@@ -121,7 +121,7 @@ inline LayeredClip layersToClip (const PatternBank& bank, int rootNote, int bars
             const double next = stepStartBeats (j + 1, groove);
             const int64_t off = std::max (on + 1, std::min (beatsToTicks (start + (next - start) * std::clamp ((double) groove.gate, 0.05, 1.0)),
                                                             beatsToTicks (next)));
-            const int note = std::clamp (rootNote + step.note, 0, 127);
+            const int note = std::clamp (rootNote + groove.transpose + step.note, 0, 127);
             const int velocity = midiVelocity (kSeqVelocities[std::clamp (step.level, 0, kNumStepLevels - 1)]);
             events.push_back ({ on, true, note, velocity });
             events.push_back ({ off, false, note, 0 });
