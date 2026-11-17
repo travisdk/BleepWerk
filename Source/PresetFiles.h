@@ -23,6 +23,16 @@ inline juce::File fileFor (const juce::File& folder, const juce::String& name, c
     return folder.getChildFile (juce::File::createLegalFileName (name.trim()) + extension);
 }
 
+// A file that does not exist yet: the name as it is, else "name 2", "name 3" and so on, so an
+// earlier file is never replaced.
+inline juce::File uniqueFileFor (const juce::File& folder, const juce::String& name, const char* extension)
+{
+    auto file = fileFor (folder, name, extension);
+    for (int n = 2; file.exists(); ++n)
+        file = fileFor (folder, name + " " + juce::String (n), extension);
+    return file;
+}
+
 // JUCE's XML parser goes one level deeper on the stack for each nested element, so a damaged or
 // hostile file nested tens of thousands deep crashes the host, and a huge one stalls it. Real
 // projects and presets are a few kB with about sixty elements; far beyond that is refused.
