@@ -111,8 +111,10 @@ patterns A-H, locked to the host's transport (sample-accurate, loops and jumps h
   beat 0 so they stay in step (a polymeter: 16 against 12 meets again after 48)
 - Per pattern, saved with it and in pattern files: Length, Rate, Swing, Gate, Drift (moves on a
   few steps every pass), Hits (spreads that many hits evenly: 3 of 8 is the tresillo), and Vary
-  with a shape (Walk, Random, Skip), which lets the length change from pass to pass. Root, on
-  the other hand, is shared by all layers
+  with a shape (Walk, Random, Skip), which lets the length change from pass to pass, and
+  Transpose (-24 to +24 semitones from the shared Root, so one layer can sit in another octave
+  or on another interval). Root, and a key held while the sequencer runs, are shared by all
+  layers and shown apart from the per-pattern knobs
 - A factory set of original patterns, user pattern files (.bfpattern), a dice, copy to slot
 - MIDI export from the MIDI button: the shown pattern as a one-pass clip, or everything the
   playing layers play, as they play (length, rate, swing, gate, accents, Drift and Vary
