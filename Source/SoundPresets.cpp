@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "SoundPresets.h"
-#include "StrikeSynth.h"
+#include "WerkSynth.h"
 #include "PresetFiles.h"
 
 using namespace bleepwerk;
@@ -91,8 +91,8 @@ bool SoundPresets::loadFile (const juce::File& file)
         return false;
 
     // files saved before 0.11 have one delay time list instead of a time and a feel; files
-    // before version 2 have the Strike choices of before Crackle and Metal were removed
-    const bool oldStrikeChoices = xml->getIntAttribute ("version", 1) < 2;
+    // before version 2 have the Werk choices of before Crackle and Metal were removed
+    const bool oldWerkChoices = xml->getIntAttribute ("version", 1) < 2;
     int oldDelayNote = -1, oldDelayFeel = -1;
     if (auto* old = xml->getChildByAttribute ("id", "delayTime"); old != nullptr && ! std::isnan (old->getDoubleAttribute ("value")))
         bleepwerk::splitOldDelayTime (juce::roundToInt (old->getDoubleAttribute ("value")), oldDelayNote, oldDelayFeel);
@@ -110,10 +110,10 @@ bool SoundPresets::loadFile (const juce::File& file)
                 value = (float) oldDelayNote;
             else if (oldDelayFeel >= 0 && param->paramID == "delayFeel")
                 value = (float) oldDelayFeel;
-            if (oldStrikeChoices && param->paramID == "strikeExciter")
-                value = (float) bleepwerk::migrateStrikeExciter (juce::roundToInt (value));
-            else if (oldStrikeChoices && param->paramID == "strikeBody")
-                value = (float) bleepwerk::migrateStrikeBody (juce::roundToInt (value));
+            if (oldWerkChoices && param->paramID == "strikeExciter")
+                value = (float) bleepwerk::migrateWerkExciter (juce::roundToInt (value));
+            else if (oldWerkChoices && param->paramID == "strikeBody")
+                value = (float) bleepwerk::migrateWerkBody (juce::roundToInt (value));
             files::setParameterValue (*param, value);
         }
     return true;

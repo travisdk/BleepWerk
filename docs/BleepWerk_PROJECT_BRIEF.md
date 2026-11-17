@@ -37,16 +37,17 @@ Each note is rendered by one of two engines, selectable per preset:
 - Short amp envelope (attack, decay, optional short release)
 - Optional noise blend
 
-**Strike engine** (the Foley and Machine engines of earlier versions became this one)
+**Werk engine** (the Foley and Machine engines of earlier versions became this one)
 You play something on an object: two choices and five knobs, with the choices labelled as an
 action on an object.
 - Play (the action): Knock (a short pulse with a little noise bite; Tone is how hard), Brush (a
   decaying burst of noise), Blow (steady noise through a bandpass on the note, opening with a
   puff) and Squeal (metal rubbing on the object: a bright tone two octaves up that slides into
   the note, with a hiss; Motion makes it waver, chatter and jump)
-- On (the object): Bar (a free bar of wood or metal) or Skin (a drum skin: the Bessel zeros of
-  a circular membrane, with the high modes dying fast so it rings like a drum). Eight tuned
-  two-pole resonators that follow the note
+- The object (no longer a choice in the UI, since Bar and Skin could not be told apart by ear;
+  the parameter and both models are still there until one is picked): a free bar of wood or
+  metal, or a drum skin (the Bessel zeros of a circular membrane). Eight tuned two-pole
+  resonators that follow the note
 - Length (a burst, or how long Blow and Squeal last), Ring (how long the object rings), Tone
   (dark to bright), Motion (a rattle, a flutter, a waver) and Sweep (the object slides into the
   note: drips, a drum's fall)
@@ -94,7 +95,7 @@ with Drive and Mix knobs.
 ## 6. UI
 
 - Top: title, preset browser, settings
-- Then the engine section (Bleep / Strike, with Voices, Glide, Bend and Output), and
+- Then the engine section (Bleep / Werk, with Voices, Glide, Bend and Output), and
   below it Chaos, Drive and the effects
 - A SEQ button in the header folds a step sequencer out below the effects (see 6.1); folded in,
   the sequencer is off and the plug-in is as without one
@@ -144,13 +145,13 @@ patterns A-H, locked to the host's transport (sample-accurate, loops and jumps h
 
 1. **Skeleton:** JUCE 8 project with CMake, CLAP + VST3 build on Linux and Windows, empty UI, APVTS in place
 2. **Bleep engine**, mono/poly
-3. **Strike engine** (first as two engines, Foley and Machine, later joined)
+3. **Werk engine** (first as two engines, Foley and Machine, later joined)
 4. **Chaos**
 5. **Effects**
 6. **Presets, state save/restore, polish**
 7. **MIDI input** (2026-10-19)
 8. **Testing and release** (README, license, build artifacts)
-9. **Strike engine** and **step sequencer** (2026-10-31), later layers, Drift, Vary and the layered MIDI export, Drive, and the Play / On names of the Strike choices (2026-11)
+9. **Werk engine** and **step sequencer** (2026-10-31), later layers, Drift, Vary and the layered MIDI export, Drive, and the Play / On names of the Werk choices (2026-11)
 
 ## 10. Open for later
 

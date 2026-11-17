@@ -48,7 +48,7 @@ inline void splitOldDelayTime (int oldIndex, int& note, int& feel)
 }
 
 // Warm is a soft tape-like saturation, Hard clips like a fuzz pedal and Fold is a wavefolder,
-// whose overtones are the inharmonic, metallic kind that suits Strike.
+// whose overtones are the inharmonic, metallic kind that suits Werk.
 enum class DriveType { Warm, Hard, Fold };
 inline constexpr const char* kDriveTypeNames[] = { "Warm", "Hard", "Fold" };
 inline constexpr int kNumDriveTypes = (int) std::size (kDriveTypeNames);

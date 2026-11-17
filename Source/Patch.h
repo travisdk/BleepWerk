@@ -5,7 +5,7 @@
 
 #include "BleepSynth.h"
 #include "Effects.h"
-#include "StrikeSynth.h"
+#include "WerkSynth.h"
 
 #include <cstring>
 #include <utility>
@@ -18,8 +18,8 @@
 // JUCE-free.
 namespace bleepwerk
 {
-enum class Engine { Bleep, Strike };
-inline constexpr const char* kEngineNames[] = { "Bleep", "Strike" };
+enum class Engine { Bleep, Werk };
+inline constexpr const char* kEngineNames[] = { "Bleep", "Werk" };
 inline constexpr int kNumEngines = (int) std::size (kEngineNames);
 
 struct SoundParam
@@ -43,8 +43,8 @@ inline constexpr SoundParam kSoundParams[] = {
     { "bleepRelease", 1, 2000, 30 },
     { "bleepNoise", 0, 1, 0 },
 
-    { "strikeExciter", 0, kNumStrikeExciters - 1, (float) StrikeExciter::Knock },
-    { "strikeBody", 0, kNumStrikeBodies - 1, (float) StrikeBody::Bar },
+    { "strikeExciter", 0, kNumWerkExciters - 1, (float) WerkExciter::Knock },
+    { "strikeBody", 0, kNumWerkBodies - 1, (float) WerkBody::Bar },
     { "strikeLength", 0.1f, 6000, 300 },
     { "strikeRing", 0, 1, 0.5f },
     { "strikeTone", 0, 1, 0.5f },
@@ -101,7 +101,7 @@ struct Patch
 {
     Engine engine = Engine::Bleep;
     BleepParams bleep;
-    StrikeParams strike;
+    WerkParams werk;
     ChaosDepths chaos;
     bool mono = false;
     float glideMs = 0.0f;
@@ -130,9 +130,9 @@ Patch readPatch (Get&& get)
     b.releaseMs = get ("bleepRelease");
     b.noise = get ("bleepNoise");
 
-    auto& k = patch.strike;
-    k.exciter = (StrikeExciter) index ("strikeExciter", kNumStrikeExciters);
-    k.body = (StrikeBody) index ("strikeBody", kNumStrikeBodies);
+    auto& k = patch.werk;
+    k.exciter = (WerkExciter) index ("strikeExciter", kNumWerkExciters);
+    k.body = (WerkBody) index ("strikeBody", kNumWerkBodies);
     k.lengthMs = get ("strikeLength");
     k.ring = get ("strikeRing");
     k.tone = get ("strikeTone");
@@ -184,17 +184,17 @@ inline std::pair<std::vector<float>, std::vector<float>> renderPatch (const Patc
     std::vector<float> left ((size_t) numSamples, 0.0f), right ((size_t) numSamples, 0.0f);
 
     BleepSynth bleep;
-    StrikeSynth strike;
+    WerkSynth werk;
     Effects effects;
     bleep.prepare (sampleRate);
-    strike.prepare (sampleRate);
+    werk.prepare (sampleRate);
     effects.prepare (sampleRate);
     bleep.setParams (patch.bleep);
-    strike.setParams (patch.strike);
+    werk.setParams (patch.werk);
     bleep.setMode (patch.mono ? BleepSynth::Mode::Mono : BleepSynth::Mode::Poly);
-    strike.setMode (patch.mono ? StrikeSynth::Mode::Mono : StrikeSynth::Mode::Poly);
+    werk.setMode (patch.mono ? WerkSynth::Mode::Mono : WerkSynth::Mode::Poly);
     bleep.setGlideMs (patch.glideMs);
-    strike.setGlideMs (patch.glideMs);
+    werk.setGlideMs (patch.glideMs);
     effects.setParams (patch.effects, 120.0);
 
     constexpr int notes[] = { 60, 64, 67, 72 };
@@ -204,13 +204,13 @@ inline std::pair<std::vector<float>, std::vector<float>> renderPatch (const Patc
         switch (patch.engine)
         {
             case Engine::Bleep: bleep.noteOn (note, 0.8f); break;
-            case Engine::Strike: strike.noteOn (note, 0.8f); break;
+            case Engine::Werk: werk.noteOn (note, 0.8f); break;
         }
     };
     auto noteOff = [&] (int note)
     {
         bleep.noteOff (note);
-        strike.noteOff (note);
+        werk.noteOff (note);
     };
 
     // events in time order: each note's on at k * step, its off a gate later
@@ -229,7 +229,7 @@ inline std::pair<std::vector<float>, std::vector<float>> renderPatch (const Patc
         {
             const int n = std::min (256, to - position);
             bleep.renderAdding (left.data() + position, right.data() + position, n);
-            strike.renderAdding (left.data() + position, right.data() + position, n);
+            werk.renderAdding (left.data() + position, right.data() + position, n);
             effects.process (left.data() + position, right.data() + position, n);
         }
         position = to;

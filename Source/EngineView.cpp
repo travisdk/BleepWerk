@@ -9,7 +9,7 @@
 namespace
 {
 constexpr int kPadding = 10, kLeftWidth = 280, kKnobWidth = 50, kDiameter = 47, kKeyDiameter = 62;
-constexpr int kSelectorTop = 27, kSelectorHeight = 48; // Strike's two rows of buttons
+constexpr int kSelectorTop = 27, kSelectorHeight = 48; // Werk's row of buttons
 } // namespace
 
 EngineView::EngineView (BleepWerkProcessor& p)
@@ -30,10 +30,9 @@ EngineView::EngineView (BleepWerkProcessor& p)
       release (p.apvts, "bleepRelease", "Release"),
       noise (p.apvts, "bleepNoise", "Noise"),
       exciter (p.apvts, "strikeExciter", "Play"),
-      body (p.apvts, "strikeBody", "On"),
-      strikeLength (p.apvts, "strikeLength", "Length"),
+      werkLength (p.apvts, "strikeLength", "Length"),
       ring (p.apvts, "strikeRing", "Ring"),
-      strikeTone (p.apvts, "strikeTone", "Tone"),
+      werkTone (p.apvts, "strikeTone", "Tone"),
       motion (p.apvts, "strikeMotion", "Motion"),
       sweep (p.apvts, "strikeSweep", "Sweep", true)
 {
@@ -45,12 +44,12 @@ EngineView::EngineView (BleepWerkProcessor& p)
     back.setActive (false);
 
     // the ones that matter most for each sound, drawn larger: pitch envelope and decay for the
-    // bleep, ring and tone for the strike
+    // bleep, ring and tone for Werk
     bleepKeys = { 4, 7 };
-    strikeKeys = { 3, 4 };
+    werkKeys = { 2, 3 };
     bleepControls = { &bleepWave, &pulseWidth, &fmRatio, &fmAmount, &pitchAmount, &pitchDecay, &attack, &decay, &release, &noise };
-    strikeControls = { &exciter, &body, &strikeLength, &ring, &strikeTone, &motion, &sweep };
-    for (auto* list : { &bleepControls, &strikeControls })
+    werkControls = { &exciter, &werkLength, &ring, &werkTone, &motion, &sweep };
+    for (auto* list : { &bleepControls, &werkControls })
         for (size_t i = 0; i < list->size(); ++i)
         {
             auto* c = (*list)[i];
@@ -76,12 +75,11 @@ void EngineView::timerCallback()
     engine.update();
     voices.update();
     exciter.update();
-    body.update();
 
     // Length only shapes the sources that last or burst, and Motion those that move
-    const auto strikeExciter = (bleepwerk::StrikeExciter) (int) processor.apvts.getRawParameterValue ("strikeExciter")->load();
-    strikeLength.setActive (strikeExciter != bleepwerk::StrikeExciter::Knock);
-    motion.setActive (strikeExciter != bleepwerk::StrikeExciter::Brush);
+    const auto werkExciter = (bleepwerk::WerkExciter) (int) processor.apvts.getRawParameterValue ("strikeExciter")->load();
+    werkLength.setActive (werkExciter != bleepwerk::WerkExciter::Knock);
+    motion.setActive (werkExciter != bleepwerk::WerkExciter::Brush);
 
     // Pulse W and the FM knobs only shape their own wave; for the others they do nothing
     const auto wave = (bleepwerk::BleepWave) (int) processor.apvts.getRawParameterValue ("bleepWave")->load();
@@ -98,7 +96,7 @@ void EngineView::timerCallback()
 
 bool EngineView::isKey (const std::vector<juce::Component*>* list, size_t index) const
 {
-    const auto& keys = list == &bleepControls ? bleepKeys : strikeKeys;
+    const auto& keys = list == &bleepControls ? bleepKeys : werkKeys;
     return std::find (keys.begin(), keys.end(), index) != keys.end();
 }
 
@@ -106,13 +104,13 @@ void EngineView::showEngine (int engineIndex)
 {
     for (auto* c : bleepControls)
         c->setVisible (engineIndex == (int) bleepwerk::Engine::Bleep);
-    for (auto* c : strikeControls)
-        c->setVisible (engineIndex == (int) bleepwerk::Engine::Strike);
+    for (auto* c : werkControls)
+        c->setVisible (engineIndex == (int) bleepwerk::Engine::Werk);
     repaint();
 }
 
 // Keeps the engine and the other engine's settings; the output gain is matched like a factory
-// preset's. The sound then shows as "Random Bleep" or "Random Strike", ready
+// preset's. The sound then shows as "Random Bleep" or "Random Werk", ready
 // to save.
 void EngineView::rollSound()
 {
@@ -188,7 +186,7 @@ void EngineView::resized()
     dice.setBounds (nameRow.removeFromRight (18));
     nameRow.removeFromRight (4);
     back.setBounds (nameRow.removeFromRight (18));
-    // Bleep in two rows spread over the width, like Strike: the source on top (wave, its pulse
+    // Bleep in two rows spread over the width, like Werk: the source on top (wave, its pulse
     // width and FM, noise) and the envelopes below, where the key knobs, pitch envelope and
     // decay, are larger
     const int sourceWidth = area.getWidth() / 5;
@@ -205,18 +203,15 @@ void EngineView::resized()
                              .removeFromBottom (Knob::heightFor (key ? kKeyDiameter : kDiameter)));
     }
 
-    // Strike: Play and On side by side, and the five knobs spread over the width
-    auto selectors = juce::Rectangle<int> (area.getX(), kSelectorTop, area.getWidth(), kSelectorHeight);
-    exciter.setBounds (selectors.removeFromLeft ((selectors.getWidth() - 16) * 5 / 8));
-    selectors.removeFromLeft (16);
-    body.setBounds (selectors);
+    // Werk: the Play row across the width, and the five knobs spread under it
+    exciter.setBounds (juce::Rectangle<int> (area.getX(), kSelectorTop, area.getWidth(), kSelectorHeight));
     auto knobRow = area.withTrimmedTop (area.getHeight() - Knob::heightFor (kKeyDiameter));
     const int slotWidth = knobRow.getWidth() / 5;
-    for (size_t i = 2; i < strikeControls.size(); ++i)
+    for (size_t i = 1; i < werkControls.size(); ++i)
     {
-        const bool key = isKey (&strikeControls, i);
+        const bool key = isKey (&werkControls, i);
         auto slot = knobRow.removeFromLeft (slotWidth);
-        strikeControls[i]->setBounds (slot.withSizeKeepingCentre (key ? kKeyDiameter + 4 : kKnobWidth + 14, slot.getHeight())
+        werkControls[i]->setBounds (slot.withSizeKeepingCentre (key ? kKeyDiameter + 4 : kKnobWidth + 14, slot.getHeight())
                                           .removeFromBottom (Knob::heightFor (key ? kKeyDiameter : kDiameter)));
     }
 }
