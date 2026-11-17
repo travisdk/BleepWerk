@@ -9,22 +9,20 @@
 #include <array>
 #include <iterator>
 
-// The Strike engine: you play something on an object. Two choices and five knobs. The choices
-// read as an action on an object: "Play" (the exciter) "On" (the body). The code keeps the
-// older names (exciter, body, Noise, Steam, Friction, Wood, Membrane); the saved indices are
-// the same, so the names on screen are the only thing that changed.
+// The Strike engine: you play something on an object. Two choices and five knobs, read as an
+// action on an object: "Play" (the exciter in the code) and "On" (the body). The choices are
+// saved by index, so their order must not change.
 //
 // Play (the exciter), into a bank of eight tuned two-pole bandpass resonators:
 //   Knock     a short pulse with a little noise bite; Tone is how hard: dark is a soft mallet,
 //             bright a hard click. Motion adds small knocks while the object rings (a rattle)
-//   Brush     a decaying burst of noise, Length long (StrikeExciter::Noise)
+//   Brush     a decaying burst of noise, Length long
 //   Blow      steady noise through a bandpass that sits on the note (Tone lifts it up to four
 //             octaves above), opening with a puff; Motion makes it flutter
 //   Squeal    metal rubbing on the object: a bright tone two octaves up that slides into the
 //             note, with a hiss around it; Motion makes it waver, chatter and jump
-//             (StrikeExciter::Friction)
-// On (the body): Bar (a free bar of wood or metal; StrikeBody::Wood) or Skin (a drum skin, the
-// zeros of the Bessel functions of a circular membrane; StrikeBody::Membrane).
+// On (the body): Bar (a free bar of wood or metal) or Skin (a drum skin, the
+// zeros of the Bessel functions of a circular membrane).
 // Knobs:
 //   Length  Brush: how long the burst lasts. Blow, Squeal: how long the whole sound
 //           lasts, fade included (it ends by itself; note-offs don't stop it). Not for Knock
@@ -37,18 +35,18 @@
 // The note sets the fundamental. Chaos moves the body's modes a little on every note. JUCE-free.
 namespace bleepwerk
 {
-enum class StrikeExciter { Knock, Noise, Steam, Friction };
+enum class StrikeExciter { Knock, Brush, Blow, Squeal };
 inline constexpr const char* kStrikeExciterNames[] = { "Knock", "Brush", "Blow", "Squeal" };
 inline constexpr int kNumStrikeExciters = (int) std::size (kStrikeExciterNames);
 
-enum class StrikeBody { Wood, Membrane };
+enum class StrikeBody { Bar, Skin };
 inline constexpr const char* kStrikeBodyNames[] = { "Bar", "Skin" };
 inline constexpr int kNumStrikeBodies = (int) std::size (kStrikeBodyNames);
 
 struct StrikeParams
 {
     StrikeExciter exciter = StrikeExciter::Knock;
-    StrikeBody body = StrikeBody::Wood;
+    StrikeBody body = StrikeBody::Bar;
     float lengthMs = 300.0f;
     float ring = 0.5f;
     float tone = 0.5f;
@@ -74,26 +72,26 @@ struct BodyModel
 // is a drum: it rings only a little longer than the Bar, its low modes carry the sound and the
 // high modes (ratios up to 3.5) are a short colour at the hit, at a lower level and dying up
 // to twenty times faster than the fundamental, instead of ringing on as a thin metal plate.
-inline constexpr BodyModel kWoodBody { { 1.0f, 2.756f, 5.404f, 8.933f, 13.34f, 18.64f, 24.81f, 31.97f }, 0.35f, 1.3f, 0.0f };
-inline constexpr BodyModel kMembraneBody { { 1.0f, 1.594f, 2.136f, 2.296f, 2.653f, 2.918f, 3.156f, 3.500f }, 0.5f, 2.4f, 1.0f };
+inline constexpr BodyModel kBarBody { { 1.0f, 2.756f, 5.404f, 8.933f, 13.34f, 18.64f, 24.81f, 31.97f }, 0.35f, 1.3f, 0.0f };
+inline constexpr BodyModel kSkinBody { { 1.0f, 1.594f, 2.136f, 2.296f, 2.653f, 2.918f, 3.156f, 3.500f }, 0.5f, 2.4f, 1.0f };
 
 inline const BodyModel& bodyModel (StrikeBody body)
 {
-    return body == StrikeBody::Membrane ? kMembraneBody : kWoodBody;
+    return body == StrikeBody::Skin ? kSkinBody : kBarBody;
 }
 
 // Choice indices saved before the Crackle exciter and the Metal body were removed (projects
 // before state version 5, presets before file version 2) move to the ones that replaced them:
-// Crackle is a burst like Brush (then Noise), Metal sounds like Bar (then Wood).
+// Crackle is a burst like Brush, Metal sounds like Bar.
 inline int migrateStrikeExciter (int saved)
 {
-    if (saved == 2) return (int) StrikeExciter::Noise;
+    if (saved == 2) return (int) StrikeExciter::Brush;
     return saved > 2 ? saved - 1 : saved;
 }
 
 inline int migrateStrikeBody (int saved)
 {
-    return saved == 2 ? (int) StrikeBody::Membrane : (int) StrikeBody::Wood;
+    return saved == 2 ? (int) StrikeBody::Skin : (int) StrikeBody::Bar;
 }
 
 // How long the body's lowest mode takes to die away (-60 dB): 20 ms .. 3 s at Ring 0..1, scaled
@@ -110,7 +108,7 @@ inline float strikeMotionHz (float motion)
 }
 
 // Blow and Squeal are steady sources that Length shapes; the others are one-off strikes.
-inline bool strikeIsSteady (StrikeExciter e) { return e == StrikeExciter::Steam || e == StrikeExciter::Friction; }
+inline bool strikeIsSteady (StrikeExciter e) { return e == StrikeExciter::Blow || e == StrikeExciter::Squeal; }
 
 class StrikeVoice
 {
@@ -224,9 +222,9 @@ public:
             begin (p);
 
         // Steady sources: a fade in, a plateau, then a fade to silence that ends at Length
-        const bool friction = p.exciter == StrikeExciter::Friction;
+        const bool squeal = p.exciter == StrikeExciter::Squeal;
         const float lengthSamples = std::max (1.0f, std::clamp (p.lengthMs, 5.0f, 6000.0f) * 0.001f * fs * variation.decayScale);
-        const float attackSamples = friction ? std::clamp (0.15f * lengthSamples, 0.01f * fs, 0.08f * fs)
+        const float attackSamples = squeal ? std::clamp (0.15f * lengthSamples, 0.01f * fs, 0.08f * fs)
                                              : std::clamp (0.1f * lengthSamples, 0.001f * fs, 0.02f * fs);
         const int holdUntil = (int) (0.5f * lengthSamples);
         const float fadeCoef = std::exp (-9.21f / std::max (1.0f, 0.5f * lengthSamples)); // -80 dB at Length
@@ -282,7 +280,7 @@ public:
 
             if (steady)
             {
-                const float dry = friction ? screech (tone, p.motion) : hiss (lfo, puff);
+                const float dry = squeal ? screech (tone, p.motion) : hiss (lfo, puff);
                 float wet = resonate (dry);
                 // a steady source only rings the modes it overlaps, so the ring is brought to
                 // the source's own level, following it over about 30 ms
@@ -398,10 +396,10 @@ private:
     {
         needsCoefs = false;
         sweepSemis = p.sweepSemis;
-        const bool friction = p.exciter == StrikeExciter::Friction;
+        const bool squeal = p.exciter == StrikeExciter::Squeal;
         // Squeal's body follows the note it sounds, not its wavering, so the squeal swells
         // and fades as it passes the modes
-        const float f0 = pitchHz (friction ? kScreechSemis : 0.0f);
+        const float f0 = pitchHz (squeal ? kScreechSemis : 0.0f);
         const auto& body = bodyModel (p.body);
         const float baseT60 = strikeRingSeconds (body, p.ring) * variation.decayScale * (1.0f - kSoftRing * softness());
         rattleUntil = (int) std::min (baseT60 * fs, 1.0e9f);
@@ -429,7 +427,7 @@ private:
             m.gain = (steady ? 1.0f - r : 1.0f) * amps[k] / total;
         }
 
-        if (p.exciter == StrikeExciter::Steam)
+        if (p.exciter == StrikeExciter::Blow)
         {
             // no higher than 16 kHz: above it a hiss is felt more than heard
             const float centre = std::clamp (pitchHz (48.0f * tone + hissShift), 20.0f, std::min (16000.0f, 0.45f * fs));
@@ -440,7 +438,7 @@ private:
             svfGain = std::min (120.0f, 0.7f * std::sqrt (fs / (kPi * centre / q)));
         }
 
-        if (friction)
+        if (squeal)
         {
             // Tone rolls the upper partials off when dark; the sum is kept at the same level
             float sumSquares = 0.0f;
@@ -495,12 +493,12 @@ private:
                         x += strength * 0.3f * (biteLowpass - biteHighpass) * (1.0f - (float) pos / (float) biteLength);
                     }
                     break;
-                case StrikeExciter::Noise:
+                case StrikeExciter::Brush:
                     // decaying noise burst with unit energy
                     x = strength * noise.next() * (1.0f - (float) pos / (float) exciterLength) * std::sqrt (3.0f / (float) exciterLength);
                     break;
-                case StrikeExciter::Steam:
-                case StrikeExciter::Friction:
+                case StrikeExciter::Blow:
+                case StrikeExciter::Squeal:
                     break; // steady sources are not one-off strikes (see render())
             }
         }

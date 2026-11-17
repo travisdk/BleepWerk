@@ -109,7 +109,7 @@ static void everyCombinationIsSane()
                         // Squeal sounds two octaves above the note, so the top note is beyond what can be played
                         for (int note : { 12, 60, 120 })
                         {
-                            if (p.exciter == StrikeExciter::Friction && note > 90)
+                            if (p.exciter == StrikeExciter::Squeal && note > 90)
                                 continue;
                             const auto out = play (p, note, 500);
                             CHECK (finite (out));
@@ -127,7 +127,7 @@ static void silentWithNoNotes()
     synth.prepare (fs);
     for (int e = 0; e < kNumStrikeExciters; ++e)
     {
-        synth.setParams (params ((StrikeExciter) e, StrikeBody::Wood));
+        synth.setParams (params ((StrikeExciter) e, StrikeBody::Bar));
         CHECK (peak (render (synth, ms (200))) == 0.0f);
     }
     CHECK (synth.activeVoices() == 0);
@@ -181,8 +181,8 @@ static void ringSetsTheRingTime()
         const auto out = play (params (StrikeExciter::Knock, body, ring), 60, 1500);
         return rms (out, ms (300), ms (400));
     };
-    CHECK (tail (StrikeBody::Wood, 0.9f) > 5.0 * tail (StrikeBody::Wood, 0.3f));
-    CHECK (strikeRingSeconds (kWoodBody, 0.0f) < strikeRingSeconds (kWoodBody, 1.0f));
+    CHECK (tail (StrikeBody::Bar, 0.9f) > 5.0 * tail (StrikeBody::Bar, 0.3f));
+    CHECK (strikeRingSeconds (kBarBody, 0.0f) < strikeRingSeconds (kBarBody, 1.0f));
 }
 
 // A skin is a drum, not a plate: it rings only a little longer than a bar, its high modes die much
@@ -191,29 +191,29 @@ static void aSkinSoundsLikeADrum()
 {
     for (float ring : { 0.2f, 0.5f, 0.8f })
     {
-        const float ratio = strikeRingSeconds (kMembraneBody, ring) / strikeRingSeconds (kWoodBody, ring);
+        const float ratio = strikeRingSeconds (kSkinBody, ring) / strikeRingSeconds (kBarBody, ring);
         CHECK (ratio >= 1.0f && ratio <= 1.6f);
     }
     // each mode's ring time falls with its ratio (as updateCoefs sets it); the top one is a short
     // colour: under a tenth of the fundamental's ring, and every mode rings shorter than the one below it
-    for (size_t k = 1; k < kMembraneBody.ratios.size(); ++k)
-        CHECK (std::pow (kMembraneBody.ratios[k], -kMembraneBody.highModeDamping) < std::pow (kMembraneBody.ratios[k - 1], -kMembraneBody.highModeDamping));
-    CHECK (std::pow (kMembraneBody.ratios.back(), -kMembraneBody.highModeDamping) < 0.1f);
-    CHECK (kMembraneBody.extraTilt > kWoodBody.extraTilt);
+    for (size_t k = 1; k < kSkinBody.ratios.size(); ++k)
+        CHECK (std::pow (kSkinBody.ratios[k], -kSkinBody.highModeDamping) < std::pow (kSkinBody.ratios[k - 1], -kSkinBody.highModeDamping));
+    CHECK (std::pow (kSkinBody.ratios.back(), -kSkinBody.highModeDamping) < 0.1f);
+    CHECK (kSkinBody.extraTilt > kBarBody.extraTilt);
 
     // heard: a hit's tail is dominated by the fundamental, so the hit decays to a low note, not a ring of
     // high partials; compare the level of the first 20 ms with a late stretch
-    const auto out = play (params (StrikeExciter::Knock, StrikeBody::Membrane, 0.5f, 0.5f), 48, 1500);
+    const auto out = play (params (StrikeExciter::Knock, StrikeBody::Skin, 0.5f, 0.5f), 48, 1500);
     CHECK (rms (out, 0, ms (20)) > 3.0 * rms (out, ms (300), ms (400)));
 }
 
 // Length sets how long Blow and Squeal last, fade included, and note-offs don't stop them.
 static void lengthSetsHowLongItLasts()
 {
-    for (auto exciter : { StrikeExciter::Steam, StrikeExciter::Friction })
+    for (auto exciter : { StrikeExciter::Blow, StrikeExciter::Squeal })
     {
-        const auto shortOne = play (params (exciter, StrikeBody::Wood, 0.5f, 0.5f, 0.0f, 150.0f), 48, 3000);
-        const auto longOne = play (params (exciter, StrikeBody::Wood, 0.5f, 0.5f, 0.0f, 1500.0f), 48, 3000);
+        const auto shortOne = play (params (exciter, StrikeBody::Bar, 0.5f, 0.5f, 0.0f, 150.0f), 48, 3000);
+        const auto longOne = play (params (exciter, StrikeBody::Bar, 0.5f, 0.5f, 0.0f, 1500.0f), 48, 3000);
         CHECK (rms (shortOne, ms (600), ms (800)) < 0.02 * rms (shortOne, ms (20), ms (60)));
         CHECK (rms (longOne, ms (600), ms (800)) > 0.1 * rms (longOne, ms (200), ms (400)));
         CHECK (rms (longOne, ms (2800), ms (3000)) < 0.01 * rms (longOne, ms (200), ms (400)));
@@ -221,7 +221,7 @@ static void lengthSetsHowLongItLasts()
 
     StrikeSynth synth;
     synth.prepare (fs);
-    synth.setParams (params (StrikeExciter::Steam, StrikeBody::Wood, 0.5f, 0.5f, 0.0f, 1000.0f));
+    synth.setParams (params (StrikeExciter::Blow, StrikeBody::Bar, 0.5f, 0.5f, 0.0f, 1000.0f));
     synth.noteOn (48, 1.0f);
     render (synth, ms (50));
     synth.noteOff (48);
@@ -231,8 +231,8 @@ static void lengthSetsHowLongItLasts()
 // Brush: Length is the burst, not the sound; a longer burst is not louder.
 static void burstLengthDoesNotChangeTheLevelMuch()
 {
-    const auto shortOne = play (params (StrikeExciter::Noise, StrikeBody::Wood, 0.5f, 0.5f, 0.0f, 2.0f), 48, 800);
-    const auto longOne = play (params (StrikeExciter::Noise, StrikeBody::Wood, 0.5f, 0.5f, 0.0f, 40.0f), 48, 800);
+    const auto shortOne = play (params (StrikeExciter::Brush, StrikeBody::Bar, 0.5f, 0.5f, 0.0f, 2.0f), 48, 800);
+    const auto longOne = play (params (StrikeExciter::Brush, StrikeBody::Bar, 0.5f, 0.5f, 0.0f, 40.0f), 48, 800);
     const double ratio = rms (longOne, 0, ms (400)) / rms (shortOne, 0, ms (400));
     CHECK (ratio > 0.2 && ratio < 5.0);
 }
@@ -242,13 +242,13 @@ static void burstLengthDoesNotChangeTheLevelMuch()
 static void oldChoicesMigrate()
 {
     CHECK (migrateStrikeExciter (0) == (int) StrikeExciter::Knock);
-    CHECK (migrateStrikeExciter (1) == (int) StrikeExciter::Noise);
-    CHECK (migrateStrikeExciter (2) == (int) StrikeExciter::Noise);
-    CHECK (migrateStrikeExciter (3) == (int) StrikeExciter::Steam);
-    CHECK (migrateStrikeExciter (4) == (int) StrikeExciter::Friction);
-    CHECK (migrateStrikeBody (0) == (int) StrikeBody::Wood);
-    CHECK (migrateStrikeBody (1) == (int) StrikeBody::Wood);
-    CHECK (migrateStrikeBody (2) == (int) StrikeBody::Membrane);
+    CHECK (migrateStrikeExciter (1) == (int) StrikeExciter::Brush);
+    CHECK (migrateStrikeExciter (2) == (int) StrikeExciter::Brush);
+    CHECK (migrateStrikeExciter (3) == (int) StrikeExciter::Blow);
+    CHECK (migrateStrikeExciter (4) == (int) StrikeExciter::Squeal);
+    CHECK (migrateStrikeBody (0) == (int) StrikeBody::Bar);
+    CHECK (migrateStrikeBody (1) == (int) StrikeBody::Bar);
+    CHECK (migrateStrikeBody (2) == (int) StrikeBody::Skin);
 }
 
 // Tone: bright strikes have more high end, dark ones less.
@@ -256,8 +256,8 @@ static void toneAddsBrightness()
 {
     for (int e = 0; e < kNumStrikeExciters; ++e)
     {
-        const auto dark = play (params ((StrikeExciter) e, StrikeBody::Wood, 0.5f, 0.0f), 48, 400);
-        const auto bright = play (params ((StrikeExciter) e, StrikeBody::Wood, 0.5f, 1.0f), 48, 400);
+        const auto dark = play (params ((StrikeExciter) e, StrikeBody::Bar, 0.5f, 0.0f), 48, 400);
+        const auto bright = play (params ((StrikeExciter) e, StrikeBody::Bar, 0.5f, 1.0f), 48, 400);
         if (! (brightness (bright) > brightness (dark)))
             std::printf ("exciter %d: dark %.4f bright %.4f\n", e, brightness (dark), brightness (bright));
         CHECK (brightness (bright) > brightness (dark));
@@ -268,7 +268,7 @@ static void toneAddsBrightness()
 static void sweepSlidesIntoTheNote()
 {
     const double hz = noteHz (57);
-    auto p = params (StrikeExciter::Knock, StrikeBody::Wood, 1.0f, 0.3f);
+    auto p = params (StrikeExciter::Knock, StrikeBody::Bar, 1.0f, 0.3f);
     p.sweepSemis = 12.0f;
     const auto up = play (p, 57, 700);
     CHECK (strongestHz (up, 0, ms (8), hz * 0.4, hz * 1.2) < hz * 0.8); // starts an octave below...
@@ -284,7 +284,7 @@ static void bendMovesTheNote()
     const double hz = noteHz (57);
     StrikeSynth synth;
     synth.prepare (fs);
-    synth.setParams (params (StrikeExciter::Knock, StrikeBody::Wood, 1.0f, 0.3f));
+    synth.setParams (params (StrikeExciter::Knock, StrikeBody::Bar, 1.0f, 0.3f));
     synth.setPitchBend (12.0f);
     synth.noteOn (57, 1.0f);
     const auto out = render (synth, ms (700));
@@ -295,7 +295,7 @@ static void velocityScalesTheLevel()
 {
     for (int e = 0; e < kNumStrikeExciters; ++e)
     {
-        const auto p = params ((StrikeExciter) e, StrikeBody::Wood);
+        const auto p = params ((StrikeExciter) e, StrikeBody::Bar);
         const auto loud = play (p, 55, 400, 1.0f);
         const auto soft = play (p, 55, 400, 0.3f);
         CHECK (peak (loud) > peak (soft));
@@ -310,7 +310,7 @@ static void chaosVariesTheHits()
     {
         StrikeSynth synth;
         synth.prepare (fs);
-        synth.setParams (params (StrikeExciter::Noise, StrikeBody::Wood, 0.6f, 0.5f, 0.0f, 3.0f));
+        synth.setParams (params (StrikeExciter::Brush, StrikeBody::Bar, 0.6f, 0.5f, 0.0f, 3.0f));
         ChaosDepths depths;
         if (chaos)
             depths.pitch = depths.decay = depths.tone = 0.8f;
@@ -335,7 +335,7 @@ static void monoAndPolyBehave()
 {
     StrikeSynth synth;
     synth.prepare (fs);
-    synth.setParams (params (StrikeExciter::Steam, StrikeBody::Wood, 0.5f, 0.5f, 0.0f, 3000.0f));
+    synth.setParams (params (StrikeExciter::Blow, StrikeBody::Bar, 0.5f, 0.5f, 0.0f, 3000.0f));
     synth.setMode (StrikeSynth::Mode::Mono);
     synth.noteOn (48, 1.0f);
     synth.noteOn (55, 1.0f);
@@ -356,7 +356,7 @@ static void retriggerDoesNotClickLoudly()
 {
     StrikeSynth synth;
     synth.prepare (fs);
-    synth.setParams (params (StrikeExciter::Knock, StrikeBody::Membrane, 0.8f, 0.5f));
+    synth.setParams (params (StrikeExciter::Knock, StrikeBody::Skin, 0.8f, 0.5f));
     synth.noteOn (48, 0.8f);
     const auto first = render (synth, ms (100));
     synth.noteOn (48, 0.8f);
