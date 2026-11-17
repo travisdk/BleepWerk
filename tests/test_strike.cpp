@@ -3,7 +3,7 @@
 
 // The Strike engine: every exciter on every body gives finite output at a sensible level, it is
 // silent with no notes, every voice ends by itself (note-offs or not), the body rings on the
-// note, Ring sets how long, Length sets how long Steam and Friction last, Sweep slides into the
+// note, Ring sets how long, Length sets how long Blow and Rub last, Sweep slides into the
 // note, bend moves it, and Chaos and velocity behave.
 #include "StrikeSynth.h"
 #include "TestUtils.h"
@@ -106,7 +106,7 @@ static void everyCombinationIsSane()
                     {
                         auto p = params ((StrikeExciter) e, (StrikeBody) b, ring, tone, motion, 200.0f);
                         p.sweepSemis = motion > 0.5f ? 12.0f : -12.0f;
-                        // Friction sounds two octaves above the note, so the top note is beyond what can be played
+                        // Rub sounds two octaves above the note, so the top note is beyond what can be played
                         for (int note : { 12, 60, 120 })
                         {
                             if (p.exciter == StrikeExciter::Friction && note > 90)
@@ -173,7 +173,7 @@ static void bodyRingsOnTheNote()
         }
 }
 
-// Ring sets how long it rings, and each body has its own scale: a membrane rings longer than wood.
+// Ring sets how long it rings, and each body has its own scale: a skin rings longer than a bar.
 static void ringSetsTheRingTime()
 {
     auto tail = [] (StrikeBody body, float ring)
@@ -186,7 +186,7 @@ static void ringSetsTheRingTime()
     CHECK (strikeRingSeconds (kWoodBody, 0.0f) < strikeRingSeconds (kWoodBody, 1.0f));
 }
 
-// Length sets how long Steam and Friction last, fade included, and note-offs don't stop them.
+// Length sets how long Blow and Rub last, fade included, and note-offs don't stop them.
 static void lengthSetsHowLongItLasts()
 {
     for (auto exciter : { StrikeExciter::Steam, StrikeExciter::Friction })
@@ -207,7 +207,7 @@ static void lengthSetsHowLongItLasts()
     CHECK (rms (render (synth, ms (300)), 0, ms (300)) > 1.0e-3);
 }
 
-// Noise: Length is the burst, not the sound; a longer burst is not louder.
+// Brush: Length is the burst, not the sound; a longer burst is not louder.
 static void burstLengthDoesNotChangeTheLevelMuch()
 {
     const auto shortOne = play (params (StrikeExciter::Noise, StrikeBody::Wood, 0.5f, 0.5f, 0.0f, 2.0f), 48, 800);
@@ -217,7 +217,7 @@ static void burstLengthDoesNotChangeTheLevelMuch()
 }
 
 // Presets and projects saved before Crackle and Metal were removed keep their sound: the old
-// choice indices map to the ones that replaced them (Crackle to Noise, Metal to Wood).
+// choice indices map to the ones that replaced them (Crackle to Brush, Metal to Bar).
 static void oldChoicesMigrate()
 {
     CHECK (migrateStrikeExciter (0) == (int) StrikeExciter::Knock);
