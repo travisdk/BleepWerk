@@ -30,7 +30,7 @@ namespace preset
 {
 // readable names for the choice values
 inline constexpr float Sine = 0, Saw = 1, Pulse = 2, FM = 3;
-inline constexpr float Knock = 0, Noise = 1, Steam = 2, Friction = 3; // Play: Knock, Brush (Noise), Blow (Steam), Rub (Friction)
+inline constexpr float Knock = 0, Noise = 1, Steam = 2, Friction = 3; // Play: Knock, Brush (Noise), Blow (Steam), Squeal (Friction)
 inline constexpr float Wood = 0, Membrane = 1;                       // On: Bar (Wood), Skin (Membrane)
 inline constexpr float LP = 1, BP = 2, HP = 3;
 inline constexpr float N32 = 0, N16 = 1, N8 = 2, N4 = 3, N2 = 4;
@@ -207,21 +207,21 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Rivet Gun", "Skin", { Strike, { "strikeExciter", Noise }, { "strikeBody", Membrane }, { "strikeLength", 25 }, { "strikeRing", 0.36f }, { "strikeTone", 0.85f }, { "crushBits", 8 } } },
         { "Press Stamp", "Skin", { Strike, { "strikeExciter", Noise }, { "strikeBody", Membrane }, { "strikeLength", 1.5f }, { "strikeRing", 0.35f }, { "strikeTone", 0.4f } } },
 
-        // ---- Industrial, blow and rub: struck metal parts, and steady sources, tuned to the note
+        // ---- Industrial, blow and squeal: struck metal parts, and steady sources, tuned to the note
         { "Press Clonk", "Industrial", { Strike, { "strikeBody", Wood }, { "strikeRing", 0.82f }, { "strikeTone", 0.45f }, { "chaosAmount", 0.5f }, { "chaosPitch", 0.6f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
         { "Heavy Hit", "Industrial", { Strike, { "strikeBody", Wood }, { "strikeRing", 0.74f }, { "strikeTone", 0.3f }, { "chaosAmount", 0.4f },
                                        { "driveType", Warm }, { "drivePost", Pre }, { "driveAmount", 0.6f }, { "driveMix", 0.7f },
                                        { "roomSize", 0.7f }, { "roomDecay", 1.4f }, { "roomMix", 0.25f } } },
         { "Rattling Plate", "Industrial", { Strike, { "strikeBody", Wood }, { "strikeRing", 0.9f }, { "strikeTone", 0.65f }, { "strikeMotion", 0.55f }, { "chaosAmount", 0.6f }, { "chaosPitch", 0.7f } } },
         { "Donk", "Industrial", { Strike, { "strikeBody", Wood }, { "strikeRing", 0.69f }, { "roomSize", 1 }, { "roomDecay", 4 }, { "roomMix", 0.12f }, { "roomDuck", 0.12f } } },
-        { "Steam Valve", "Blow & Rub", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeRing", 0.15f }, { "strikeTone", 0.75f } } },
-        { "Pressure Leak", "Blow & Rub", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeLength", 1200 }, { "strikeRing", 0.25f }, { "strikeTone", 0.85f }, { "strikeMotion", 0.35f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
-        { "Whistle Pipe", "Blow & Rub", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeLength", 600 }, { "strikeRing", 0.4f }, { "strikeTone", 0.25f } } },
-        { "Air Brake", "Blow & Rub", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeLength", 180 }, { "strikeRing", 0.1f }, { "strikeTone", 0.9f }, { "chaosAmount", 0.4f }, { "chaosTone", 0.6f } } },
+        { "Steam Valve", "Blow & Squeal", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeRing", 0.15f }, { "strikeTone", 0.75f } } },
+        { "Pressure Leak", "Blow & Squeal", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeLength", 1200 }, { "strikeRing", 0.25f }, { "strikeTone", 0.85f }, { "strikeMotion", 0.35f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
+        { "Whistle Pipe", "Blow & Squeal", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeLength", 600 }, { "strikeRing", 0.4f }, { "strikeTone", 0.25f } } },
+        { "Air Brake", "Blow & Squeal", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeLength", 180 }, { "strikeRing", 0.1f }, { "strikeTone", 0.9f }, { "chaosAmount", 0.4f }, { "chaosTone", 0.6f } } },
 
-        { "Rail Squeal", "Blow & Rub", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 1500 }, { "strikeRing", 0.6f }, { "strikeTone", 0.75f }, { "strikeMotion", 0.2f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
-        { "Brake Squeal", "Blow & Rub", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 1200 }, { "strikeRing", 0.4f }, { "strikeTone", 0.85f }, { "strikeMotion", 0.75f }, { "chaosAmount", 0.3f }, { "chaosPitch", 0.3f } } },
-        { "Metal Scrape", "Blow & Rub", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 600 }, { "strikeTone", 0.45f }, { "strikeMotion", 0.5f } } },
+        { "Rail Squeal", "Blow & Squeal", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 1500 }, { "strikeRing", 0.6f }, { "strikeTone", 0.75f }, { "strikeMotion", 0.2f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
+        { "Brake Squeal", "Blow & Squeal", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 1200 }, { "strikeRing", 0.4f }, { "strikeTone", 0.85f }, { "strikeMotion", 0.75f }, { "chaosAmount", 0.3f }, { "chaosPitch", 0.3f } } },
+        { "Metal Scrape", "Blow & Squeal", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 600 }, { "strikeTone", 0.45f }, { "strikeMotion", 0.5f } } },
 
         // ---- Cosmic: every section turned up as far as it will go
         { "Event Horizon", "Cosmic", { Strike, { "strikeExciter", Steam }, { "strikeBody", Membrane }, { "strikeLength", 1800 }, { "strikeRing", 0.9f },
