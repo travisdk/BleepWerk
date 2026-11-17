@@ -64,16 +64,24 @@ struct BodyModel
     float decayScale;
     float highModeDamping;
     float extraTilt; // added to the tilt of the mode levels: the higher, the less the high modes are heard
+    std::array<float, kNumStrikeModes> levels; // each mode's own weight on top of the tilt: what makes a body sound like itself
+    std::array<float, kNumStrikeModes> decayTrim; // each mode's ring time times this, on top of the damping
 };
 
 // A free bar (beam modes; Bar) and a circular membrane (Skin; the Bessel zeros j01, j11, j21, j02, j31,
 // j12, j41, j22 divided by j01).
-// The Bar rings briefly and its high modes decay a little faster than its low ones. The Skin
-// is a drum: it rings only a little longer than the Bar, its low modes carry the sound and the
-// high modes (ratios up to 3.5) are a short colour at the hit, at a lower level and dying up
-// to twenty times faster than the fundamental, instead of ringing on as a thin metal plate.
-inline constexpr BodyModel kBarBody { { 1.0f, 2.756f, 5.404f, 8.933f, 13.34f, 18.64f, 24.81f, 31.97f }, 0.35f, 1.3f, 0.0f };
-inline constexpr BodyModel kSkinBody { { 1.0f, 1.594f, 2.136f, 2.296f, 2.653f, 2.918f, 3.156f, 3.500f }, 0.5f, 2.4f, 1.0f };
+// The Bar rings briefly and its high modes decay a little faster than its low ones; its second
+// mode (2.756) is lifted so the dry "tok" of a beam or wood block stands out. The Skin is a drum: it
+// rings only a little longer than the Bar. Its close cluster above the fundamental (1.59, 2.14, 2.30)
+// is what gives the "bum", so those modes are strong (1.59 at least as strong as the fundamental,
+// like a drum struck a little off centre) and last 50-150 ms; the modes above (ratios up to 3.5) are
+// a short colour at the hit, so it does not ring on as a thin metal plate.
+inline constexpr BodyModel kBarBody { { 1.0f, 2.756f, 5.404f, 8.933f, 13.34f, 18.64f, 24.81f, 31.97f }, 0.35f, 1.3f, 0.0f,
+                                   { 1.0f, 6.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f },
+                                   { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f } }; // 2.756 stands out: the dry "tok" of a bar
+inline constexpr BodyModel kSkinBody { { 1.0f, 1.594f, 2.136f, 2.296f, 2.653f, 2.918f, 3.156f, 3.500f }, 0.5f, 1.5f, 1.0f,
+                                    { 1.0f, 6.5f, 11.0f, 10.0f, 3.0f, 2.0f, 1.5f, 1.0f },
+                                    { 1.0f, 1.7f, 2.4f, 2.5f, 1.0f, 1.0f, 1.0f, 1.0f } }; // the close tones above the fundamental (1.59, 2.14, 2.30) are the drum's "bum"
 
 inline const BodyModel& bodyModel (StrikeBody body)
 {
@@ -408,7 +416,7 @@ private:
         float total = 0.0f;
         std::array<float, kNumStrikeModes> amps {};
         for (size_t k = 0; k < modes.size(); ++k)
-            total += amps[k] = std::pow ((float) k + 1.0f, -tilt);
+            total += amps[k] = body.levels[k] * std::pow ((float) k + 1.0f, -tilt);
 
         for (size_t k = 0; k < modes.size(); ++k)
         {
@@ -420,7 +428,7 @@ private:
                 m.a1 = m.a2 = 0.0f;
                 continue;
             }
-            const float t60 = std::max (0.005f, baseT60 * std::pow (body.ratios[k], -body.highModeDamping));
+            const float t60 = std::max (0.005f, baseT60 * body.decayTrim[k] * std::pow (body.ratios[k], -body.highModeDamping));
             const float r = std::exp (-6.91f / (t60 * fs));
             m.a1 = 2.0f * r * std::cos (kTwoPi * f / fs);
             m.a2 = r * r;

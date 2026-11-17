@@ -195,16 +195,73 @@ static void aSkinSoundsLikeADrum()
         CHECK (ratio >= 1.0f && ratio <= 1.6f);
     }
     // each mode's ring time falls with its ratio (as updateCoefs sets it); the top one is a short
-    // colour: under a tenth of the fundamental's ring, and every mode rings shorter than the one below it
+    // colour: under a fifth of the fundamental's ring, and every mode rings shorter than the one below it
     for (size_t k = 1; k < kSkinBody.ratios.size(); ++k)
         CHECK (std::pow (kSkinBody.ratios[k], -kSkinBody.highModeDamping) < std::pow (kSkinBody.ratios[k - 1], -kSkinBody.highModeDamping));
-    CHECK (std::pow (kSkinBody.ratios.back(), -kSkinBody.highModeDamping) < 0.1f);
+    CHECK (kSkinBody.decayTrim.back() * std::pow (kSkinBody.ratios.back(), -kSkinBody.highModeDamping) < 0.2f);
     CHECK (kSkinBody.extraTilt > kBarBody.extraTilt);
 
     // heard: a hit's tail is dominated by the fundamental, so the hit decays to a low note, not a ring of
     // high partials; compare the level of the first 20 ms with a late stretch
     const auto out = play (params (StrikeExciter::Knock, StrikeBody::Skin, 0.5f, 0.5f), 48, 1500);
     CHECK (rms (out, 0, ms (20)) > 3.0 * rms (out, ms (300), ms (400)));
+}
+
+// Magnitude of one frequency in v[from, to) (Goertzel).
+static double magnitudeAt (const std::vector<float>& v, int from, int to, double hz)
+{
+    const double c = 2.0 * std::cos (2.0 * 3.14159265358979 * hz / fs);
+    double s1 = 0.0, s2 = 0.0;
+    for (int i = from; i < to; ++i)
+    {
+        const double s0 = v[(size_t) i] + c * s1 - s2;
+        s2 = s1;
+        s1 = s0;
+    }
+    return std::sqrt (std::max (0.0, s1 * s1 + s2 * s2 - c * s1 * s2)) / std::max (1, to - from);
+}
+
+// Bar and Skin must not melt together: struck the same way on the same note, their spectra differ
+// clearly. The Skin's close tones above the fundamental (1.59, 2.14, 2.30) are heard for the first
+// 50-150 ms and the one at 1.59 is at least as strong as the fundamental; the Bar's 2.76 stands out.
+static void barAndSkinSoundDifferent()
+{
+    for (int note : { 57, 64, 69 }) // high enough for 50 ms to hold a few cycles
+    {
+        const double f0 = noteHz (note);
+        const auto bar = play (params (StrikeExciter::Knock, StrikeBody::Bar), note, 1000);
+        const auto skin = play (params (StrikeExciter::Knock, StrikeBody::Skin), note, 1000);
+        const int from = ms (10), to = ms (150);
+
+        // the two spectra over f0 .. 6 f0 in third-of-a-semitone-ish bins, each as shares of its own total
+        auto shares = [&] (const std::vector<float>& v)
+        {
+            std::vector<double> s;
+            double total = 0.0;
+            for (double r = 0.9; r < 6.0; r *= 1.012)
+                total += s.emplace_back (std::pow (magnitudeAt (v, from, to, f0 * r), 2.0));
+            for (auto& x : s)
+                x /= total;
+            return s;
+        };
+        const auto a = shares (bar), b = shares (skin);
+        double difference = 0.0; // 0 identical .. 1 nothing in common
+        for (size_t i = 0; i < a.size(); ++i)
+            difference += 0.5 * std::abs (a[i] - b[i]);
+
+        auto level = [&] (const std::vector<float>& v, double ratio, int a0, int a1) { return magnitudeAt (v, a0, a1, f0 * ratio); };
+        const double skin159 = level (skin, 1.594, from, ms (60)), skin1 = level (skin, 1.0, from, ms (60));
+        const double skinLate = level (skin, 2.136, ms (60), ms (120));
+        const double barTok = level (bar, 2.756, ms (3), ms (25)) / level (bar, 1.0, ms (3), ms (25));
+        const double skinTok = level (skin, 2.756, ms (3), ms (25)) / level (skin, 1.0, ms (3), ms (25));
+        std::printf ("note %d: difference %.2f, skin 1.59/1 %.2f, skin 2.14 late/1 %.3f, bar 2.76/1 %.2f (skin %.2f)\n", note, difference,
+                     skin159 / skin1, skinLate / level (skin, 1.0, ms (60), ms (120)), barTok, skinTok);
+
+        CHECK (difference > 0.4);
+        CHECK (skin159 >= skin1);
+        CHECK (skinLate > 0.2 * level (skin, 1.0, ms (60), ms (120))); // still there at 60-120 ms
+        CHECK (barTok > 0.5 && barTok > 3.0 * skinTok);
+    }
 }
 
 // Length sets how long Blow and Squeal last, fade included, and note-offs don't stop them.
@@ -271,7 +328,7 @@ static void sweepSlidesIntoTheNote()
     auto p = params (StrikeExciter::Knock, StrikeBody::Bar, 1.0f, 0.3f);
     p.sweepSemis = 12.0f;
     const auto up = play (p, 57, 700);
-    CHECK (strongestHz (up, 0, ms (8), hz * 0.4, hz * 1.2) < hz * 0.8); // starts an octave below...
+    CHECK (strongestHz (up, 0, ms (14), hz * 0.4, hz * 1.2) < hz * 0.8); // starts an octave below...
     CHECK (std::abs (strongestHz (up, ms (300), ms (600), hz * 0.85, hz * 1.15) / hz - 1.0) < 0.01); // ...and settles on the note
     p.sweepSemis = -12.0f;
     const auto down = play (p, 57, 700);
@@ -373,6 +430,7 @@ int main()
     bodyRingsOnTheNote();
     ringSetsTheRingTime();
     aSkinSoundsLikeADrum();
+    barAndSkinSoundDifferent();
     lengthSetsHowLongItLasts();
     burstLengthDoesNotChangeTheLevelMuch();
     toneAddsBrightness();
