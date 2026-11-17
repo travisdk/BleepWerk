@@ -241,6 +241,70 @@ void migratesOldFolders()
     CHECK (! newPreset.exists());
    #endif
 }
+// The layered MIDI export writes one track of the right length with every note off before a note
+// on at the same time, never replaces an earlier file, and writes nothing when no layer plays.
+void exportLayers()
+{
+   #if JUCE_LINUX
+    using namespace bleepwerk;
+    BleepWerkProcessor processor;
+    auto& bank = processor.getPatternBank();
+    auto& presets = processor.getPatternPresets();
+
+    bank.setPlayingMask (0);
+    CHECK (presets.exportLayersMidi (4) == juce::File());
+
+    // two layers on the same pitch, one a gate of the whole step so notes end where the next starts
+    Groove a, b;
+    a.gate = 1.0f;
+    b.length = 12;
+    b.gate = 1.0f;
+    for (int i = 0; i < kMaxSteps; ++i)
+    {
+        bank.slot (0).set (i, { true, 0, kNormalLevel });
+        bank.slot (1).set (i, { true, i % 2 == 0 ? 0 : 7, kAccentLevel });
+    }
+    bank.slot (0).setGroove (a);
+    bank.slot (1).setGroove (b);
+    bank.setPlayingMask (3);
+
+    const auto first = presets.exportLayersMidi (4);
+    const auto second = presets.exportLayersMidi (4);
+    CHECK (first.getFileName() == "BleepWerk layers 4 bars.mid");
+    CHECK (second.getFileName() == "BleepWerk layers 4 bars 2.mid");
+    CHECK (first.existsAsFile() && second.existsAsFile() && first.getSize() == second.getSize());
+
+    juce::MidiFile file;
+    juce::FileInputStream in (first);
+    CHECK (in.openedOk() && file.readFrom (in));
+    CHECK (file.getNumTracks() == 1);
+    CHECK (file.getTimeFormat() == kClipTicksPerQuarter);
+    const auto* track = file.getTrack (0);
+    const auto clip = layersToClip (bank, (int) processor.apvts.getRawParameterValue ("seqRoot")->load(), 4);
+    CHECK (! clip.notes.empty());
+    int ons = 0, offs = 0;
+    std::array<bool, 128> sounding {};
+    bool orderedAndSingle = true;
+    for (int i = 0; i < track->getNumEvents(); ++i)
+    {
+        const auto& m = track->getEventPointer (i)->message;
+        if (m.isNoteOn())
+        {
+            ++ons;
+            orderedAndSingle = orderedAndSingle && ! sounding[(size_t) m.getNoteNumber()]; // never on twice
+            sounding[(size_t) m.getNoteNumber()] = true;
+        }
+        else if (m.isNoteOff())
+        {
+            ++offs;
+            sounding[(size_t) m.getNoteNumber()] = false;
+        }
+    }
+    CHECK (orderedAndSingle);
+    CHECK (ons == (int) clip.notes.size() && offs == ons);
+    CHECK (std::abs (track->getEndTime() - (double) clip.lengthTicks) < 0.5);
+   #endif
+}
 } // namespace
 
 int main (int argc, char* argv[])
@@ -252,6 +316,7 @@ int main (int argc, char* argv[])
         { "typed-numbers", typedNumbers },
         { "nameless-preset", namelessPreset },
         { "migrate-old-folders", migratesOldFolders },
+        { "export-layers", exportLayers },
     };
     const juce::String name = argc > 1 ? argv[1] : "";
     const auto testCase = cases.find (name);

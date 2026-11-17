@@ -4,6 +4,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "LayerClip.h"
 #include "PatternLibrary.h"
 
 // Sequencer patterns: the factory patterns, the factory polymeter sets (several layers loaded
@@ -40,6 +41,13 @@ public:
     // folder (next to the pattern folder), replacing an earlier export of the same
     // name. Returns the file, or a default File if it could not be written.
     juce::File exportMidi (int slotIndex);
+    // Everything the layers that play do over a number of bars, as one clip on one track, with
+    // the notes the voices would play (see LayerClip.h): "BleepWerk layers 16 bars.mid", or with
+    // a number added when that file exists, so nothing is replaced. The notes are from the Root
+    // knob. A default File if no layer has a note to play or the file could not be written.
+    juce::File exportLayersMidi (int bars);
+    // after how many bars the layers repeat exactly (0: nothing to play, -1: more than 64)
+    int barsUntilRepeat() const { return bleepwerk::barsUntilRepeat (bank); }
     juce::File midiFolder() const { return getFolder().getParentDirectory().getChildFile ("MIDI"); }
 
     void rescan();

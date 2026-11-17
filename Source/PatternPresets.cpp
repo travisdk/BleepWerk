@@ -206,6 +206,21 @@ void PatternPresets::copySlot (int from, int to)
     changed();
 }
 
+// A track as a standard MIDI file at the clip resolution. The file is replaced if it exists.
+static bool writeMidiFile (const juce::File& file, const juce::MidiMessageSequence& sequence, int ticksPerQuarter)
+{
+    juce::MidiFile midiFile;
+    midiFile.setTicksPerQuarterNote (ticksPerQuarter);
+    midiFile.addTrack (sequence);
+
+    juce::FileOutputStream stream (file);
+    if (! stream.openedOk())
+        return false;
+    stream.setPosition (0);
+    stream.truncate();
+    return midiFile.writeTo (stream);
+}
+
 juce::File PatternPresets::exportMidi (int slotIndex)
 {
     if (! juce::isPositiveAndBelow (slotIndex, kNumPatternSlots))
@@ -227,19 +242,33 @@ juce::File PatternPresets::exportMidi (int slotIndex)
     // the track ends with the pattern, so the clip is as long as one pass
     sequence.addEvent (juce::MidiMessage::endOfTrack().withTimeStamp (clip.lengthBeats * ticksPerQuarter));
 
-    juce::MidiFile midiFile;
-    midiFile.setTicksPerQuarterNote (ticksPerQuarter);
-    midiFile.addTrack (sequence);
-
     const auto file = files::fileFor (midiFolder(), name, ".mid");
     if (! midiFolder().createDirectory())
         return {};
-    juce::FileOutputStream stream (file);
-    if (! stream.openedOk())
+    return writeMidiFile (file, sequence, ticksPerQuarter) ? file : juce::File();
+}
+
+juce::File PatternPresets::exportLayersMidi (int bars)
+{
+    const auto clip = bleepwerk::layersToClip (bank, (int) state.getRawParameterValue ("seqRoot")->load(), bars);
+    if (clip.notes.empty())
         return {};
-    stream.setPosition (0);
-    stream.truncate();
-    return midiFile.writeTo (stream) ? file : juce::File();
+
+    const auto name = "BleepWerk layers " + juce::String (bars) + " bars";
+    juce::MidiMessageSequence sequence;
+    sequence.addEvent (juce::MidiMessage::textMetaEvent (3, name)); // track name
+    // Every note-off goes in before any note-on, so a note that ends where the same pitch starts
+    // again is let go first (events at the same time stay in the order they were added).
+    for (const auto& n : clip.notes)
+        sequence.addEvent (juce::MidiMessage::noteOff (1, n.note).withTimeStamp ((double) n.end));
+    for (const auto& n : clip.notes)
+        sequence.addEvent (juce::MidiMessage::noteOn (1, n.note, (juce::uint8) n.velocity).withTimeStamp ((double) n.start));
+    sequence.addEvent (juce::MidiMessage::endOfTrack().withTimeStamp ((double) clip.lengthTicks));
+
+    if (! midiFolder().createDirectory())
+        return {};
+    const auto file = files::uniqueFileFor (midiFolder(), name, ".mid");
+    return writeMidiFile (file, sequence, bleepwerk::kClipTicksPerQuarter) ? file : juce::File();
 }
 
 static juce::String slotSuffix (int index)

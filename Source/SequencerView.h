@@ -15,7 +15,9 @@
 //   step:  click the bar to switch it on or off, drag it up and down or scroll to change the
 //          note, double-click to reset the note to the root; the dot above is an accent; the
 //          arrows below move the note an octave up or down
-//   MIDI:  click to write the shown pattern as a MIDI file; on Windows drag it into the host
+//   MIDI:  click for a menu: the shown pattern as a MIDI file (one pass), or everything the
+//          layers play over 4 to 64 bars; on Windows drag the button into the host to take the
+//          last choice as a clip
 class SequencerView : public juce::Component, private juce::Timer
 {
 public:
@@ -39,7 +41,10 @@ private:
 
     void timerCallback() override;
     void showPatternMenu();
-    void exportMidi();
+    void showMidiMenu();
+    void exportMidi (int bars);
+    void showExported (const juce::File&, bool layers);
+    juce::File writeMidi() const;
     void refresh();
 
     BleepWerkProcessor& processor;
@@ -54,6 +59,7 @@ private:
     Knob root;
 
     int shownVersion = -1;
+    int exportBars = 0; // what the MIDI button writes: 0 the shown pattern for one pass, else all layers for this many bars
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SequencerView)
 };

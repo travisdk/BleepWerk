@@ -3,13 +3,16 @@
 
 // Sequencer engine: timing independent of the host block size, swing and gate, no stuck notes
 // after loops, jumps or stopping, layers of different lengths that stay in step, drift, hits
-// spread evenly, the two velocities, text round trips, and MIDI clips that play like the sequencer.
+// spread evenly, the two velocities, text round trips, and MIDI clips that play like the sequencer,
+// also with several layers at once (LayerClip.h).
+#include "LayerClip.h"
 #include "PatternLibrary.h"
 #include "Sequencer.h"
 #include "TestUtils.h"
 
 #include <cmath>
 #include <cstdlib>
+#include <tuple>
 #include <string>
 #include <vector>
 
@@ -472,6 +475,311 @@ static void clipPlaysLikeTheSequencer()
     CHECK (patternToClip (p, 40).notes.front().note == 43);
 }
 
+//==============================================================================
+// Several layers as one clip.
+
+// Steps from firstNote upwards on every step, with an accent on every fourth and some rests.
+static void fillLayer (Pattern& p, const Groove& groove, int firstNote, int restEvery)
+{
+    for (int i = 0; i < kMaxSteps; ++i)
+        p.set (i, { restEvery <= 0 || i % restEvery != restEvery - 1, firstNote + i, i % 4 == 0 ? kAccentLevel : kNormalLevel });
+    p.setGroove (groove);
+}
+
+static void playOnly (PatternBank& bank, std::initializer_list<int> slots)
+{
+    bank.setPlayingMask (0);
+    for (int slot : slots)
+        bank.setPlaying (slot, true);
+}
+
+struct TickNoteKey
+{
+    int64_t start, end;
+    int note, velocity;
+};
+
+// What the engine plays for one layer, as a clip would hold it (ticks), for notes that start
+// before lengthTicks. The layers use different pitches, so they can be compared one by one.
+static std::vector<TickNoteKey> engineNotes (const Pattern& p, int64_t lengthTicks, int blockSize)
+{
+    const double seconds = (double) lengthTicks / kClipTicksPerQuarter * 60.0 / bpm + 2.0;
+    const auto events = run (blockSize, p, seconds, -1.0, 0.0, false);
+    auto toTicks = [] (long sample) { return (double) sample / sampleRate * bpm / 60.0 * kClipTicksPerQuarter; };
+    std::vector<TickNoteKey> notes;
+    std::vector<double> exactStart;
+    for (const auto& e : events)
+    {
+        if (e.on)
+        {
+            if (toTicks (e.sample) >= (double) lengthTicks - 0.5)
+                break;
+            notes.push_back ({ (int64_t) std::llround (toTicks (e.sample)), -1, e.note, midiVelocity (e.velocity) });
+        }
+        else if (! notes.empty() && notes.back().end < 0)
+            notes.back().end = (int64_t) std::llround (toTicks (e.sample));
+    }
+    for (auto& n : notes)
+        n.end = std::min (n.end, lengthTicks);
+    return notes;
+}
+
+static bool sameNotes (std::vector<TickNoteKey> a, std::vector<TickNoteKey> b, int64_t tolerance)
+{
+    auto order = [] (const TickNoteKey& x, const TickNoteKey& y) { return std::tie (x.start, x.note) < std::tie (y.start, y.note); };
+    std::sort (a.begin(), a.end(), order);
+    std::sort (b.begin(), b.end(), order);
+    if (a.size() != b.size())
+        return false;
+    for (size_t i = 0; i < a.size(); ++i)
+        if (std::llabs (a[i].start - b[i].start) > tolerance || std::llabs (a[i].end - b[i].end) > tolerance || a[i].note != b[i].note
+            || a[i].velocity != b[i].velocity)
+            return false;
+    return true;
+}
+
+static std::vector<TickNoteKey> keysOf (const LayeredClip& clip)
+{
+    std::vector<TickNoteKey> keys;
+    for (const auto& n : clip.notes)
+        keys.push_back ({ n.start, n.end, n.note, n.velocity });
+    return keys;
+}
+
+static bool noPitchOverlaps (const LayeredClip& clip)
+{
+    for (size_t i = 0; i < clip.notes.size(); ++i)
+    {
+        if (clip.notes[i].end <= clip.notes[i].start || clip.notes[i].end > clip.lengthTicks)
+            return false;
+        for (size_t k = i + 1; k < clip.notes.size(); ++k)
+            if (clip.notes[k].note == clip.notes[i].note && clip.notes[k].start < clip.notes[i].end)
+                return false;
+    }
+    return true;
+}
+
+// The clip has the notes the engine plays, with layers of different length, rate, swing, gate,
+// drift and every shape of vary.
+static void layeredClipMatchesTheEngine()
+{
+    PatternBank bank;
+    Groove a;                       // 16 steps of 1/16, straight
+    Groove b;                       // 12 steps of 1/16T with swing, drifting
+    b.length = 12;
+    b.rate = 4;
+    b.swing = 0.6f;
+    b.gate = 0.8f;
+    b.drift = 1;
+    Groove c;                       // 7 steps of 1/8, varied by Walk, gate to the next step
+    c.length = 7;
+    c.rate = 0;
+    c.gate = 1.0f;
+    c.vary = 3;
+    c.shape = (int) LengthShape::Walk;
+    Groove d;                       // 11 steps of 1/32 varied at random, drifting back
+    d.length = 11;
+    d.rate = 2;
+    d.swing = 0.68f;
+    d.gate = 0.3f;
+    d.drift = -2;
+    d.vary = 4;
+    d.shape = (int) LengthShape::Random;
+    Groove e;                       // 14 steps of 1/16, varied by Skip
+    e.length = 14;
+    e.vary = 5;
+    e.shape = (int) LengthShape::Skip;
+    e.drift = 3;
+    fillLayer (bank.slot (0), a, 0, 0);
+    fillLayer (bank.slot (1), b, 20, 5);
+    fillLayer (bank.slot (2), c, 40, 3);
+    fillLayer (bank.slot (3), d, 60, 0);
+    fillLayer (bank.slot (4), e, 80, 4);
+    playOnly (bank, { 0, 1, 2, 3, 4 });
+
+    const int bars = 6;
+    const auto clip = layersToClip (bank, 0, bars);
+    CHECK (clip.lengthTicks == bars * kBarTicks);
+    CHECK (noPitchOverlaps (clip));
+
+    std::vector<TickNoteKey> expected;
+    for (int block : { 480, 512 })
+    {
+        expected.clear();
+        for (int layer = 0; layer < 5; ++layer)
+        {
+            const auto notes = engineNotes (bank.slot (layer), clip.lengthTicks, block);
+            expected.insert (expected.end(), notes.begin(), notes.end());
+        }
+        CHECK (sameNotes (keysOf (clip), expected, 1));
+    }
+    CHECK (clip.notes.size() > 100);
+
+    // only the layers that play are in it, and the root moves every note
+    playOnly (bank, { 2 });
+    const auto only = layersToClip (bank, 36, 4);
+    CHECK (sameNotes (keysOf (only), [&]
+                      {
+                          auto notes = engineNotes (bank.slot (2), 4 * kBarTicks, 480);
+                          for (auto& n : notes)
+                              n.note += 36;
+                          return notes;
+                      }(),
+                      1));
+    playOnly (bank, {});
+    CHECK (layersToClip (bank, 0, 8).notes.empty());
+}
+
+// The same pitch at the same time is one note: the later layer's velocity, the first end.
+static void samePitchAtTheSameTimeIsOneNote()
+{
+    for (const bool laterIsAccent : { false, true })
+    {
+        PatternBank bank;
+        Groove slow, quick; // one hit a beat: 1/16 steps, length 4
+        slow.length = quick.length = 4;
+        slow.gate = 0.5f;   // 120 ticks
+        quick.gate = 0.25f; // 60 ticks
+        for (auto* p : { &bank.slot (0), &bank.slot (3) })
+        {
+            p->clear();
+            p->setGroove (p == &bank.slot (0) ? slow : quick);
+        }
+        bank.slot (0).set (0, { true, 60, laterIsAccent ? kNormalLevel : kAccentLevel });
+        bank.slot (3).set (0, { true, 60, laterIsAccent ? kAccentLevel : kNormalLevel });
+        playOnly (bank, { 0, 3 });
+
+        const auto clip = layersToClip (bank, 0, 4);
+        CHECK (clip.notes.size() == 16); // one a beat for four bars, not two
+        for (size_t i = 0; i < clip.notes.size(); ++i)
+        {
+            CHECK (clip.notes[i].start == (int64_t) i * kClipTicksPerQuarter);
+            CHECK (clip.notes[i].end == clip.notes[i].start + 60); // ends where the first of them ends
+            CHECK (clip.notes[i].velocity == midiVelocity (kSeqVelocities[laterIsAccent ? kAccentLevel : kNormalLevel]));
+        }
+        CHECK (noPitchOverlaps (clip));
+    }
+}
+
+// A pitch that starts while it still sounds cuts the earlier note off at that moment.
+static void aNewNoteCutsTheOldOneOff()
+{
+    PatternBank bank;
+    Groove a, b;
+    a.length = 8; // a hit every two beats, held to the end of its step (a quarter of a beat)
+    a.gate = 1.0f;
+    b.length = 8; // a hit every beat, an eighth of a beat later, held for a sixteenth
+    b.rate = 2;
+    bank.slot (0).clear();
+    bank.slot (0).setGroove (a);
+    bank.slot (0).set (0, { true, 60, kNormalLevel });
+    bank.slot (1).clear();
+    bank.slot (1).setGroove (b);
+    bank.slot (1).set (1, { true, 60, kAccentLevel });
+    playOnly (bank, { 0, 1 });
+
+    const auto clip = layersToClip (bank, 0, 2);
+    CHECK (noPitchOverlaps (clip));
+    // A sounds from 0 and is cut at 120 where B starts; B ends at 180. A's own end at 240 comes
+    // when the pitch is silent again and is ignored.
+    CHECK (clip.notes.size() >= 3);
+    CHECK (clip.notes[0].start == 0 && clip.notes[0].end == 120 && clip.notes[0].velocity == midiVelocity (kSeqVelocities[kNormalLevel]));
+    CHECK (clip.notes[1].start == 120 && clip.notes[1].end == 180 && clip.notes[1].velocity == midiVelocity (kSeqVelocities[kAccentLevel]));
+    CHECK (clip.notes[2].start == kClipTicksPerQuarter + 120); // the next beat, with A silent
+    // two beats on A starts again, and B's next note (a beat and an eighth in) cuts it off at 2040
+    bool cutAgain = false;
+    for (const auto& n : clip.notes)
+        cutAgain = cutAgain || (n.start == 2 * kClipTicksPerQuarter && n.end == 2 * kClipTicksPerQuarter + 120);
+    CHECK (cutAgain);
+}
+
+// The cycle is the number of whole bars after which the layers play exactly the same again.
+static void cycleLengthIsFound()
+{
+    PatternBank bank;
+    Groove sixteen, twelve;
+    twelve.length = 12;
+    fillLayer (bank.slot (0), sixteen, 0, 0);
+    fillLayer (bank.slot (1), twelve, 30, 0);
+    playOnly (bank, { 0 });
+    CHECK (barsUntilRepeat (bank) == 1);
+    playOnly (bank, { 0, 1 });
+    CHECK (barsUntilRepeat (bank) == 3); // 16 and 12 steps meet after 48 steps, three bars
+    playOnly (bank, {});
+    CHECK (barsUntilRepeat (bank) == 0);
+
+    // a layer with no hits has nothing to repeat
+    bank.slot (1).clear();
+    playOnly (bank, { 0, 1 });
+    CHECK (barsUntilRepeat (bank) == 1);
+    CHECK (bank.slot (1).hits() == 0);
+
+    // Drift 1 on 16 steps has to go round all 16 places: 256 steps, 16 bars
+    Groove drifting;
+    drifting.drift = 1;
+    fillLayer (bank.slot (2), drifting, 0, 3);
+    playOnly (bank, { 2 });
+    CHECK (barsUntilRepeat (bank) == 16);
+
+    // too long for any choice
+    Groove odd1, odd2, odd3;
+    odd1.length = 13;
+    odd1.drift = 1;
+    odd2.length = 11;
+    odd2.drift = 1;
+    odd3.length = 15;
+    odd3.rate = 3;
+    fillLayer (bank.slot (3), odd1, 0, 0);
+    fillLayer (bank.slot (4), odd2, 20, 0);
+    fillLayer (bank.slot (5), odd3, 40, 0);
+    playOnly (bank, { 3, 4, 5 });
+    CHECK (barsUntilRepeat (bank) == -1);
+}
+
+// Playing twice the cycle gives the cycle twice, and nothing shorter than the cycle does.
+static void cycleReallyRepeats()
+{
+    auto secondHalfIsTheFirst = [] (const PatternBank& bank, int bars)
+    {
+        const auto clip = layersToClip (bank, 0, 2 * bars);
+        const int64_t shift = bars * kBarTicks;
+        std::vector<TickNoteKey> first, second;
+        for (const auto& n : clip.notes)
+            (n.start < shift ? first : second).push_back ({ n.start < shift ? n.start : n.start - shift, n.end < shift || n.start < shift ? n.end : n.end - shift, n.note, n.velocity });
+        // a note that starts in the first half and ends after it is cut by neither: same on both sides
+        for (auto& n : second)
+            n.end = std::min (n.end, clip.lengthTicks);
+        return ! first.empty() && sameNotes (first, second, 0);
+    };
+
+    PatternBank bank;
+    Groove a, b;
+    b.length = 12;
+    fillLayer (bank.slot (0), a, 0, 0);
+    fillLayer (bank.slot (1), b, 12, 5); // shares pitches with A, so notes merge and cut
+    playOnly (bank, { 0, 1 });
+    CHECK (barsUntilRepeat (bank) == 3);
+    CHECK (secondHalfIsTheFirst (bank, 3));
+    CHECK (! secondHalfIsTheFirst (bank, 1));
+    CHECK (! secondHalfIsTheFirst (bank, 2));
+
+    Groove c, d;
+    c.length = 12; // Skip: two full passes and a short one, with swing
+    c.swing = 0.66f;
+    c.vary = 3;
+    c.shape = (int) LengthShape::Skip;
+    d.length = 12; // drifting back two steps a pass, in triplets
+    d.rate = 4;
+    d.drift = -2;
+    fillLayer (bank.slot (2), c, 0, 4);
+    fillLayer (bank.slot (3), d, 5, 0);
+    playOnly (bank, { 2, 3 });
+    const int bars = barsUntilRepeat (bank);
+    CHECK (bars > 0);
+    CHECK (secondHalfIsTheFirst (bank, bars));
+    CHECK (noPitchOverlaps (layersToClip (bank, 0, 2 * bars)));
+}
+
 static void factoryPatternsParse()
 {
     for (int i = 0; i < kNumFactoryPatterns; ++i)
@@ -543,6 +851,11 @@ int main()
     textRoundTrips();
     randomLinesAreMusical();
     clipPlaysLikeTheSequencer();
+    layeredClipMatchesTheEngine();
+    samePitchAtTheSameTimeIsOneNote();
+    aNewNoteCutsTheOldOneOff();
+    cycleLengthIsFound();
+    cycleReallyRepeats();
     factoryPatternsParse();
     factorySetsArePolymeters();
     return finish ("sequencer");

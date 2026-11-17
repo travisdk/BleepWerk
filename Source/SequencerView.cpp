@@ -283,8 +283,8 @@ struct SequencerView::GrooveKnob : juce::Component, juce::SettableTooltipClient
 };
 
 //==============================================================================
-// The MIDI button: a click writes the file, and on Windows a drag takes it into the host as a
-// clip (as the host takes a file from Explorer).
+// The MIDI button: a click opens its menu, and on Windows a drag writes the file of the last
+// choice and takes it into the host as a clip (as the host takes a file from Explorer).
 struct SequencerView::MidiButton : juce::TextButton
 {
     MidiButton() : juce::TextButton ("MIDI") {}
@@ -362,13 +362,8 @@ SequencerView::SequencerView (BleepWerkProcessor& p)
     addAndMakeVisible (dice);
 
     midiButton = std::make_unique<MidiButton>();
-   #if JUCE_WINDOWS
-    midiButton->setTooltip ("Write this pattern as a MIDI file (one pass), or drag it into your host to get a clip.");
-   #else
-    midiButton->setTooltip ("Write this pattern as a MIDI file (one pass).");
-   #endif
-    midiButton->writeFile = [this] { return processor.getPatternPresets().exportMidi (processor.getPatternBank().active()); };
-    midiButton->onClick = [this] { exportMidi(); };
+    midiButton->writeFile = [this] { return writeMidi(); };
+    midiButton->onClick = [this] { showMidiMenu(); };
     addAndMakeVisible (*midiButton);
 
     grid = std::make_unique<StepGrid> (processor);
@@ -454,6 +449,17 @@ void SequencerView::refresh()
     shapeButton.setAlpha (bank.activePattern().groove().vary > 0 ? 1.0f : 0.4f);
     for (int i = 0; i < playDots.size(); ++i)
         playDots[i]->setToggleState (bank.isPlaying (i), juce::dontSendNotification);
+    // the MIDI button shows what a drag into the host (or a click on the menu) writes
+    const auto midiText = exportBars == 0 ? juce::String ("MIDI") : "MIDI " + juce::String (exportBars);
+    if (midiButton->getButtonText() != midiText)
+        midiButton->setButtonText (midiText);
+    const auto what = exportBars == 0 ? juce::String ("the shown pattern for one pass")
+                                      : "everything the playing layers play over " + juce::String (exportBars) + " bars";
+   #if JUCE_WINDOWS
+    midiButton->setTooltip ("Write a MIDI file: click for the choices, or drag the button into your host to get a clip of " + what + ".");
+   #else
+    midiButton->setTooltip ("Write a MIDI file: click for the choices. Now: " + what + ".");
+   #endif
     grid->repaint();
 }
 
@@ -492,7 +498,7 @@ void SequencerView::resized()
         top.removeFromLeft (kSlotWidth);
     }
     top.removeFromLeft (10);
-    midiButton->setBounds (top.removeFromRight (48));
+    midiButton->setBounds (top.removeFromRight (62));
     top.removeFromRight (6);
     dice.setBounds (top.removeFromRight (22).withSizeKeepingCentre (22, 22));
     top.removeFromRight (6);
@@ -548,9 +554,73 @@ void SequencerView::showPatternMenu()
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (patternButton).withMinimumWidth (patternButton.getWidth()).withDeletionCheck (*this));
 }
 
-void SequencerView::exportMidi()
+// What the MIDI button writes, for the drag into the host: the last choice from its menu.
+juce::File SequencerView::writeMidi() const
 {
-    const auto file = processor.getPatternPresets().exportMidi (processor.getPatternBank().active());
+    auto& presets = processor.getPatternPresets();
+    return exportBars == 0 ? presets.exportMidi (processor.getPatternBank().active()) : presets.exportLayersMidi (exportBars);
+}
+
+void SequencerView::showMidiMenu()
+{
+    juce::PopupMenu menu;
+    menu.addItem ("This pattern, one pass", true, exportBars == 0, [this] { exportMidi (0); });
+    menu.addSeparator();
+    menu.addSectionHeader ("All playing layers, as they play");
+    for (const int bars : kExportBars)
+        menu.addItem (juce::String (bars) + " bars", true, exportBars == bars, [this, bars] { exportMidi (bars); });
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (*midiButton).withMinimumWidth (160).withDeletionCheck (*this));
+}
+
+void SequencerView::exportMidi (int bars)
+{
+    exportBars = bars;
+    refresh(); // the button shows the choice
+
+    auto& presets = processor.getPatternPresets();
+    if (bars == 0)
+    {
+        showExported (presets.exportMidi (processor.getPatternBank().active()), false);
+        return;
+    }
+
+    const int cycle = presets.barsUntilRepeat();
+    if (cycle == 0)
+    {
+        juce::AlertWindow::showAsync (juce::MessageBoxOptions::makeOptionsOk (juce::MessageBoxIconType::InfoIcon, "Nothing to export",
+                                                                              "No pattern that plays has a note to play. Switch a layer on with the dot under its letter."),
+                                      nullptr);
+        return;
+    }
+
+    // the layers repeat exactly after fewer bars than asked for: say so, and offer the shorter clip
+    if (cycle > 0 && cycle < bars)
+    {
+        const auto shorter = juce::String (cycle) + (cycle == 1 ? " bar" : " bars");
+        const auto asked = juce::String (bars) + " bars";
+        juce::AlertWindow::showAsync (juce::MessageBoxOptions()
+                                          .withIconType (juce::MessageBoxIconType::QuestionIcon)
+                                          .withTitle ("The layers repeat")
+                                          .withMessage ("Your layers play exactly the same again after " + shorter + ", so " + asked
+                                                        + " would only be that over and over. Export " + shorter + " instead?")
+                                          .withButton ("Export " + shorter)
+                                          .withButton ("Export " + asked)
+                                          .withButton ("Cancel"),
+                                      juce::ModalCallbackFunction::create (
+                                          [safe = juce::Component::SafePointer<SequencerView> (this), bars] (int result)
+                                          {
+                                              if (safe == nullptr || result == 0)
+                                                  return; // cancelled, or the panel is gone
+                                              auto& exporter = safe->processor.getPatternPresets();
+                                              safe->showExported (exporter.exportLayersMidi (result == 1 ? exporter.barsUntilRepeat() : bars), true);
+                                          }));
+        return;
+    }
+    showExported (presets.exportLayersMidi (bars), true);
+}
+
+void SequencerView::showExported (const juce::File& file, bool layers)
+{
     if (file == juce::File())
     {
         juce::AlertWindow::showAsync (juce::MessageBoxOptions::makeOptionsOk (juce::MessageBoxIconType::WarningIcon, "Could not export",
@@ -558,8 +628,11 @@ void SequencerView::exportMidi()
                                       nullptr);
         return;
     }
-    juce::AlertWindow::showAsync (juce::MessageBoxOptions::makeOptionsOkCancel (juce::MessageBoxIconType::InfoIcon, "MIDI exported",
-                                                                                "Saved " + file.getFileName() + " in " + file.getParentDirectory().getFullPathName() + ".",
+    juce::String message = "Saved " + file.getFileName() + " in " + file.getParentDirectory().getFullPathName() + ".";
+    if (layers)
+        message << "\n\nThe notes are played from the Root knob, not from keys you hold.";
+    message << "\n\nSwitch SEQ off when you play the file from the host, or the sequencer plays along with it.";
+    juce::AlertWindow::showAsync (juce::MessageBoxOptions::makeOptionsOkCancel (juce::MessageBoxIconType::InfoIcon, "MIDI exported", message,
                                                                                 "Open folder", "OK"),
                                   juce::ModalCallbackFunction::create ([folder = file.getParentDirectory()] (int result)
                                                                        { if (result == 1) files::openFolder (folder); }));
