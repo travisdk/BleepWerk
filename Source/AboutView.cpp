@@ -128,7 +128,7 @@ void AboutView::paint (juce::Graphics& g)
     g.setFont (fonts::label (15.0f));
     g.drawText (juce::String ("Version ") + BLEEPWERK_VERSION_STRING, line (22), juce::Justification::centredLeft);
     g.setColour (theme::text);
-    g.drawText ("Bleeps, blips and foley tones.", line (24), juce::Justification::centredLeft);
+    g.drawText ("Bleeps, blips and struck sounds.", line (24), juce::Justification::centredLeft);
     line (6);
     g.drawText ("by Henrik Juhl (travisdk)", line (22), juce::Justification::centredLeft);
     g.drawText ("Free software under the GNU AGPLv3", line (22), juce::Justification::centredLeft);

@@ -81,7 +81,7 @@ void EngineView::timerCallback()
     // Length only shapes the sources that last or burst, and Motion those that move
     const auto strikeExciter = (bleepwerk::StrikeExciter) (int) processor.apvts.getRawParameterValue ("strikeExciter")->load();
     strikeLength.setActive (strikeExciter != bleepwerk::StrikeExciter::Knock);
-    motion.setActive (strikeExciter != bleepwerk::StrikeExciter::Noise);
+    motion.setActive (strikeExciter != bleepwerk::StrikeExciter::Brush);
 
     // Pulse W and the FM knobs only shape their own wave; for the others they do nothing
     const auto wave = (bleepwerk::BleepWave) (int) processor.apvts.getRawParameterValue ("bleepWave")->load();
@@ -112,7 +112,7 @@ void EngineView::showEngine (int engineIndex)
 }
 
 // Keeps the engine and the other engine's settings; the output gain is matched like a factory
-// preset's. The sound then shows as "Random Bleep", "Random Foley" or "Random Machine", ready
+// preset's. The sound then shows as "Random Bleep" or "Random Strike", ready
 // to save.
 void EngineView::rollSound()
 {

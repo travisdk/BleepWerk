@@ -44,7 +44,7 @@ inline constexpr SoundParam kSoundParams[] = {
     { "bleepNoise", 0, 1, 0 },
 
     { "strikeExciter", 0, kNumStrikeExciters - 1, (float) StrikeExciter::Knock },
-    { "strikeBody", 0, kNumStrikeBodies - 1, (float) StrikeBody::Wood },
+    { "strikeBody", 0, kNumStrikeBodies - 1, (float) StrikeBody::Bar },
     { "strikeLength", 0.1f, 6000, 300 },
     { "strikeRing", 0, 1, 0.5f },
     { "strikeTone", 0, 1, 0.5f },

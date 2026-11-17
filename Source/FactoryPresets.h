@@ -30,8 +30,8 @@ namespace preset
 {
 // readable names for the choice values
 inline constexpr float Sine = 0, Saw = 1, Pulse = 2, FM = 3;
-inline constexpr float Knock = 0, Noise = 1, Steam = 2, Friction = 3; // Play: Knock, Brush (Noise), Blow (Steam), Squeal (Friction)
-inline constexpr float Wood = 0, Membrane = 1;                       // On: Bar (Wood), Skin (Membrane)
+inline constexpr float Knock = 0, Brush = 1, Blow = 2, Squeal = 3; // Play
+inline constexpr float Bar = 0, Skin = 1;                           // On
 inline constexpr float LP = 1, BP = 2, HP = 3;
 inline constexpr float N32 = 0, N16 = 1, N8 = 2, N4 = 3, N2 = 4;
 inline constexpr float Straight = 0, Triplet = 1, Dotted = 2;
@@ -169,7 +169,7 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Dub Bell", "Dub", { { "bleepWave", FM }, { "bleepFmRatio", 3.5f }, { "bleepFmAmount", 0.4f }, { "bleepPitchAmount", 0 },
                                { "bleepDecay", 700 }, { "delayNote", N4 }, { "delayFeel", Triplet }, { "delayFeedback", 0.55f }, { "delayMix", 0.35f },
                                { "roomDecay", 0.7f }, { "roomMix", 0.3f } } },
-        { "Echo Plate", "Dub", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.57f }, { "strikeTone", 0.6f }, { "delayNote", 2 }, { "delayFeel", 0 }, { "delayFeedback", 0.5f }, { "delayMix", 0.35f } } },
+        { "Echo Plate", "Dub", { Strike, { "strikeBody", Skin }, { "strikeRing", 0.57f }, { "strikeTone", 0.6f }, { "delayNote", 2 }, { "delayFeel", 0 }, { "delayFeedback", 0.5f }, { "delayMix", 0.35f } } },
         { "Long Echo", "Dub", { { "bleepPitchAmount", 0 }, { "bleepDecay", 150 }, { "filterType", LP }, { "filterCutoff", 1800 },
                                 { "delayNote", N8 }, { "delayFeel", Dotted }, { "delayFeedback", 0.65f }, { "delayMix", 0.45f } } },
         { "Slapback Blip", "Dub", { { "bleepDecay", 100 }, { "delayNote", N32 }, { "delayFeel", Straight }, { "delayFeedback", 0.2f }, { "delayMix", 0.35f } } },
@@ -191,40 +191,40 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Wood Chaos", "Bar", { Strike, { "strikeRing", 0.46f }, { "strikeTone", 0.6f }, { "chaosAmount", 0.8f }, { "chaosPitch", 0.5f }, { "chaosTone", 0.8f }, { "chaosPan", 0.8f } } },
 
         // ---- Skin: struck skins and plates (a skin body)
-        { "Metal Tink", "Skin", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.62f }, { "strikeTone", 0.8f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
-        { "Pipe Clank", "Skin", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.61f } } },
-        { "Bell Plate", "Skin", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.87f }, { "strikeTone", 0.6f }, { "roomDecay", 0.7f }, { "roomMix", 0.25f } } },
-        { "Spoon Hit", "Skin", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.34f }, { "strikeTone", 0.9f } } },
-        { "Gong Tap", "Skin", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.94f }, { "strikeTone", 0.35f }, { "roomSize", 0.8f }, { "roomDecay", 1.2f }, { "roomMix", 0.3f } } },
-        { "Tin Can", "Skin", { Strike, { "strikeExciter", Noise }, { "strikeBody", Membrane }, { "strikeLength", 1 }, { "strikeRing", 0.3f }, { "strikeTone", 0.7f } } },
-        { "Steel Pan", "Skin", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.65f }, { "strikeTone", 0.45f } } },
-        { "Chain Rattle", "Skin", { Strike, { "strikeExciter", Noise }, { "strikeBody", Membrane }, { "strikeLength", 60 }, { "strikeRing", 0.27f }, { "strikeTone", 0.8f }, { "chaosAmount", 0.6f } } },
-        { "Metal Cowbell", "Skin", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.52f }, { "strikeTone", 0.65f }, { "filterType", 2 }, { "filterCutoff", 900 }, { "filterResonance", 0.3f } } },
-        { "Anvil", "Skin", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.8f }, { "strikeTone", 1 } } },
-        { "Muted Metal", "Skin", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.17f }, { "strikeTone", 0.55f } } },
-        { "Metal Chaos", "Skin", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.54f }, { "strikeTone", 0.75f }, { "chaosAmount", 0.9f }, { "chaosPitch", 0.6f }, { "chaosDecay", 0.8f }, { "chaosPan", 0.9f } } },
-        { "Steel Beam", "Skin", { Strike, { "strikeBody", Membrane }, { "strikeRing", 0.75f }, { "strikeTone", 0.55f }, { "roomSize", 0.7f }, { "roomDecay", 1.1f }, { "roomMix", 0.25f } } },
-        { "Rivet Gun", "Skin", { Strike, { "strikeExciter", Noise }, { "strikeBody", Membrane }, { "strikeLength", 25 }, { "strikeRing", 0.36f }, { "strikeTone", 0.85f }, { "crushBits", 8 } } },
-        { "Press Stamp", "Skin", { Strike, { "strikeExciter", Noise }, { "strikeBody", Membrane }, { "strikeLength", 1.5f }, { "strikeRing", 0.35f }, { "strikeTone", 0.4f } } },
+        { "Metal Tink", "Skin", { Strike, { "strikeBody", Skin }, { "strikeRing", 0.62f }, { "strikeTone", 0.8f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
+        { "Pipe Clank", "Skin", { Strike, { "strikeBody", Skin }, { "strikeRing", 0.61f } } },
+        { "Bell Plate", "Skin", { Strike, { "strikeBody", Skin }, { "strikeRing", 0.87f }, { "strikeTone", 0.6f }, { "roomDecay", 0.7f }, { "roomMix", 0.25f } } },
+        { "Spoon Hit", "Skin", { Strike, { "strikeBody", Skin }, { "strikeRing", 0.34f }, { "strikeTone", 0.9f } } },
+        { "Gong Tap", "Skin", { Strike, { "strikeBody", Skin }, { "strikeRing", 0.94f }, { "strikeTone", 0.35f }, { "roomSize", 0.8f }, { "roomDecay", 1.2f }, { "roomMix", 0.3f } } },
+        { "Tin Can", "Skin", { Strike, { "strikeExciter", Brush }, { "strikeBody", Skin }, { "strikeLength", 1 }, { "strikeRing", 0.3f }, { "strikeTone", 0.7f } } },
+        { "Steel Pan", "Skin", { Strike, { "strikeBody", Skin }, { "strikeRing", 0.65f }, { "strikeTone", 0.45f } } },
+        { "Chain Rattle", "Skin", { Strike, { "strikeExciter", Brush }, { "strikeBody", Skin }, { "strikeLength", 60 }, { "strikeRing", 0.27f }, { "strikeTone", 0.8f }, { "chaosAmount", 0.6f } } },
+        { "Metal Cowbell", "Skin", { Strike, { "strikeBody", Skin }, { "strikeRing", 0.52f }, { "strikeTone", 0.65f }, { "filterType", 2 }, { "filterCutoff", 900 }, { "filterResonance", 0.3f } } },
+        { "Anvil", "Skin", { Strike, { "strikeBody", Skin }, { "strikeRing", 0.8f }, { "strikeTone", 1 } } },
+        { "Muted Metal", "Skin", { Strike, { "strikeBody", Skin }, { "strikeRing", 0.17f }, { "strikeTone", 0.55f } } },
+        { "Metal Chaos", "Skin", { Strike, { "strikeBody", Skin }, { "strikeRing", 0.54f }, { "strikeTone", 0.75f }, { "chaosAmount", 0.9f }, { "chaosPitch", 0.6f }, { "chaosDecay", 0.8f }, { "chaosPan", 0.9f } } },
+        { "Steel Beam", "Skin", { Strike, { "strikeBody", Skin }, { "strikeRing", 0.75f }, { "strikeTone", 0.55f }, { "roomSize", 0.7f }, { "roomDecay", 1.1f }, { "roomMix", 0.25f } } },
+        { "Rivet Gun", "Skin", { Strike, { "strikeExciter", Brush }, { "strikeBody", Skin }, { "strikeLength", 25 }, { "strikeRing", 0.36f }, { "strikeTone", 0.85f }, { "crushBits", 8 } } },
+        { "Press Stamp", "Skin", { Strike, { "strikeExciter", Brush }, { "strikeBody", Skin }, { "strikeLength", 1.5f }, { "strikeRing", 0.35f }, { "strikeTone", 0.4f } } },
 
         // ---- Industrial, blow and squeal: struck metal parts, and steady sources, tuned to the note
-        { "Press Clonk", "Industrial", { Strike, { "strikeBody", Wood }, { "strikeRing", 0.82f }, { "strikeTone", 0.45f }, { "chaosAmount", 0.5f }, { "chaosPitch", 0.6f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
-        { "Heavy Hit", "Industrial", { Strike, { "strikeBody", Wood }, { "strikeRing", 0.74f }, { "strikeTone", 0.3f }, { "chaosAmount", 0.4f },
+        { "Press Clonk", "Industrial", { Strike, { "strikeBody", Bar }, { "strikeRing", 0.82f }, { "strikeTone", 0.45f }, { "chaosAmount", 0.5f }, { "chaosPitch", 0.6f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
+        { "Heavy Hit", "Industrial", { Strike, { "strikeBody", Bar }, { "strikeRing", 0.74f }, { "strikeTone", 0.3f }, { "chaosAmount", 0.4f },
                                        { "driveType", Warm }, { "drivePost", Pre }, { "driveAmount", 0.6f }, { "driveMix", 0.7f },
                                        { "roomSize", 0.7f }, { "roomDecay", 1.4f }, { "roomMix", 0.25f } } },
-        { "Rattling Plate", "Industrial", { Strike, { "strikeBody", Wood }, { "strikeRing", 0.9f }, { "strikeTone", 0.65f }, { "strikeMotion", 0.55f }, { "chaosAmount", 0.6f }, { "chaosPitch", 0.7f } } },
-        { "Donk", "Industrial", { Strike, { "strikeBody", Wood }, { "strikeRing", 0.69f }, { "roomSize", 1 }, { "roomDecay", 4 }, { "roomMix", 0.12f }, { "roomDuck", 0.12f } } },
-        { "Steam Valve", "Blow & Squeal", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeRing", 0.15f }, { "strikeTone", 0.75f } } },
-        { "Pressure Leak", "Blow & Squeal", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeLength", 1200 }, { "strikeRing", 0.25f }, { "strikeTone", 0.85f }, { "strikeMotion", 0.35f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
-        { "Whistle Pipe", "Blow & Squeal", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeLength", 600 }, { "strikeRing", 0.4f }, { "strikeTone", 0.25f } } },
-        { "Air Brake", "Blow & Squeal", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeLength", 180 }, { "strikeRing", 0.1f }, { "strikeTone", 0.9f }, { "chaosAmount", 0.4f }, { "chaosTone", 0.6f } } },
+        { "Rattling Plate", "Industrial", { Strike, { "strikeBody", Bar }, { "strikeRing", 0.9f }, { "strikeTone", 0.65f }, { "strikeMotion", 0.55f }, { "chaosAmount", 0.6f }, { "chaosPitch", 0.7f } } },
+        { "Donk", "Industrial", { Strike, { "strikeBody", Bar }, { "strikeRing", 0.69f }, { "roomSize", 1 }, { "roomDecay", 4 }, { "roomMix", 0.12f }, { "roomDuck", 0.12f } } },
+        { "Steam Valve", "Blow & Squeal", { Strike, { "strikeExciter", Blow }, { "strikeBody", Bar }, { "strikeRing", 0.15f }, { "strikeTone", 0.75f } } },
+        { "Pressure Leak", "Blow & Squeal", { Strike, { "strikeExciter", Blow }, { "strikeBody", Bar }, { "strikeLength", 1200 }, { "strikeRing", 0.25f }, { "strikeTone", 0.85f }, { "strikeMotion", 0.35f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
+        { "Whistle Pipe", "Blow & Squeal", { Strike, { "strikeExciter", Blow }, { "strikeBody", Bar }, { "strikeLength", 600 }, { "strikeRing", 0.4f }, { "strikeTone", 0.25f } } },
+        { "Air Brake", "Blow & Squeal", { Strike, { "strikeExciter", Blow }, { "strikeBody", Bar }, { "strikeLength", 180 }, { "strikeRing", 0.1f }, { "strikeTone", 0.9f }, { "chaosAmount", 0.4f }, { "chaosTone", 0.6f } } },
 
-        { "Rail Squeal", "Blow & Squeal", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 1500 }, { "strikeRing", 0.6f }, { "strikeTone", 0.75f }, { "strikeMotion", 0.2f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
-        { "Brake Squeal", "Blow & Squeal", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 1200 }, { "strikeRing", 0.4f }, { "strikeTone", 0.85f }, { "strikeMotion", 0.75f }, { "chaosAmount", 0.3f }, { "chaosPitch", 0.3f } } },
-        { "Metal Scrape", "Blow & Squeal", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 600 }, { "strikeTone", 0.45f }, { "strikeMotion", 0.5f } } },
+        { "Rail Squeal", "Blow & Squeal", { Strike, { "strikeExciter", Squeal }, { "strikeBody", Bar }, { "strikeLength", 1500 }, { "strikeRing", 0.6f }, { "strikeTone", 0.75f }, { "strikeMotion", 0.2f }, { "roomDecay", 0.7f }, { "roomMix", 0.2f } } },
+        { "Brake Squeal", "Blow & Squeal", { Strike, { "strikeExciter", Squeal }, { "strikeBody", Bar }, { "strikeLength", 1200 }, { "strikeRing", 0.4f }, { "strikeTone", 0.85f }, { "strikeMotion", 0.75f }, { "chaosAmount", 0.3f }, { "chaosPitch", 0.3f } } },
+        { "Metal Scrape", "Blow & Squeal", { Strike, { "strikeExciter", Squeal }, { "strikeBody", Bar }, { "strikeLength", 600 }, { "strikeTone", 0.45f }, { "strikeMotion", 0.5f } } },
 
         // ---- Cosmic: every section turned up as far as it will go
-        { "Event Horizon", "Cosmic", { Strike, { "strikeExciter", Steam }, { "strikeBody", Membrane }, { "strikeLength", 1800 }, { "strikeRing", 0.9f },
+        { "Event Horizon", "Cosmic", { Strike, { "strikeExciter", Blow }, { "strikeBody", Skin }, { "strikeLength", 1800 }, { "strikeRing", 0.9f },
                                        { "strikeTone", 0.2f }, { "strikeMotion", 0.15f }, { "strikeSweep", -12 }, { "chaosAmount", 0.5f },
                                        { "delayNote", N16 }, { "delayFeel", Dotted }, { "delayFeedback", 0.75f }, { "delayMix", 0.45f },
                                        { "roomSize", 1 }, { "roomDecay", 3 }, { "roomTone", 0.2f }, { "roomMix", 0.6f },
@@ -249,11 +249,11 @@ inline const std::vector<FactoryPreset>& factoryPresets()
                                      { "chaosAmount", 0.7f }, { "chaosPitch", 0.5f },
                                      { "delayNote", N16 }, { "delayFeel", Dotted }, { "delayFeedback", 0.7f }, { "delayMix", 0.35f },
                                      { "roomSize", 0.7f }, { "roomDecay", 2 }, { "roomMix", 0.3f } } },
-        { "Wormhole", "Cosmic", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 1800 }, { "strikeRing", 0.8f },
+        { "Wormhole", "Cosmic", { Strike, { "strikeExciter", Squeal }, { "strikeBody", Bar }, { "strikeLength", 1800 }, { "strikeRing", 0.8f },
                                   { "strikeTone", 0.9f }, { "strikeMotion", 1 }, { "strikeSweep", 24 }, { "chaosAmount", 0.6f }, { "chaosPitch", 0.6f },
                                   { "delayNote", N8 }, { "delayFeel", Triplet }, { "delayFeedback", 0.7f }, { "delayMix", 0.5f },
                                   { "roomSize", 0.95f }, { "roomDecay", 2.5f }, { "roomMix", 0.5f } } },
-        { "Comet Tail", "Cosmic", { Strike, { "strikeExciter", Noise }, { "strikeBody", Membrane }, { "strikeLength", 600 }, { "strikeRing", 1 },
+        { "Comet Tail", "Cosmic", { Strike, { "strikeExciter", Brush }, { "strikeBody", Skin }, { "strikeLength", 600 }, { "strikeRing", 1 },
                                     { "strikeTone", 1 }, { "strikeSweep", -24 }, { "chaosAmount", 0.8f }, { "chaosPan", 1 },
                                     { "delayNote", N16 }, { "delayFeel", Straight }, { "delayFeedback", 0.88f }, { "delayMix", 0.55f },
                                     { "roomSize", 1 }, { "roomDecay", 3 }, { "roomTone", 0.8f }, { "roomMix", 0.45f } } },
@@ -261,14 +261,14 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         // ---- Drive: the distortion before the filter (Pre) and after the reverb (Post)
         { "Tape Blip", "Drive", { { "bleepPitchAmount", 7 }, { "bleepPitchDecay", 30 }, { "bleepDecay", 220 }, { "driveType", Warm }, { "drivePost", Pre },
                                   { "driveAmount", 0.45f }, { "driveMix", 0.7f }, { "filterType", LP }, { "filterCutoff", 4000 } } },
-        { "Fold Clang", "Drive", { Strike, { "strikeBody", Wood }, { "strikeRing", 0.85f }, { "driveType", 2 }, { "drivePost", 0 }, { "driveAmount", 0.55f }, { "driveMix", 0.8f }, { "filterType", 2 }, { "filterCutoff", 2500 }, { "filterResonance", 0.4f }, { "chaosAmount", 0.4f }, { "chaosPitch", 0.4f } } },
-        { "Fuzz Grind", "Drive", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeLength", 600 }, { "strikeRing", 0.7f }, { "strikeTone", 0.6f }, { "strikeMotion", 0.5f }, { "driveType", 1 }, { "drivePost", 0 }, { "driveAmount", 0.6f }, { "driveMix", 0.65f }, { "filterType", 1 }, { "filterCutoff", 3500 } } },
+        { "Fold Clang", "Drive", { Strike, { "strikeBody", Bar }, { "strikeRing", 0.85f }, { "driveType", 2 }, { "drivePost", 0 }, { "driveAmount", 0.55f }, { "driveMix", 0.8f }, { "filterType", 2 }, { "filterCutoff", 2500 }, { "filterResonance", 0.4f }, { "chaosAmount", 0.4f }, { "chaosPitch", 0.4f } } },
+        { "Fuzz Grind", "Drive", { Strike, { "strikeExciter", Blow }, { "strikeBody", Bar }, { "strikeLength", 600 }, { "strikeRing", 0.7f }, { "strikeTone", 0.6f }, { "strikeMotion", 0.5f }, { "driveType", 1 }, { "drivePost", 0 }, { "driveAmount", 0.6f }, { "driveMix", 0.65f }, { "filterType", 1 }, { "filterCutoff", 3500 } } },
         // the echoes and the room go through the distortion too, and fold into a dense wall
-        { "Industrial Wall", "Drive", { Strike, { "strikeExciter", Steam }, { "strikeBody", Wood }, { "strikeLength", 900 }, { "strikeRing", 0.75f }, { "strikeTone", 0.45f }, { "strikeMotion", 0.4f }, { "delayNote", 2 }, { "delayFeel", 2 }, { "delayFeedback", 0.55f }, { "delayMix", 0.4f }, { "roomSize", 0.7f }, { "roomDecay", 1.8f }, { "roomMix", 0.4f }, { "driveType", 1 }, { "drivePost", 1 }, { "driveAmount", 0.75f }, { "driveMix", 0.7f } } },
-        { "Rusted Reverb", "Drive", { Strike, { "strikeBody", Wood }, { "strikeRing", 0.87f }, { "strikeTone", 0.4f }, { "roomSize", 0.8f }, { "roomDecay", 2.5f }, { "roomTone", 0.6f }, { "roomMix", 0.5f }, { "driveType", 2 }, { "drivePost", 1 }, { "driveAmount", 0.5f }, { "driveMix", 0.55f } } },
-        { "Screech Fold", "Drive", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 900 }, { "strikeRing", 0.8f }, { "strikeTone", 0.6f }, { "strikeMotion", 0.45f }, { "driveType", 2 }, { "drivePost", 0 }, { "driveAmount", 0.5f }, { "driveMix", 0.75f }, { "chaosAmount", 0.3f }, { "chaosPitch", 0.3f } } },
-        { "Scream Wall", "Drive", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 1400 }, { "strikeRing", 0.7f }, { "strikeTone", 0.7f }, { "strikeMotion", 0.5f }, { "delayNote", 2 }, { "delayFeel", 2 }, { "delayFeedback", 0.5f }, { "delayMix", 0.35f }, { "roomSize", 0.8f }, { "roomDecay", 2 }, { "roomMix", 0.4f }, { "driveType", 1 }, { "drivePost", 1 }, { "driveAmount", 0.7f }, { "driveMix", 0.65f } } },
-        { "Folded Squeal", "Drive", { Strike, { "strikeExciter", Friction }, { "strikeBody", Wood }, { "strikeLength", 700 }, { "strikeRing", 0.9f }, { "strikeMotion", 0.3f }, { "roomSize", 0.6f }, { "roomDecay", 1.5f }, { "roomMix", 0.35f }, { "driveType", 2 }, { "drivePost", 1 }, { "driveAmount", 0.6f }, { "driveMix", 0.6f } } },
+        { "Industrial Wall", "Drive", { Strike, { "strikeExciter", Blow }, { "strikeBody", Bar }, { "strikeLength", 900 }, { "strikeRing", 0.75f }, { "strikeTone", 0.45f }, { "strikeMotion", 0.4f }, { "delayNote", 2 }, { "delayFeel", 2 }, { "delayFeedback", 0.55f }, { "delayMix", 0.4f }, { "roomSize", 0.7f }, { "roomDecay", 1.8f }, { "roomMix", 0.4f }, { "driveType", 1 }, { "drivePost", 1 }, { "driveAmount", 0.75f }, { "driveMix", 0.7f } } },
+        { "Rusted Reverb", "Drive", { Strike, { "strikeBody", Bar }, { "strikeRing", 0.87f }, { "strikeTone", 0.4f }, { "roomSize", 0.8f }, { "roomDecay", 2.5f }, { "roomTone", 0.6f }, { "roomMix", 0.5f }, { "driveType", 2 }, { "drivePost", 1 }, { "driveAmount", 0.5f }, { "driveMix", 0.55f } } },
+        { "Screech Fold", "Drive", { Strike, { "strikeExciter", Squeal }, { "strikeBody", Bar }, { "strikeLength", 900 }, { "strikeRing", 0.8f }, { "strikeTone", 0.6f }, { "strikeMotion", 0.45f }, { "driveType", 2 }, { "drivePost", 0 }, { "driveAmount", 0.5f }, { "driveMix", 0.75f }, { "chaosAmount", 0.3f }, { "chaosPitch", 0.3f } } },
+        { "Scream Wall", "Drive", { Strike, { "strikeExciter", Squeal }, { "strikeBody", Bar }, { "strikeLength", 1400 }, { "strikeRing", 0.7f }, { "strikeTone", 0.7f }, { "strikeMotion", 0.5f }, { "delayNote", 2 }, { "delayFeel", 2 }, { "delayFeedback", 0.5f }, { "delayMix", 0.35f }, { "roomSize", 0.8f }, { "roomDecay", 2 }, { "roomMix", 0.4f }, { "driveType", 1 }, { "drivePost", 1 }, { "driveAmount", 0.7f }, { "driveMix", 0.65f } } },
+        { "Folded Squeal", "Drive", { Strike, { "strikeExciter", Squeal }, { "strikeBody", Bar }, { "strikeLength", 700 }, { "strikeRing", 0.9f }, { "strikeMotion", 0.3f }, { "roomSize", 0.6f }, { "roomDecay", 1.5f }, { "roomMix", 0.35f }, { "driveType", 2 }, { "drivePost", 1 }, { "driveAmount", 0.6f }, { "driveMix", 0.6f } } },
     };
     return presets;
 }
