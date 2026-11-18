@@ -332,10 +332,12 @@ void newInstanceDefaults()
     setState (fresh, *xml);
     CHECK (fresh.getSoundPresets().name() == "Init");
     CHECK (fresh.apvts.getRawParameterValue ("seqEnabled")->load() < 0.5f);
-    // Init and the other presets reset to the old blank sound, not to the starting one
+    // Init is the Log Drum sound; the other presets reset what they leave out to the old blank sound
     fresh.getSoundPresets().load (0);
-    CHECK (fresh.apvts.getRawParameterValue ("engine")->load() < 0.5f);
-    CHECK (juce::approximatelyEqual (fresh.apvts.getRawParameterValue ("strikeRing")->load(), 0.5f));
+    CHECK (fresh.apvts.getRawParameterValue ("engine")->load() > 0.5f);
+    CHECK (juce::approximatelyEqual (fresh.apvts.getRawParameterValue ("strikeRing")->load(), 0.78f));
+    fresh.getSoundPresets().load (1);
+    CHECK (fresh.getSoundPresets().name() != "Init");
 
     // a project from before the sequencer has no Sequencer parameter at all: it stays off
     BleepWerkProcessor again;

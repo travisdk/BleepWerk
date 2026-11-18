@@ -47,7 +47,8 @@ inline const std::vector<FactoryPreset>& factoryPresets()
     using namespace preset;
     static const std::vector<FactoryPreset> presets {
         // ---- Bleeps: sine and saw
-        { "Init", "Bleeps", {} },
+        // Init is the Log Drum sound, the one a new instance starts as (see starterValue)
+        { "Init", "Bleeps", { Werk, { "strikeRing", 0.78f }, { "strikeTone", 0.35f } } },
         { "Laser Drop", "Bleeps", { { "bleepPitchAmount", 36 }, { "bleepPitchDecay", 60 }, { "bleepDecay", 300 } } },
         { "Long Sine", "Bleeps", { { "bleepPitchAmount", 2 }, { "bleepDecay", 900 }, { "bleepRelease", 200 },
                                    { "roomSize", 0.4f }, { "roomDecay", 0.7f }, { "roomMix", 0.25f } } },
@@ -204,8 +205,8 @@ inline const std::vector<FactoryPreset>& factoryPresets()
 
 // What a new instance starts as: the factory preset Log Drum. The plug-in declares these values
 // as the defaults of its parameters, because a host expects a new instance to have exactly its
-// default values (clap-validator checks it). Presets and Init still reset what they leave out to
-// kSoundParams, so they sound as they were made.
+// default values (clap-validator checks it). The other presets still reset what they leave out
+// to kSoundParams, so they sound as they were made.
 inline constexpr const char* kStarterPreset = "Log Drum";
 
 inline float starterValue (const char* id)

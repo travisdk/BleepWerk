@@ -129,8 +129,9 @@ patterns A-H, locked to the host's transport (sample-accurate, loops and jumps h
 - Symbols: a tick under a letter is a pattern that plays; "ACC" above a step is its accent
 - A new instance starts as the factory preset Log Drum, with the sequencer on and the set
   Five Over Seven in A and B, both playing. The parameters declare the Log Drum sound as their
-  defaults (a host expects a new instance to have them); Init and the presets still reset to the
-  old blank sound, and projects and presets keep their own settings
+  defaults (a host expects a new instance to have them); The Init preset has the same settings
+  (Init is Log Drum); the other presets still reset what they leave out to the old blank sound,
+  and projects and presets keep their own settings
 - MIDI export from the MIDI button: the shown pattern as a one-pass clip, or everything the
   playing layers play, as they play (length, rate, swing, gate, accents, Drift and Vary
   included), over 4 to 64 bars; on Windows the button can be dragged into the host
