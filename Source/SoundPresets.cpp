@@ -112,8 +112,6 @@ bool SoundPresets::loadFile (const juce::File& file)
                 value = (float) oldDelayFeel;
             if (oldWerkChoices && param->paramID == "strikeExciter")
                 value = (float) bleepwerk::migrateWerkExciter (juce::roundToInt (value));
-            else if (oldWerkChoices && param->paramID == "strikeBody")
-                value = (float) bleepwerk::migrateWerkBody (juce::roundToInt (value));
             files::setParameterValue (*param, value);
         }
     return true;

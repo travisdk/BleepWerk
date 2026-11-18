@@ -86,6 +86,7 @@ private:
     //   3: Delay Time split into a time and a feel (an old delayTime is converted on loading)
     //   4: Foley and Machine became one engine, Werk (their parameters are dropped on loading)
     //   5: Werk's Crackle exciter and Metal body are gone (their choices move on loading)
+    //   (the Bar/Skin choice, strikeBody, was removed later without a version bump: it is ignored on loading)
     static constexpr int kStateVersion = 5;
 
     // Every engine renders every block, so switching lets the old one ring out; notes go to
