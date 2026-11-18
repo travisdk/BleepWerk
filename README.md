@@ -17,6 +17,8 @@ comes as a CLAP and a VST®3 plug-in. Free and open source.
 > updates. Pull requests with fixes are welcome, but may go unanswered. You
 > are free to fork it and carry it on.
 
+![BleepWerk](docs/images/screenshot.png)
+
 Every sound is synthesised in code. There are no samples and no wavetables,
 and the presets are parameter sets only.
 
