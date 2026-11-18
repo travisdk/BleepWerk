@@ -6,6 +6,7 @@
 // command line, so ctest shows one test per case. On Linux HOME points at a temporary folder,
 // so presets and settings never touch the user's; elsewhere the cases with files are skipped.
 #include "PluginProcessor.h"
+#include "PresetPicker.h"
 #include "PresetFiles.h"
 #include "TestUtils.h"
 
@@ -429,6 +430,27 @@ void heldKeyShowsRoot()
     CHECK (juce::approximatelyEqual (processor.apvts.getRawParameterValue ("seqRoot")->load(), root));
     processor.setPlayHead (nullptr);
 }
+// The preset list's search: no text shows every preset, a word narrows to the names that contain it
+// whatever the case, several words all have to be in the name, in any order.
+void presetSearch()
+{
+    BleepWerkProcessor processor;
+    auto& presets = processor.getSoundPresets();
+    auto names = [&] (const juce::String& text)
+    {
+        juce::StringArray found;
+        for (const int i : PresetPicker::matching (presets, text))
+            found.add (presets.entryName (i));
+        return found;
+    };
+    CHECK (PresetPicker::matching (presets, "").size() == presets.numEntries());
+    CHECK (PresetPicker::matching (presets, "   ").size() == presets.numEntries());
+    CHECK (names ("log").contains ("Log Drum"));
+    CHECK (names ("LOG drum").contains ("Log Drum") && names ("drum log").contains ("Log Drum"));
+    CHECK (! names ("log").contains ("Frame Drum"));
+    CHECK (names ("drum").contains ("Frame Drum") && names ("drum").contains ("Log Drum"));
+    CHECK (names ("no such preset").isEmpty());
+}
 } // namespace
 
 int main (int argc, char* argv[])
@@ -444,6 +466,7 @@ int main (int argc, char* argv[])
         { "new-instance-defaults", newInstanceDefaults },
         { "pattern-sets", patternSets },
         { "held-key-shows-root", heldKeyShowsRoot },
+        { "preset-search", presetSearch },
     };
     const juce::String name = argc > 1 ? argv[1] : "";
     const auto testCase = cases.find (name);

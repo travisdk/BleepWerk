@@ -141,7 +141,7 @@ patterns A-H, locked to the host's transport (sample-accurate, loops and jumps h
 ## 7. Presets
 
 - Factory presets defined in code or as bundled parameter files (no audio content)
-- A large factory set (over 100), grouped by category: Bleeps, Pulses, FM, Lo-fi, Dub, Percussion, Industrial, Blow & Squeal, Cosmic and Drive
+- A large factory set (over 100), shown as one flat list of names with a search field (typed words must all be in the name, in any order), the user's presets last; there are no categories in the UI
 - Sound presets never change the Bend Range
 
 ## 8. Quality and testing

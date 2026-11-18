@@ -4,6 +4,7 @@
 #include "MainView.h"
 #include "PresetFiles.h"
 #include "Theme.h"
+#include "PresetPicker.h"
 #include "BleepWerkVersion.h"
 
 namespace
@@ -189,39 +190,12 @@ void MainView::closeAbout()
     about.reset();
 }
 
-// One submenu per category, in the factory order, and the user's presets last.
+// One flat list of every preset by name with a search field, the user's presets last.
 void MainView::showPresetMenu()
 {
-    auto& presets = processor.getSoundPresets();
-    juce::PopupMenu menu;
-    juce::PopupMenu category;
-    juce::String categoryName;
-    bool categoryHasCurrent = false;
-
-    auto flush = [&]
-    {
-        if (categoryName.isNotEmpty())
-            menu.addSubMenu (categoryName, category, true, nullptr, categoryHasCurrent);
-        category = {};
-        categoryHasCurrent = false;
-    };
-    for (int i = 0; i < presets.numEntries(); ++i)
-    {
-        if (presets.entryCategory (i) != categoryName)
-        {
-            flush();
-            categoryName = presets.entryCategory (i);
-        }
-        const bool isCurrent = i == presets.current();
-        categoryHasCurrent = categoryHasCurrent || isCurrent;
-        category.addItem (presets.entryName (i), true, isCurrent, [&presets, i] { presets.load (i); });
-    }
-    flush();
-    if (presets.numEntries() == presets.numFactory())
-        menu.addItem ("No user presets yet: Save stores one", false, false, {});
-
-    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (presetButton).withMinimumWidth (presetButton.getWidth())
-                            .withDeletionCheck (*this));
+    auto picker = std::make_unique<PresetPicker> (processor.getSoundPresets());
+    picker->setSize (juce::jmax (260, presetButton.getWidth()), 360);
+    juce::CallOutBox::launchAsynchronously (std::move (picker), getLocalArea (&presetButton, presetButton.getLocalBounds()), this);
 }
 
 void MainView::stepPreset (int delta)
@@ -239,8 +213,7 @@ void MainView::refreshPreset()
     auto& presets = processor.getSoundPresets();
     shownPresetVersion = presets.version();
     presetButton.setButtonText (presets.name());
-    const auto category = presets.entryCategory (presets.current());
-    presetButton.setTooltip (category.isEmpty() ? presets.name() : category + ": " + presets.name());
+    presetButton.setTooltip (presets.name());
 }
 
 void MainView::savePreset (const juce::String& name)

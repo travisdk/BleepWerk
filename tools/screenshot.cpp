@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Renders the interface of a fresh instance to a PNG, for checking the layout and for the
-// README: BleepWerk_Screenshot <output.png> [scale] [werk] [seq] [held] [about]
+// README: BleepWerk_Screenshot <output.png> [scale] [werk] [seq] [held] [picker[=text]] [about]
 
 #include "MainView.h"
 #include "Theme.h"
+#include "PresetPicker.h"
 
 namespace
 {
@@ -26,7 +27,7 @@ int main (int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "usage: BleepWerk_Screenshot <output.png> [scale] [werk] [seq] [held] [about]\n";
+        std::cerr << "usage: BleepWerk_Screenshot <output.png> [scale] [werk] [seq] [held] [picker[=text]] [about]\n";
         return 1;
     }
 
@@ -36,13 +37,16 @@ int main (int argc, char* argv[])
     bleepwerk::theme::LookAndFeel lookAndFeel;
     juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
     const float scale = argc > 2 ? juce::String (argv[2]).getFloatValue() : 1.0f;
-    bool wantsAbout = false;
+    bool wantsAbout = false, wantsPicker = false;
+    juce::String pickerText;
     PlayingHost host;
     for (int i = 3; i < argc; ++i)
     {
         const juce::String option (argv[i]);
         if (option == "werk")
             processor.apvts.getParameter ("engine")->setValueNotifyingHost (1.0f);
+        else if (option.startsWith ("picker")) // the preset list, with the text after "picker=" typed in the search
+            pickerText = option.fromFirstOccurrenceOf ("=", false, false), wantsPicker = true;
         else if (option == "about")
             wantsAbout = true;
         else if (option == "seq")
@@ -57,6 +61,21 @@ int main (int argc, char* argv[])
             midi.addEvent (juce::MidiMessage::noteOn (1, 67, 0.8f), 0);
             processor.processBlock (buffer, midi);
         }
+    }
+
+    if (wantsPicker)
+    {
+        PresetPicker picker (processor.getSoundPresets());
+        if (pickerText.isNotEmpty())
+            picker.setSearchText (pickerText);
+        const auto image = picker.createComponentSnapshot (picker.getLocalBounds(), true, scale);
+        const juce::File file = juce::File::getCurrentWorkingDirectory().getChildFile (argv[1]);
+        file.deleteFile();
+        juce::FileOutputStream out (file);
+        juce::PNGImageFormat().writeImageToStream (image, out);
+        std::cout << "wrote " << file.getFullPathName() << "\n";
+        juce::LookAndFeel::setDefaultLookAndFeel (nullptr);
+        return 0;
     }
 
     auto view = std::make_unique<MainView> (processor);
