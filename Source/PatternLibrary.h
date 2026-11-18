@@ -226,6 +226,9 @@ inline const FactorySet kFactorySets[] = {
         { "12a - - 15 - 10 - - - - - - - - - -", 7, 0, 0.7f } } },
 };
 
+// the set a new instance has in A and B, and what Reset puts back
+inline constexpr const char* kStarterSet = "Five Over Seven";
+
 inline constexpr int kNumFactorySets = (int) (sizeof (kFactorySets) / sizeof (kFactorySets[0]));
 // the browser lists the single patterns first, then the sets, then the user's files
 inline constexpr int kNumFactoryEntries = kNumFactoryPatterns + kNumFactorySets;

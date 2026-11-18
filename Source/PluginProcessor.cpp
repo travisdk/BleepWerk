@@ -66,16 +66,14 @@ BleepWerkProcessor::BleepWerkProcessor()
       apvts (*this, nullptr, "PARAMS", createParameterLayout()),
       userSettings (settingsOptions())
 {
-    // What a new instance starts as: the Log Drum sound and the sequencer on (the defaults of
-    // the parameters themselves, see starterValue; loading the preset also names it), and the set
-    // Five Over Seven in A and B with both playing. A project or the host's state replaces all
-    // of this on loading, so older projects keep theirs.
+    // What a new instance starts as: the Log Drum sound (the defaults of the parameters
+    // themselves, see starterValue; loading the preset also names it), and the set Five Over Seven
+    // in A and B with both playing. The sequencer is off until it is switched on. A project or the
+    // host's state replaces all of this on loading, so older projects keep theirs.
     for (int i = 0; i < soundPresets.numFactory(); ++i)
         if (soundPresets.entryName (i) == bleepwerk::kStarterPreset)
             soundPresets.load (i);
-    for (int i = 0; i < patternPresets.numEntries(); ++i)
-        if (patternPresets.isSet (i) && patternPresets.entryName (i) == "Five Over Seven")
-            patternPresets.load (i);
+    patternPresets.resetAll();
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout BleepWerkProcessor::createParameterLayout()
@@ -131,10 +129,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepWerkProcessor::createPa
     // The step sequencer: switched on it plays against the host's transport. The patterns
     // themselves are stored with the project, not as parameters. The list of slots must never
     // change length: hosts store automation as 0..1 and would land on other slots.
-    // On by default for a new instance (the host's default value must match what a new instance
-    // has); a project saved before the sequencer existed is given Off when it loads, see
-    // setStateInformation
-    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqEnabled", 1 }, "Sequencer", StringArray { "Off", "On" }, 1));
+    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqEnabled", 1 }, "Sequencer", StringArray { "Off", "On" }, 0));
     {
         StringArray slotNames;
         for (int i = 0; i < bleepwerk::kNumPatternSlots; ++i)
@@ -537,15 +532,6 @@ void BleepWerkProcessor::setStateInformation (const void* data, int sizeInBytes)
                     param.setProperty ("value", value, nullptr);
                     state.appendChild (param, nullptr);
                 }
-            }
-            // a project from before the sequencer had no Sequencer parameter, and keeps it off
-            // (a missing parameter would otherwise load as its default, which is now on)
-            if (! state.getChildWithProperty ("id", "seqEnabled").isValid())
-            {
-                juce::ValueTree param ("PARAM");
-                param.setProperty ("id", "seqEnabled", nullptr);
-                param.setProperty ("value", 0, nullptr);
-                state.appendChild (param, nullptr);
             }
             // a sound parameter an older project doesn't have loads as its old default, not as the
             // starting sound that the parameters declare as theirs now

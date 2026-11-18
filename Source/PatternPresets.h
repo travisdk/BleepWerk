@@ -36,6 +36,9 @@ public:
     // shown slot on (and only those layers play). Returns a message for the user if it could not
     // be loaded (a set that doesn't fit), else an empty string; nothing is touched then.
     juce::String load (int index);
+    // Every slot back to what a new instance has: the set Five Over Seven in A and B (both playing),
+    // the others as at the start. The shown slot is A. Root and the sound are left alone.
+    void resetAll();
     void randomize();
     void clear();
     void markEdited(); // a step was changed in the grid

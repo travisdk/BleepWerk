@@ -56,6 +56,7 @@ int main (int argc, char* argv[])
             processor.setRateAndBufferSizeDetails (48000.0, 512);
             processor.prepareToPlay (48000.0, 512);
             processor.setPlayHead (&host);
+            processor.apvts.getParameter ("seqEnabled")->setValueNotifyingHost (1.0f);
             juce::AudioBuffer<float> buffer (2, 512);
             juce::MidiBuffer midi;
             midi.addEvent (juce::MidiMessage::noteOn (1, 67, 0.8f), 0);

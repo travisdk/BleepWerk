@@ -126,9 +126,11 @@ patterns A-H, locked to the host's transport (sample-accurate, loops and jumps h
   one that does not fit from the shown slot is refused with a message saying which slot and how
   many slots are missing. Afterwards the slots are ordinary, independent patterns, and only the
   set's layers play
+- RESET, under the MIDI button, puts all eight patterns back to what a new instance has (after a
+  question); Root and the sound stay
 - Symbols: a tick under a letter is a pattern that plays; "ACC" above a step is its accent
-- A new instance starts as the factory preset Log Drum, with the sequencer on and the set
-  Five Over Seven in A and B, both playing. The parameters declare the Log Drum sound as their
+- A new instance starts as the factory preset Log Drum, with the sequencer off (SEQ
+  switches it on) and the set Five Over Seven in A and B, both playing. The parameters declare the Log Drum sound as their
   defaults (a host expects a new instance to have them); The Init preset has the same settings
   (Init is Log Drum); the other presets still reset what they leave out to the old blank sound,
   and projects and presets keep their own settings

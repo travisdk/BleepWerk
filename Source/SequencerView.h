@@ -16,6 +16,8 @@
 //   step:  click the bar to switch it on or off, drag it up and down or scroll to change the
 //          note, double-click to reset the note to the root; "ACC" above it is the accent; the
 //          arrows below move the note an octave up or down
+//   RESET: under the MIDI button; after a question, all eight patterns go back to what a new
+//          instance has (Five Over Seven in A and B)
 //   MIDI:  click for a menu: the shown pattern as a MIDI file (one pass), or everything the
 //          layers play over 4 to 64 bars; on Windows drag the button into the host to take the
 //          last choice as a clip
@@ -33,6 +35,7 @@ public:
     // Set by the main view, which owns the dialogs.
     std::function<void()> onSave;                    // the playing pattern, to be saved as a file
     std::function<void (int entry)> onDelete;        // a user pattern, to be moved to the trash
+    std::function<void()> onReset;                   // all patterns back to the start, to be confirmed
 
 private:
     class StepGrid;
@@ -55,6 +58,7 @@ private:
     juce::OwnedArray<juce::TextButton> slotButtons;
     juce::OwnedArray<PlayDot> playDots;
     juce::TextButton patternButton;
+    juce::TextButton resetButton { "RESET" }; // under the MIDI button: every pattern back to the start
     IconButton dice { IconButton::Icon::Dice, "A random pattern in the playing slot" };
     std::unique_ptr<MidiButton> midiButton;
     std::unique_ptr<StepGrid> grid;

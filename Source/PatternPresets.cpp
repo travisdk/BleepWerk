@@ -220,6 +220,22 @@ void PatternPresets::markEdited()
     }
 }
 
+void PatternPresets::resetAll()
+{
+    for (int i = 0; i < kNumPatternSlots; ++i)
+    {
+        bank.slot (i).copyFrom (Pattern {});
+        slots[(size_t) i] = {};
+    }
+    randomCount = 0;
+    bank.setPlayingMask (1u);
+    bank.select (0);
+    for (int i = kNumFactoryPatterns; i < kNumFactoryEntries; ++i)
+        if (entryName (i) == kStarterSet)
+            loadSet (i - kNumFactoryPatterns);
+    changed();
+}
+
 void PatternPresets::copySlot (int from, int to)
 {
     if (! juce::isPositiveAndBelow (from, kNumPatternSlots) || ! juce::isPositiveAndBelow (to, kNumPatternSlots) || from == to)

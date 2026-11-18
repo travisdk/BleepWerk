@@ -317,7 +317,7 @@ void newInstanceDefaults()
     // the parameters declare the starting sound as their defaults
     CHECK (isDefault (fresh, "strikeRing") && isDefault (fresh, "engine") && isDefault (fresh, "outputGain"));
     CHECK (fresh.apvts.getRawParameterValue ("engine")->load() > 0.5f);
-    CHECK (fresh.apvts.getRawParameterValue ("seqEnabled")->load() > 0.5f);
+    CHECK (fresh.apvts.getRawParameterValue ("seqEnabled")->load() < 0.5f); // the sequencer is off until it is switched on
     auto& bank = fresh.getPatternBank();
     auto& patterns = fresh.getPatternPresets();
     CHECK (patterns.slotName (0) == "Five Over Seven \xc2\xb7 A");
@@ -326,13 +326,13 @@ void newInstanceDefaults()
 
     // an older project: the sequencer was off and the sound was Init
     BleepWerkProcessor old;
-    old.apvts.getParameter ("seqEnabled")->setValueNotifyingHost (0.0f);
+    old.apvts.getParameter ("seqEnabled")->setValueNotifyingHost (1.0f);
     auto xml = savedState (old);
     xml->setAttribute ("presetName", "Init");
     xml->setAttribute ("presetIndex", 0);
     setState (fresh, *xml);
     CHECK (fresh.getSoundPresets().name() == "Init");
-    CHECK (fresh.apvts.getRawParameterValue ("seqEnabled")->load() < 0.5f);
+    CHECK (fresh.apvts.getRawParameterValue ("seqEnabled")->load() > 0.5f); // a project keeps its own setting
     // Init is the Log Drum sound; the other presets reset what they leave out to the old blank sound
     fresh.getSoundPresets().load (0);
     CHECK (fresh.apvts.getRawParameterValue ("engine")->load() > 0.5f);
@@ -340,15 +340,13 @@ void newInstanceDefaults()
     fresh.getSoundPresets().load (1);
     CHECK (fresh.getSoundPresets().name() != "Init");
 
-    // a project from before the sequencer has no Sequencer parameter at all: it stays off
+    // a sound parameter an older project lacks gets its old default, not the starting sound's value
     BleepWerkProcessor again;
     auto bare = savedState (again);
     for (int i = bare->getNumChildElements(); --i >= 0;)
-        if (auto* child = bare->getChildElement (i); child->getStringAttribute ("id") == "seqEnabled" || child->getStringAttribute ("id") == "strikeRing")
+        if (auto* child = bare->getChildElement (i); child->getStringAttribute ("id") == "strikeRing")
             bare->removeChildElement (child, true);
     setState (again, *bare);
-    CHECK (again.apvts.getRawParameterValue ("seqEnabled")->load() < 0.5f);
-    // and a sound parameter it lacks gets its old default, not the starting sound's value
     CHECK (juce::approximatelyEqual (again.apvts.getRawParameterValue ("strikeRing")->load(), 0.5f));
 }
 // A set fills as many slots as it has layers from the shown slot on, names them after the slot,
@@ -413,6 +411,7 @@ void heldKeyShowsRoot()
     processor.setRateAndBufferSizeDetails (kSampleRate, kBlockSize);
     processor.prepareToPlay (kSampleRate, kBlockSize);
     processor.setPlayHead (&host);
+    processor.apvts.getParameter ("seqEnabled")->setValueNotifyingHost (1.0f);
     const float root = processor.apvts.getRawParameterValue ("seqRoot")->load();
     juce::AudioBuffer<float> buffer (2, kBlockSize);
 
@@ -451,6 +450,31 @@ void presetSearch()
     CHECK (names ("drum").contains ("Frame Drum") && names ("drum").contains ("Log Drum"));
     CHECK (names ("no such preset").isEmpty());
 }
+// Reset puts every pattern back to what a new instance has, and leaves Root and the sound alone.
+void resetPatterns()
+{
+    BleepWerkProcessor processor;
+    auto& bank = processor.getPatternBank();
+    auto& patterns = processor.getPatternPresets();
+    const auto start = processor.getPatternBank().slot (3).toString();
+    const juce::String dot = juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "));
+
+    patterns.clear(); // the shown slot A emptied,
+    bank.select (3);
+    patterns.randomize(); // D rolled,
+    bank.setPlayingMask (0xf0); // and other layers playing
+    processor.apvts.getParameter ("seqRoot")->setValueNotifyingHost (0.7f);
+    const auto root = processor.apvts.getRawParameterValue ("seqRoot")->load();
+    const auto sound = processor.getSoundPresets().name();
+
+    patterns.resetAll();
+    CHECK (bank.playing() == 3u && bank.active() == 0);
+    CHECK (patterns.slotName (0) == "Five Over Seven" + dot + "A" && patterns.slotName (1) == "Five Over Seven" + dot + "B");
+    CHECK (bank.slot (3).toString() == start);
+    CHECK (patterns.slotName (3) == "Default");
+    CHECK (juce::approximatelyEqual (processor.apvts.getRawParameterValue ("seqRoot")->load(), root));
+    CHECK (processor.getSoundPresets().name() == sound);
+}
 } // namespace
 
 int main (int argc, char* argv[])
@@ -467,6 +491,7 @@ int main (int argc, char* argv[])
         { "pattern-sets", patternSets },
         { "held-key-shows-root", heldKeyShowsRoot },
         { "preset-search", presetSearch },
+        { "reset-patterns", resetPatterns },
     };
     const juce::String name = argc > 1 ? argv[1] : "";
     const auto testCase = cases.find (name);
