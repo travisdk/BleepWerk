@@ -73,7 +73,7 @@ inline constexpr Entry kEntries[] = {
     { "driveMix", "How much of the distortion is heard against the clean signal" },
 
     // the sequencer's root note, a parameter that the sequencer panel shows
-    { "seqRoot", "The note the pattern is played from; keys you play while it runs set it instead" },
+    { "seqRoot", "The note the pattern is played from. While the sequencer plays, a key you hold plays the pattern from that note instead, and the panel shows it as MIDI; let go and this value counts again" },
 };
 
 // The tooltip for a parameter id, or nullptr if it has none.

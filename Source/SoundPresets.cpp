@@ -100,7 +100,7 @@ bool SoundPresets::loadFile (const juce::File& file)
     for (auto* p : state.processor.getParameters())
         if (auto* param = dynamic_cast<juce::RangedAudioParameter*> (p); param != nullptr && isSoundParameter (param->paramID))
         {
-            float value = param->convertFrom0to1 (param->getDefaultValue());
+            float value = bleepwerk::soundDefault (param->paramID.toRawUTF8()); // not the parameter's default, which is the starting sound
             if (auto* element = xml->getChildByAttribute ("id", param->paramID))
             {
                 if (const auto loaded = (float) element->getDoubleAttribute ("value", value); ! std::isnan (loaded))

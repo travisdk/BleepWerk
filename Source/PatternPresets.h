@@ -8,7 +8,8 @@
 #include "PatternLibrary.h"
 
 // Sequencer patterns: the factory patterns, the factory polymeter sets (several layers loaded
-// into slots A, B, C... at once), followed by the user's .bfpattern
+// at once into as many slots, from the shown one on, named "Set name · A", "Set name · B"...; after
+// that the slots are ordinary, independent patterns), followed by the user's .bfpattern
 // files. A pattern covers the steps plus the groove settings (length, swing,
 // rate, gate) and nothing of the sound; the root note is left alone so a
 // pattern follows the key being played. Everything works on the slot that
@@ -31,7 +32,15 @@ public:
     juce::String name() const { return slot().name; }
     juce::String slotName (int slotIndex) const { return slots[(size_t) slotIndex].name; }
 
-    void load (int index);
+    // Loads an entry into the shown slot. A set fills as many slots as it has layers, from the
+    // shown slot on (and only those layers play). Returns a message for the user if it could not
+    // be loaded (a set that doesn't fit), else an empty string; nothing is touched then.
+    juce::String load (int index);
+    // Every slot emptied and given the plain settings (length, rate, swing, gate, drift, vary,
+    // shape, transpose), and no layer playing. The shown slot, Root and the sound are left alone.
+    void clearAll();
+    // What a new instance has: the set Five Over Seven in A and B, both playing, shown from A.
+    void loadStarterSet();
     void randomize();
     void clear();
     void markEdited(); // a step was changed in the grid
@@ -86,7 +95,7 @@ private:
     const bleepwerk::Pattern& pattern() const { return bank.activePattern(); }
     int entryNamed (const juce::String& wanted) const;
     void applyGroove (bleepwerk::Pattern&, const LoadedGroove&);
-    void loadSet (int setIndex);
+    juce::String loadSet (int setIndex);
     static int rateIndexFor (const juce::String& rateName);
     void changed() { onChange(); }
 

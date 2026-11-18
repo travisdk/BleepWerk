@@ -4,6 +4,7 @@
 #include "MainView.h"
 #include "PresetFiles.h"
 #include "Theme.h"
+#include "PresetPicker.h"
 #include "BleepWerkVersion.h"
 
 namespace
@@ -43,7 +44,7 @@ MainView::MainView (BleepWerkProcessor& p)
 
     // the sequencer: this button folds the panel out below the effects and switches the
     // sequencer on; folded in, BleepWerk is as it is without one
-    sequencerButton.setTooltip ("Show the step sequencer, which plays against the host's transport. Hidden, it is off.");
+    sequencerButton.setTooltip ("While the sequencer plays, incoming notes set the Root instead of sounding.");
     sequencerButton.setClickingTogglesState (false);
     sequencerButton.setColour (juce::TextButton::textColourOnId, bleepwerk::theme::primary());
     sequencerButton.onClick = [this]
@@ -67,6 +68,29 @@ MainView::MainView (BleepWerkProcessor& p)
         auto& patterns = processor.getPatternPresets();
         confirm ("Delete pattern?", "\"" + patterns.entryName (entry) + "\" will be moved to the trash.", "Delete",
                  [&patterns, entry] { patterns.remove (entry); });
+    };
+    sequencerView.onClearAll = [this]
+    {
+        // three ways out: all patterns, only the shown one (the one Return takes, as it loses less), or nothing
+        const auto letter = juce::String::charToString ((juce::juce_wchar) ('A' + processor.getPatternBank().active()));
+        auto* window = new juce::AlertWindow ("Clear patterns", "Empty all eight patterns (and switch all layers off), or only pattern " + letter
+                                                                 + "? Length, rate and the other settings of the pattern go back to the plain ones too. "
+                                                                   "What you have made and not saved is lost.", juce::MessageBoxIconType::NoIcon);
+        window->addButton ("All patterns", 1);
+        window->addButton ("Only " + letter, 2, juce::KeyPress (juce::KeyPress::returnKey));
+        window->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+        addAndMakeVisible (window);
+        window->setCentrePosition (getLocalBounds().getCentre());
+        window->enterModalState (true, juce::ModalCallbackFunction::create (
+            [safeThis = juce::Component::SafePointer<MainView> (this)] (int result)
+            {
+                if (safeThis == nullptr)
+                    return;
+                if (result == 1)
+                    safeThis->processor.getPatternPresets().clearAll();
+                else if (result == 2)
+                    safeThis->processor.getPatternPresets().clear();
+            }), true);
     };
     refreshSequencer();
 
@@ -189,39 +213,12 @@ void MainView::closeAbout()
     about.reset();
 }
 
-// One submenu per category, in the factory order, and the user's presets last.
+// One flat list of every preset by name with a search field, the user's presets last.
 void MainView::showPresetMenu()
 {
-    auto& presets = processor.getSoundPresets();
-    juce::PopupMenu menu;
-    juce::PopupMenu category;
-    juce::String categoryName;
-    bool categoryHasCurrent = false;
-
-    auto flush = [&]
-    {
-        if (categoryName.isNotEmpty())
-            menu.addSubMenu (categoryName, category, true, nullptr, categoryHasCurrent);
-        category = {};
-        categoryHasCurrent = false;
-    };
-    for (int i = 0; i < presets.numEntries(); ++i)
-    {
-        if (presets.entryCategory (i) != categoryName)
-        {
-            flush();
-            categoryName = presets.entryCategory (i);
-        }
-        const bool isCurrent = i == presets.current();
-        categoryHasCurrent = categoryHasCurrent || isCurrent;
-        category.addItem (presets.entryName (i), true, isCurrent, [&presets, i] { presets.load (i); });
-    }
-    flush();
-    if (presets.numEntries() == presets.numFactory())
-        menu.addItem ("No user presets yet: Save stores one", false, false, {});
-
-    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (presetButton).withMinimumWidth (presetButton.getWidth())
-                            .withDeletionCheck (*this));
+    auto picker = std::make_unique<PresetPicker> (processor.getSoundPresets());
+    picker->setSize (juce::jmax (260, presetButton.getWidth()), 360);
+    juce::CallOutBox::launchAsynchronously (std::move (picker), getLocalArea (&presetButton, presetButton.getLocalBounds()), this);
 }
 
 void MainView::stepPreset (int delta)
@@ -239,8 +236,7 @@ void MainView::refreshPreset()
     auto& presets = processor.getSoundPresets();
     shownPresetVersion = presets.version();
     presetButton.setButtonText (presets.name());
-    const auto category = presets.entryCategory (presets.current());
-    presetButton.setTooltip (category.isEmpty() ? presets.name() : category + ": " + presets.name());
+    presetButton.setTooltip (presets.name());
 }
 
 void MainView::savePreset (const juce::String& name)

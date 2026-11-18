@@ -5,6 +5,7 @@
 
 #include "Patch.h"
 
+#include <cstring>
 #include <vector>
 
 // The factory sound presets, in the order the browser shows them. Each lists only what it
@@ -46,7 +47,8 @@ inline const std::vector<FactoryPreset>& factoryPresets()
     using namespace preset;
     static const std::vector<FactoryPreset> presets {
         // ---- Bleeps: sine and saw
-        { "Init", "Bleeps", {} },
+        // Init is the Log Drum sound, the one a new instance starts as (see starterValue)
+        { "Init", "Bleeps", { Werk, { "strikeRing", 0.78f }, { "strikeTone", 0.35f } } },
         { "Laser Drop", "Bleeps", { { "bleepPitchAmount", 36 }, { "bleepPitchDecay", 60 }, { "bleepDecay", 300 } } },
         { "Long Sine", "Bleeps", { { "bleepPitchAmount", 2 }, { "bleepDecay", 900 }, { "bleepRelease", 200 },
                                    { "roomSize", 0.4f }, { "roomDecay", 0.7f }, { "roomMix", 0.25f } } },
@@ -199,5 +201,30 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "Folded Squeal", "Drive", { Werk, { "strikeExciter", Squeal }, { "strikeLength", 700 }, { "strikeRing", 0.9f }, { "strikeMotion", 0.3f }, { "roomSize", 0.6f }, { "roomDecay", 1.5f }, { "roomMix", 0.35f }, { "driveType", 2 }, { "drivePost", 1 }, { "driveAmount", 0.6f }, { "driveMix", 0.6f } } },
     };
     return presets;
+}
+
+// What a new instance starts as: the factory preset Log Drum. The plug-in declares these values
+// as the defaults of its parameters, because a host expects a new instance to have exactly its
+// default values (clap-validator checks it). The other presets still reset what they leave out
+// to kSoundParams, so they sound as they were made.
+inline constexpr const char* kStarterPreset = "Log Drum";
+
+inline float starterValue (const char* id)
+{
+    auto valueOf = [] (const char* name)
+    {
+        for (const auto& preset : factoryPresets())
+            if (std::strcmp (preset.name, kStarterPreset) == 0)
+                for (const auto& v : preset.values)
+                    if (std::strcmp (v.id, name) == 0)
+                        return v.value;
+        return soundDefault (name);
+    };
+    if (std::strcmp (id, "outputGain") == 0)
+    {
+        static const float matched = matchedOutputDb (readPatch (valueOf)); // as SoundPresets sets it when the preset loads
+        return matched;
+    }
+    return valueOf (id);
 }
 } // namespace bleepwerk

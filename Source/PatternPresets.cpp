@@ -6,6 +6,11 @@
 
 using namespace bleepwerk;
 
+static juce::String slotSuffix (int index)
+{
+    return juce::String::charToString ((juce::juce_wchar) ('A' + index));
+}
+
 PatternPresets::PatternPresets (juce::AudioProcessorValueTreeState& s, PatternBank& b, std::function<juce::File()> folderProvider,
                                 std::function<void()> callback)
     : state (s), bank (b), getFolder (std::move (folderProvider)), onChange (std::move (callback))
@@ -79,14 +84,14 @@ int PatternPresets::entryNamed (const juce::String& wanted) const
     return found;
 }
 
-void PatternPresets::load (int index)
+juce::String PatternPresets::load (int index)
 {
     if (isUser (index))
     {
         const auto xml = files::parseXmlFile (userFiles[index - kNumFactoryEntries]);
         if (xml == nullptr || ! xml->hasTagName ("BleepWerkPattern")
             || ! parseCompactPattern (xml->getStringAttribute ("steps").toRawUTF8(), pattern()))
-            return;
+            return {};
         // files from before rate and gate were stored leave the current values
         applyGroove (pattern(), { xml->getIntAttribute ("length", kMaxSteps), (float) xml->getDoubleAttribute ("swing", 0.5),
                        rateIndexFor (xml->getStringAttribute ("rate")), (float) xml->getDoubleAttribute ("gate", -1.0),
@@ -100,37 +105,53 @@ void PatternPresets::load (int index)
     }
     else if (isSet (index))
     {
-        loadSet (index - kNumFactoryPatterns);
-        changed();
-        return;
+        const auto error = loadSet (index - kNumFactoryPatterns);
+        if (error.isEmpty())
+            changed();
+        return error;
     }
     else
     {
-        return;
+        return {};
     }
 
     slot() = { entryName (index), index };
     changed();
+    return {};
 }
 
-// The layers go into slots A, B, C... and play together; the panel shows A. Other slots keep
-// their steps but stop playing, so a set is heard as it was written.
-void PatternPresets::loadSet (int setIndex)
+// The layers fill the slots from the shown one on, so several sets can sit side by side (one in
+// A-B, one in C-E). A set that doesn't fit from the shown slot is refused, with the reason,
+// rather than written over slots the user may want. Afterwards the slots are ordinary patterns
+// named "Set name · A", "Set name · B"... Only the set's layers play, so it is heard as written.
+juce::String PatternPresets::loadSet (int setIndex)
 {
     const auto& set = kFactorySets[setIndex];
+    const int first = bank.active();
+    const int room = kNumPatternSlots - first;
+    if (set.numLayers > room)
+    {
+        const int missing = set.numLayers - room;
+        return "\"" + juce::String (set.name) + "\" has " + juce::String (set.numLayers) + " layers, but from slot " + slotSuffix (first)
+               + " there " + (room == 1 ? "is only 1 slot" : "are only " + juce::String (room) + " slots") + ": "
+               + juce::String (missing) + (missing == 1 ? " slot is" : " slots are") + " missing. Select slot "
+               + slotSuffix (kNumPatternSlots - set.numLayers) + " or an earlier one and load it again.";
+    }
+
     uint32_t mask = 0;
     for (int i = 0; i < set.numLayers; ++i)
     {
+        const int at = first + i;
         const auto& layer = set.layers[i];
-        auto& target = bank.slot (i);
+        auto& target = bank.slot (at);
         parseCompactPattern (layer.steps, target);
         applyGroove (target, { layer.length, 0.5f, layer.rate, layer.gate, 0, 0, 0, 0 });
-        slots[(size_t) i] = { juce::String (set.name) + " " + juce::String (i + 1) + "/" + juce::String (set.numLayers),
-                              kNumFactoryPatterns + setIndex };
-        mask |= 1u << i;
+        slots[(size_t) at] = { juce::String (set.name) + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 ")) + slotSuffix (at),
+                               kNumFactoryPatterns + setIndex };
+        mask |= 1u << at;
     }
     bank.setPlayingMask (mask);
-    bank.select (0);
+    return {};
 }
 
 bool PatternPresets::save (const juce::String& patternName)
@@ -183,9 +204,16 @@ void PatternPresets::randomize()
     changed();
 }
 
+// Empty and back to the plain settings: 16 steps, 1/16, straight, and no drift, vary or transpose.
+static void blank (Pattern& target)
+{
+    target.clear();
+    target.setGroove (Groove {});
+}
+
 void PatternPresets::clear()
 {
-    pattern().clear();
+    blank (pattern());
     slot() = { "Empty", -1 };
     changed();
 }
@@ -197,6 +225,25 @@ void PatternPresets::markEdited()
         slot().name << " *";
         changed();
     }
+}
+
+void PatternPresets::loadStarterSet()
+{
+    bank.select (0);
+    for (int i = kNumFactoryPatterns; i < kNumFactoryEntries; ++i)
+        if (entryName (i) == kStarterSet)
+            load (i);
+}
+
+void PatternPresets::clearAll()
+{
+    for (int i = 0; i < kNumPatternSlots; ++i)
+    {
+        blank (bank.slot (i));
+        slots[(size_t) i] = { "Empty", -1 };
+    }
+    bank.setPlayingMask (0u);
+    changed();
 }
 
 void PatternPresets::copySlot (int from, int to)
@@ -271,11 +318,6 @@ juce::File PatternPresets::exportLayersMidi (int bars)
         return {};
     const auto file = files::uniqueFileFor (midiFolder(), name, ".mid");
     return writeMidiFile (file, sequence, bleepwerk::kClipTicksPerQuarter) ? file : juce::File();
-}
-
-static juce::String slotSuffix (int index)
-{
-    return juce::String::charToString ((juce::juce_wchar) ('A' + index));
 }
 
 void PatternPresets::writeState (juce::ValueTree& tree) const
