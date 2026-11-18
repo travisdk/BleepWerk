@@ -69,29 +69,7 @@ MainView::MainView (BleepWerkProcessor& p)
         confirm ("Delete pattern?", "\"" + patterns.entryName (entry) + "\" will be moved to the trash.", "Delete",
                  [&patterns, entry] { patterns.remove (entry); });
     };
-    sequencerView.onClearAll = [this]
-    {
-        // three ways out: all patterns, only the shown one (the one Return takes, as it loses less), or nothing
-        const auto letter = juce::String::charToString ((juce::juce_wchar) ('A' + processor.getPatternBank().active()));
-        auto* window = new juce::AlertWindow ("Clear patterns", "Empty all eight patterns (and switch all layers off), or only pattern " + letter
-                                                                 + "? Length, rate and the other settings of the pattern go back to the plain ones too. "
-                                                                   "What you have made and not saved is lost.", juce::MessageBoxIconType::NoIcon);
-        window->addButton ("All patterns", 1);
-        window->addButton ("Only " + letter, 2, juce::KeyPress (juce::KeyPress::returnKey));
-        window->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-        addAndMakeVisible (window);
-        window->setCentrePosition (getLocalBounds().getCentre());
-        window->enterModalState (true, juce::ModalCallbackFunction::create (
-            [safeThis = juce::Component::SafePointer<MainView> (this)] (int result)
-            {
-                if (safeThis == nullptr)
-                    return;
-                if (result == 1)
-                    safeThis->processor.getPatternPresets().clearAll();
-                else if (result == 2)
-                    safeThis->processor.getPatternPresets().clear();
-            }), true);
-    };
+    sequencerView.onClearAll = [this] { askClearPatterns(); };
     refreshSequencer();
 
     // the sound
@@ -295,6 +273,33 @@ void MainView::showNameDialog (const juce::String& title, const juce::String& wh
 }
 
 // A two-button message (one, without onOk) shown inside the view.
+// Three ways out: all patterns, only the shown one (the one Return takes, as it loses less), or
+// nothing. A method of its own, not a lambda in the constructor: MSVC reads `this` in the callback's
+// capture there as the lambda.
+void MainView::askClearPatterns()
+{
+    const auto letter = juce::String::charToString ((juce::juce_wchar) ('A' + processor.getPatternBank().active()));
+    auto* window = new juce::AlertWindow ("Clear patterns", "Empty all eight patterns (and switch all layers off), or only pattern " + letter
+                                                             + "? Length, rate and the other settings of the pattern go back to the plain ones too. "
+                                                               "What you have made and not saved is lost.", juce::MessageBoxIconType::NoIcon);
+    window->addButton ("All patterns", 1);
+    window->addButton ("Only " + letter, 2, juce::KeyPress (juce::KeyPress::returnKey));
+    window->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    addAndMakeVisible (window);
+    window->setCentrePosition (getLocalBounds().getCentre());
+    juce::Component::SafePointer<MainView> safeThis (this);
+    window->enterModalState (true, juce::ModalCallbackFunction::create (
+        [safeThis] (int result)
+        {
+            if (safeThis == nullptr)
+                return;
+            if (result == 1)
+                safeThis->processor.getPatternPresets().clearAll();
+            else if (result == 2)
+                safeThis->processor.getPatternPresets().clear();
+        }), true);
+}
+
 void MainView::confirm (const juce::String& title, const juce::String& message, const juce::String& okText, std::function<void()> onOk)
 {
     auto* window = new juce::AlertWindow (title, message, juce::MessageBoxIconType::NoIcon);

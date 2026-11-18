@@ -42,6 +42,7 @@ private:
     void showSettingsMenu();
     void closeAbout();
     void showPresetMenu();
+    void askClearPatterns();
     void stepPreset (int delta);
     void refreshPreset();
     void savePreset (const juce::String& name);
