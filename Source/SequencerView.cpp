@@ -364,9 +364,9 @@ SequencerView::SequencerView (BleepWerkProcessor& p)
     dice.onClick = [this] { processor.getPatternPresets().randomize(); refresh(); };
     addAndMakeVisible (dice);
 
-    resetButton.setTooltip ("Reset all eight patterns to what a new instance has: Five Over Seven in A and B, both playing. Root and the sound stay.");
-    resetButton.onClick = [this] { if (onReset) onReset(); };
-    addAndMakeVisible (resetButton);
+    clearButton.setTooltip ("Clear every note in all eight patterns and switch all layers off. Length, rate and the other settings of each pattern stay, and so do Root and the sound.");
+    clearButton.onClick = [this] { if (onClearAll) onClearAll(); };
+    addAndMakeVisible (clearButton);
 
     midiButton = std::make_unique<MidiButton>();
     midiButton->writeFile = [this] { return writeMidi(); };
@@ -554,7 +554,7 @@ void SequencerView::resized()
     top.removeFromLeft (10);
     const auto midiBounds = top.removeFromRight (62);
     midiButton->setBounds (midiBounds);
-    resetButton.setBounds (midiBounds.getX(), midiBounds.getBottom() + 3, midiBounds.getWidth(), 16); // ends above the steps
+    clearButton.setBounds (midiBounds.getX(), midiBounds.getBottom() + 3, midiBounds.getWidth(), 16); // ends above the steps
     top.removeFromRight (6);
     dice.setBounds (top.removeFromRight (22).withSizeKeepingCentre (22, 22));
     top.removeFromRight (6);

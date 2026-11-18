@@ -69,11 +69,11 @@ MainView::MainView (BleepWerkProcessor& p)
         confirm ("Delete pattern?", "\"" + patterns.entryName (entry) + "\" will be moved to the trash.", "Delete",
                  [&patterns, entry] { patterns.remove (entry); });
     };
-    sequencerView.onReset = [this]
+    sequencerView.onClearAll = [this]
     {
-        confirm ("Reset all patterns?", "All eight patterns go back to what a new instance has: Five Over Seven in A and B, both playing. "
-                                         "Patterns you have made or edited are lost unless you saved them.", "Reset",
-                 [this] { processor.getPatternPresets().resetAll(); });
+        confirm ("Clear all patterns?", "Every note in all eight patterns is cleared and no layer plays. "
+                                         "Patterns you have made or edited are lost unless you saved them.", "Clear all",
+                 [this] { processor.getPatternPresets().clearAll(); });
     };
     refreshSequencer();
 

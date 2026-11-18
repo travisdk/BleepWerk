@@ -220,19 +220,22 @@ void PatternPresets::markEdited()
     }
 }
 
-void PatternPresets::resetAll()
+void PatternPresets::loadStarterSet()
 {
-    for (int i = 0; i < kNumPatternSlots; ++i)
-    {
-        bank.slot (i).copyFrom (Pattern {});
-        slots[(size_t) i] = {};
-    }
-    randomCount = 0;
-    bank.setPlayingMask (1u);
     bank.select (0);
     for (int i = kNumFactoryPatterns; i < kNumFactoryEntries; ++i)
         if (entryName (i) == kStarterSet)
-            loadSet (i - kNumFactoryPatterns);
+            load (i);
+}
+
+void PatternPresets::clearAll()
+{
+    for (int i = 0; i < kNumPatternSlots; ++i)
+    {
+        bank.slot (i).clear();
+        slots[(size_t) i] = { "Empty", -1 };
+    }
+    bank.setPlayingMask (0u);
     changed();
 }
 

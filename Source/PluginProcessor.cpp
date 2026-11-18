@@ -73,7 +73,7 @@ BleepWerkProcessor::BleepWerkProcessor()
     for (int i = 0; i < soundPresets.numFactory(); ++i)
         if (soundPresets.entryName (i) == bleepwerk::kStarterPreset)
             soundPresets.load (i);
-    patternPresets.resetAll();
+    patternPresets.loadStarterSet();
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout BleepWerkProcessor::createParameterLayout()

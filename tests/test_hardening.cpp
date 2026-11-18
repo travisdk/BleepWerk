@@ -450,28 +450,29 @@ void presetSearch()
     CHECK (names ("drum").contains ("Frame Drum") && names ("drum").contains ("Log Drum"));
     CHECK (names ("no such preset").isEmpty());
 }
-// Reset puts every pattern back to what a new instance has, and leaves Root and the sound alone.
-void resetPatterns()
+// Clear all empties every note of every pattern and switches every layer off, and leaves the
+// grooves, Root and the sound alone.
+void clearPatterns()
 {
+    using namespace bleepwerk;
     BleepWerkProcessor processor;
     auto& bank = processor.getPatternBank();
     auto& patterns = processor.getPatternPresets();
-    const auto start = processor.getPatternBank().slot (3).toString();
-    const juce::String dot = juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "));
-
-    patterns.clear(); // the shown slot A emptied,
-    bank.select (3);
-    patterns.randomize(); // D rolled,
-    bank.setPlayingMask (0xf0); // and other layers playing
+    bank.setPlayingMask (0xf3);
     processor.apvts.getParameter ("seqRoot")->setValueNotifyingHost (0.7f);
     const auto root = processor.apvts.getRawParameterValue ("seqRoot")->load();
     const auto sound = processor.getSoundPresets().name();
+    const auto groove = bank.slot (1).groove().toString();
 
-    patterns.resetAll();
-    CHECK (bank.playing() == 3u && bank.active() == 0);
-    CHECK (patterns.slotName (0) == "Five Over Seven" + dot + "A" && patterns.slotName (1) == "Five Over Seven" + dot + "B");
-    CHECK (bank.slot (3).toString() == start);
-    CHECK (patterns.slotName (3) == "Default");
+    patterns.clearAll();
+    CHECK (bank.playing() == 0u);
+    for (int slot = 0; slot < kNumPatternSlots; ++slot)
+    {
+        for (int step = 0; step < kMaxSteps; ++step)
+            CHECK (! bank.slot (slot).get (step).gate);
+        CHECK (patterns.slotName (slot) == "Empty");
+    }
+    CHECK (bank.slot (1).groove().toString() == groove);
     CHECK (juce::approximatelyEqual (processor.apvts.getRawParameterValue ("seqRoot")->load(), root));
     CHECK (processor.getSoundPresets().name() == sound);
 }
@@ -491,7 +492,7 @@ int main (int argc, char* argv[])
         { "pattern-sets", patternSets },
         { "held-key-shows-root", heldKeyShowsRoot },
         { "preset-search", presetSearch },
-        { "reset-patterns", resetPatterns },
+        { "clear-patterns", clearPatterns },
     };
     const juce::String name = argc > 1 ? argv[1] : "";
     const auto testCase = cases.find (name);

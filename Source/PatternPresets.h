@@ -36,9 +36,11 @@ public:
     // shown slot on (and only those layers play). Returns a message for the user if it could not
     // be loaded (a set that doesn't fit), else an empty string; nothing is touched then.
     juce::String load (int index);
-    // Every slot back to what a new instance has: the set Five Over Seven in A and B (both playing),
-    // the others as at the start. The shown slot is A. Root and the sound are left alone.
-    void resetAll();
+    // Every note of every slot cleared, and no layer playing. The grooves (length, rate...), the
+    // shown slot, Root and the sound are left alone.
+    void clearAll();
+    // What a new instance has: the set Five Over Seven in A and B, both playing, shown from A.
+    void loadStarterSet();
     void randomize();
     void clear();
     void markEdited(); // a step was changed in the grid
