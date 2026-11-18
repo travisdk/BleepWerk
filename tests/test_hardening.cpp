@@ -164,6 +164,8 @@ void hugeXml()
 
     BleepWerkProcessor processor;
     auto& presets = processor.getSoundPresets();
+    const auto startName = presets.name(); // what a new instance starts as: a refused state leaves it
+    CHECK (startName == "Log Drum");
     juce::MemoryOutputStream deepState;
     deepState.writeInt (0x21324356); // copyXmlToBinary's format: magic, size, text
     const auto text = "<PARAMS>" + nested + "</PARAMS>";
@@ -174,7 +176,7 @@ void hugeXml()
     auto xml = savedState (processor);
     xml->setAttribute ("presetName", huge);
     setState (processor, *xml);
-    CHECK (presets.name() == "Init");
+    CHECK (presets.name() == startName);
 
    #if JUCE_LINUX
     CHECK (SoundPresets::folder().createDirectory());
@@ -183,7 +185,7 @@ void hugeXml()
     for (auto* name : { "Deep", "Huge" })
     {
         CHECK (loadUserPreset (presets, name));
-        CHECK (presets.name() == "Init");
+        CHECK (presets.name() == startName);
     }
    #endif
 }
@@ -305,6 +307,126 @@ void exportLayers()
     CHECK (std::abs (track->getEndTime() - (double) clip.lengthTicks) < 0.5);
    #endif
 }
+// A new instance starts as Log Drum with the sequencer on and Five Over Seven in A and B, both
+// playing; what a project saved keeps its own settings.
+void newInstanceDefaults()
+{
+    BleepWerkProcessor fresh;
+    CHECK (fresh.getSoundPresets().name() == "Log Drum");
+    // the parameters declare the starting sound as their defaults
+    CHECK (isDefault (fresh, "strikeRing") && isDefault (fresh, "engine") && isDefault (fresh, "outputGain"));
+    CHECK (fresh.apvts.getRawParameterValue ("engine")->load() > 0.5f);
+    CHECK (fresh.apvts.getRawParameterValue ("seqEnabled")->load() > 0.5f);
+    auto& bank = fresh.getPatternBank();
+    auto& patterns = fresh.getPatternPresets();
+    CHECK (patterns.slotName (0) == "Five Over Seven \xc2\xb7 A");
+    CHECK (patterns.slotName (1) == "Five Over Seven \xc2\xb7 B");
+    CHECK (bank.playing() == 3u);
+
+    // an older project: the sequencer was off and the sound was Init
+    BleepWerkProcessor old;
+    old.apvts.getParameter ("seqEnabled")->setValueNotifyingHost (0.0f);
+    auto xml = savedState (old);
+    xml->setAttribute ("presetName", "Init");
+    xml->setAttribute ("presetIndex", 0);
+    setState (fresh, *xml);
+    CHECK (fresh.getSoundPresets().name() == "Init");
+    CHECK (fresh.apvts.getRawParameterValue ("seqEnabled")->load() < 0.5f);
+    // Init and the other presets reset to the old blank sound, not to the starting one
+    fresh.getSoundPresets().load (0);
+    CHECK (fresh.apvts.getRawParameterValue ("engine")->load() < 0.5f);
+    CHECK (juce::approximatelyEqual (fresh.apvts.getRawParameterValue ("strikeRing")->load(), 0.5f));
+
+    // a project from before the sequencer has no Sequencer parameter at all: it stays off
+    BleepWerkProcessor again;
+    auto bare = savedState (again);
+    for (int i = bare->getNumChildElements(); --i >= 0;)
+        if (auto* child = bare->getChildElement (i); child->getStringAttribute ("id") == "seqEnabled" || child->getStringAttribute ("id") == "strikeRing")
+            bare->removeChildElement (child, true);
+    setState (again, *bare);
+    CHECK (again.apvts.getRawParameterValue ("seqEnabled")->load() < 0.5f);
+    // and a sound parameter it lacks gets its old default, not the starting sound's value
+    CHECK (juce::approximatelyEqual (again.apvts.getRawParameterValue ("strikeRing")->load(), 0.5f));
+}
+// A set fills as many slots as it has layers from the shown slot on, names them after the slot,
+// and is refused, saying why, when it doesn't fit. Afterwards the slots are independent.
+void patternSets()
+{
+    using namespace bleepwerk;
+    BleepWerkProcessor processor;
+    auto& bank = processor.getPatternBank();
+    auto& patterns = processor.getPatternPresets();
+    auto entry = [&] (const char* name)
+    {
+        for (int i = kNumFactoryPatterns; i < kNumFactoryEntries; ++i)
+            if (patterns.entryName (i) == name)
+                return i;
+        return -1;
+    };
+    const juce::String dot = juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "));
+
+    bank.select (2);
+    CHECK (patterns.load (entry ("Slow Orbit 16:12")).isEmpty());
+    CHECK (patterns.slotName (2) == "Slow Orbit 16:12" + dot + "C");
+    CHECK (patterns.slotName (3) == "Slow Orbit 16:12" + dot + "D");
+    CHECK (patterns.slotName (0) == "Five Over Seven" + dot + "A"); // the set beside it is left alone
+    CHECK (bank.playing() == (3u << 2)); // only the loaded set plays
+
+    // a single pattern replacing one slot of a set leaves the others as they are
+    patterns.load (0);
+    CHECK (patterns.slotName (3) == "Slow Orbit 16:12" + dot + "D");
+
+    // three layers from G: two slots are left, so one is missing, and nothing changes
+    bank.select (6);
+    const auto before = patterns.slotName (6);
+    const auto problem = patterns.load (entry ("Three Clocks 16:12:9"));
+    CHECK (problem.contains ("slot G"));
+    CHECK (problem.contains ("1 slot is missing"));
+    CHECK (patterns.slotName (6) == before);
+    CHECK (bank.playing() == (3u << 2));
+    bank.select (7);
+    CHECK (patterns.load (entry ("Slow Orbit 16:12")).contains ("1 slot is missing"));
+    // and from the last slot a set of two still fits when it starts at G
+    bank.select (6);
+    CHECK (patterns.load (entry ("Slow Orbit 16:12")).isEmpty());
+    CHECK (patterns.slotName (7) == "Slow Orbit 16:12" + dot + "H");
+}
+// While the sequencer plays, a held key is shown as the root that plays, but the Root parameter
+// is never changed by it, and letting go of the key shows the knob's own value again.
+void heldKeyShowsRoot()
+{
+    struct Host : juce::AudioPlayHead
+    {
+        juce::Optional<PositionInfo> getPosition() const override
+        {
+            PositionInfo info;
+            info.setPpqPosition (0.0);
+            info.setIsPlaying (true);
+            return info;
+        }
+    } host;
+
+    BleepWerkProcessor processor;
+    processor.setRateAndBufferSizeDetails (kSampleRate, kBlockSize);
+    processor.prepareToPlay (kSampleRate, kBlockSize);
+    processor.setPlayHead (&host);
+    const float root = processor.apvts.getRawParameterValue ("seqRoot")->load();
+    juce::AudioBuffer<float> buffer (2, kBlockSize);
+
+    juce::MidiBuffer down;
+    down.addEvent (juce::MidiMessage::noteOn (1, 67, 0.8f), 0);
+    processor.processBlock (buffer, down);
+    CHECK (processor.isSequencerRunning());
+    CHECK (processor.getExternalRoot() == 67);
+    CHECK (juce::approximatelyEqual (processor.apvts.getRawParameterValue ("seqRoot")->load(), root));
+
+    juce::MidiBuffer up;
+    up.addEvent (juce::MidiMessage::noteOff (1, 67), 0);
+    processor.processBlock (buffer, up);
+    CHECK (processor.getExternalRoot() == -1);
+    CHECK (juce::approximatelyEqual (processor.apvts.getRawParameterValue ("seqRoot")->load(), root));
+    processor.setPlayHead (nullptr);
+}
 } // namespace
 
 int main (int argc, char* argv[])
@@ -317,6 +439,9 @@ int main (int argc, char* argv[])
         { "nameless-preset", namelessPreset },
         { "migrate-old-folders", migratesOldFolders },
         { "export-layers", exportLayers },
+        { "new-instance-defaults", newInstanceDefaults },
+        { "pattern-sets", patternSets },
+        { "held-key-shows-root", heldKeyShowsRoot },
     };
     const juce::String name = argc > 1 ? argv[1] : "";
     const auto testCase = cases.find (name);

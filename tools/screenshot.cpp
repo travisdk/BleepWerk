@@ -2,16 +2,31 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Renders the interface of a fresh instance to a PNG, for checking the layout and for the
-// README: BleepWerk_Screenshot <output.png> [scale] [werk] [seq] [about]
+// README: BleepWerk_Screenshot <output.png> [scale] [werk] [seq] [held] [about]
 
 #include "MainView.h"
 #include "Theme.h"
+
+namespace
+{
+// A host that plays, so the sequencer runs and a key played is taken as the root
+struct PlayingHost : juce::AudioPlayHead
+{
+    juce::Optional<PositionInfo> getPosition() const override
+    {
+        PositionInfo info;
+        info.setPpqPosition (0.0);
+        info.setIsPlaying (true);
+        return info;
+    }
+};
+} // namespace
 
 int main (int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "usage: BleepWerk_Screenshot <output.png> [scale] [werk] [seq] [about]\n";
+        std::cerr << "usage: BleepWerk_Screenshot <output.png> [scale] [werk] [seq] [held] [about]\n";
         return 1;
     }
 
@@ -22,6 +37,7 @@ int main (int argc, char* argv[])
     juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
     const float scale = argc > 2 ? juce::String (argv[2]).getFloatValue() : 1.0f;
     bool wantsAbout = false;
+    PlayingHost host;
     for (int i = 3; i < argc; ++i)
     {
         const juce::String option (argv[i]);
@@ -31,6 +47,16 @@ int main (int argc, char* argv[])
             wantsAbout = true;
         else if (option == "seq")
             processor.apvts.getParameter ("seqEnabled")->setValueNotifyingHost (1.0f);
+        else if (option == "held") // G3 held while the sequencer plays
+        {
+            processor.setRateAndBufferSizeDetails (48000.0, 512);
+            processor.prepareToPlay (48000.0, 512);
+            processor.setPlayHead (&host);
+            juce::AudioBuffer<float> buffer (2, 512);
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 67, 0.8f), 0);
+            processor.processBlock (buffer, midi);
+        }
     }
 
     auto view = std::make_unique<MainView> (processor);
@@ -39,6 +65,7 @@ int main (int argc, char* argv[])
         view->showAbout();
     const auto image = view->createComponentSnapshot (view->getLocalBounds(), true, scale);
     view.reset();
+    processor.setPlayHead (nullptr);
     juce::LookAndFeel::setDefaultLookAndFeel (nullptr);
 
     const juce::File file = juce::File::getCurrentWorkingDirectory().getChildFile (argv[1]);

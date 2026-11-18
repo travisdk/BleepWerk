@@ -108,7 +108,10 @@ with Drive and Mix knobs.
 Adapted from SubForge's: sixteen steps (on or off, a note from the root, an accent), eight
 patterns A-H, locked to the host's transport (sample-accurate, loops and jumps handled).
 - While it is on and the host plays, played keys set the root of the pattern instead of
-  sounding; otherwise the keys play as usual. Switching lets go of everything held
+  sounding; otherwise the keys play as usual. Switching lets go of everything held. The Root
+  parameter is never changed by incoming notes: while a key is held the panel shows the root
+  that plays (the knob's name reads "MIDI · Root" and its value is the held note, in the bright
+  colour), and when the key is let go the knob's own value counts again
 - Any pattern can play as a layer, any number at once, each with its own length, counted from
   beat 0 so they stay in step (a polymeter: 16 against 12 meets again after 48)
 - Per pattern, saved with it and in pattern files: Length, Rate, Swing, Gate, Drift (moves on a
@@ -118,6 +121,16 @@ patterns A-H, locked to the host's transport (sample-accurate, loops and jumps h
   or on another interval). Root, and a key held while the sequencer runs, are shared by all
   layers and shown apart from the per-pattern knobs
 - A factory set of original patterns, user pattern files (.bfpattern), a dice, copy to slot
+- A polymeter set fills as many slots as it has layers at once, from the shown slot on (so several
+  sets can sit side by side, one in A-B and one in C-E), named "Set name · A", "Set name · B"...;
+  one that does not fit from the shown slot is refused with a message saying which slot and how
+  many slots are missing. Afterwards the slots are ordinary, independent patterns, and only the
+  set's layers play
+- Symbols: a tick under a letter is a pattern that plays; "ACC" above a step is its accent
+- A new instance starts as the factory preset Log Drum, with the sequencer on and the set
+  Five Over Seven in A and B, both playing. The parameters declare the Log Drum sound as their
+  defaults (a host expects a new instance to have them); Init and the presets still reset to the
+  old blank sound, and projects and presets keep their own settings
 - MIDI export from the MIDI button: the shown pattern as a one-pass clip, or everything the
   playing layers play, as they play (length, rate, swing, gate, accents, Drift and Vary
   included), over 4 to 64 bars; on Windows the button can be dragged into the host

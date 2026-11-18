@@ -43,7 +43,7 @@ MainView::MainView (BleepWerkProcessor& p)
 
     // the sequencer: this button folds the panel out below the effects and switches the
     // sequencer on; folded in, BleepWerk is as it is without one
-    sequencerButton.setTooltip ("Show the step sequencer, which plays against the host's transport. Hidden, it is off.");
+    sequencerButton.setTooltip ("While the sequencer plays, incoming notes set the Root instead of sounding.");
     sequencerButton.setClickingTogglesState (false);
     sequencerButton.setColour (juce::TextButton::textColourOnId, bleepwerk::theme::primary());
     sequencerButton.onClick = [this]

@@ -23,7 +23,7 @@ target_include_directories (test_hardening PRIVATE ${PROJECT_SOURCE_DIR}/Source 
 target_compile_definitions (test_hardening PRIVATE $<TARGET_PROPERTY:BleepWerk,COMPILE_DEFINITIONS>)
 target_link_libraries (test_hardening PRIVATE BleepWerk)
 add_dependencies (BleepWerk_Tests test_hardening)
-foreach (case not-numbers open-folder huge-xml typed-numbers nameless-preset migrate-old-folders export-layers)
+foreach (case not-numbers open-folder huge-xml typed-numbers nameless-preset migrate-old-folders export-layers new-instance-defaults pattern-sets held-key-shows-root)
     add_test (NAME hardening-${case} COMMAND test_hardening ${case})
 endforeach()
 

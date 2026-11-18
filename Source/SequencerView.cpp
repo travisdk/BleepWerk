@@ -36,7 +36,9 @@ public:
         auto& pattern = processor.getPatternBank().activePattern();
         const int patternLength = pattern.groove().length; // not "length" and "root", the view's own members
         // the note a step plays: the shared root, this pattern's transpose and the step's own offset
-        const int rootNote = (int) processor.apvts.getRawParameterValue ("seqRoot")->load() + pattern.groove().transpose;
+        // (a key held while the sequencer plays takes over the shared root, and the notes shown follow it)
+        const int heldRoot = processor.getExternalRoot();
+        const int rootNote = (heldRoot >= 0 ? heldRoot : (int) processor.apvts.getRawParameterValue ("seqRoot")->load()) + pattern.groove().transpose;
         constexpr float noteSpan = (float) (kMaxStepNote - kMinStepNote);
 
         for (int i = 0; i < kMaxSteps; ++i)
@@ -45,14 +47,12 @@ public:
             const bool inPattern = i < patternLength, playing = i == playhead;
             const float fade = inPattern ? 1.0f : 0.35f;
 
-            // the accent: a filled dot, or an empty ring
-            const auto dot = juce::Rectangle<float> (7.0f, 7.0f).withCentre (cell (i, Row::Accent).getCentre());
+            // the accent: "ACC" in the bright colour, or the same text faint where there is none
+            // (a circle is the pattern's play mark, so it means one thing only)
             const bool accented = step.level == kAccentLevel;
-            g.setColour ((accented ? theme::primary() : theme::dimText).withMultipliedAlpha (fade));
-            if (accented)
-                g.fillEllipse (dot);
-            else
-                g.drawEllipse (dot.reduced (0.5f), 1.0f);
+            g.setFont (fonts::title (9.0f));
+            g.setColour (accented ? theme::primary().withMultipliedAlpha (fade) : theme::dimText.withMultipliedAlpha (fade * 0.45f));
+            g.drawText ("ACC", cell (i, Row::Accent), juce::Justification::centred, false);
 
             // the bar box: a plain outline, brighter while the step plays
             const auto box = cell (i, Row::Bar);
@@ -319,18 +319,20 @@ struct SequencerView::MidiButton : juce::TextButton
 };
 
 //==============================================================================
-// The dot under a pattern's letter: lit while the pattern plays as a layer.
+// The tick under a pattern's letter: bright while the pattern plays as a layer, faint when not.
 struct SequencerView::PlayDot : juce::Button
 {
     PlayDot() : juce::Button ("Plays") {}
     void paintButton (juce::Graphics& g, bool highlighted, bool) override
     {
-        const auto dot = juce::Rectangle<float> (8.0f, 8.0f).withCentre (getLocalBounds().toFloat().getCentre());
-        g.setColour (getToggleState() ? theme::primary() : (highlighted ? theme::text : theme::dimText));
-        if (getToggleState())
-            g.fillEllipse (dot);
-        else
-            g.drawEllipse (dot.reduced (0.5f), 1.0f);
+        const auto c = getLocalBounds().toFloat().getCentre();
+        juce::Path tick;
+        tick.startNewSubPath (c.x - 4.0f, c.y + 0.5f);
+        tick.lineTo (c.x - 1.5f, c.y + 3.5f);
+        tick.lineTo (c.x + 4.5f, c.y - 3.5f);
+        const bool on = getToggleState();
+        g.setColour (on ? theme::primary() : (highlighted ? theme::text : theme::dimText.withAlpha (0.5f)));
+        g.strokePath (tick, juce::PathStrokeType (on ? 2.0f : 1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 };
 
@@ -417,10 +419,21 @@ SequencerView::SequencerView (BleepWerkProcessor& p)
 
     root.setMaxDiameter (kDiameter);
     root.label.setText (juce::String (juce::CharPointer_UTF8 ("Root \xc2\xb7 all")), juce::dontSendNotification); // unlike the knobs beside it, it moves every layer
-    root.slider.setTooltip ("The note every layer is played from. Keys you play while it runs set the root instead. Transpose moves a single pattern from it.");
+    root.slider.setTooltip ("The note every layer is played from. While the sequencer plays, a key you hold plays from that note instead and is shown here as MIDI; "
+                            "let go and this value counts again. Transpose moves a single pattern from it.");
+    // Held keys are only shown: the knob keeps its own value, and under it stands the note that
+    // plays while a key has taken over. The text function below reads externalRoot.
+    {
+        const auto fromValue = root.slider.textFromValueFunction;
+        root.slider.textFromValueFunction = [this, fromValue] (double v)
+        {
+            return externalRoot >= 0 ? juce::MidiMessage::getMidiNoteName (juce::jlimit (0, 127, externalRoot), true, true, 3) : fromValue (v);
+        };
+    }
     addAndMakeVisible (root);
 
     refresh();
+    showExternalRoot (processor.isSequencerRunning() ? processor.getExternalRoot() : -1);
     startTimerHz (30);
 }
 
@@ -429,8 +442,24 @@ SequencerView::~SequencerView()
     stopTimer();
 }
 
+// Root's marking while a key from the host has taken over: its own name above the knob, the note
+// that plays under it, both in the bright colour.
+void SequencerView::showExternalRoot (int note)
+{
+    if (note == externalRoot)
+        return;
+    externalRoot = note;
+    const bool external = note >= 0;
+    root.label.setText (juce::String (juce::CharPointer_UTF8 (external ? "MIDI \xc2\xb7 Root" : "Root \xc2\xb7 all")), juce::dontSendNotification);
+    root.label.setColour (juce::Label::textColourId, external ? theme::primary() : theme::dimText);
+    root.slider.setColour (juce::Slider::textBoxTextColourId, external ? theme::primary() : theme::text);
+    root.slider.updateText();
+    grid->repaint();
+}
+
 void SequencerView::timerCallback()
 {
+    showExternalRoot (processor.isSequencerRunning() ? processor.getExternalRoot() : -1);
     grid->setPlayhead (processor.isSequencerRunning() ? processor.getSequencerStep() : -1);
     refresh();
 }
@@ -528,29 +557,38 @@ void SequencerView::resized()
     grid->setBounds (area.getX(), kGridTop, area.getWidth(), getHeight() - kGridTop - kPadding);
 }
 
+// Loads a pattern or a set into the shown slot; a set that doesn't fit says why instead.
+void SequencerView::loadEntry (int entry)
+{
+    const auto problem = processor.getPatternPresets().load (entry);
+    refresh();
+    if (problem.isNotEmpty())
+        juce::AlertWindow::showAsync (juce::MessageBoxOptions::makeOptionsOk (juce::MessageBoxIconType::InfoIcon, "Not enough room for the set", problem), nullptr);
+}
+
 // The factory patterns, then the user's, with saving, copying and clearing below.
 void SequencerView::showPatternMenu()
 {
     auto& presets = processor.getPatternPresets();
     juce::PopupMenu menu;
     for (int i = 0; i < kFirstPolymeterPattern; ++i)
-        menu.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
+        menu.addItem (presets.entryName (i), [this, i] { loadEntry (i); });
 
     juce::PopupMenu solo;
     for (int i = kFirstPolymeterPattern; i < kNumFactoryPatterns; ++i)
-        solo.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
+        solo.addItem (presets.entryName (i), [this, i] { loadEntry (i); });
     menu.addSubMenu ("Polymeter, one layer", solo);
 
     juce::PopupMenu sets;
     for (int i = kNumFactoryPatterns; i < kNumFactoryEntries; ++i)
-        sets.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
+        sets.addItem (presets.entryName (i), [this, i] { loadEntry (i); });
     menu.addSubMenu ("Polymeter sets (layers)", sets);
 
     if (presets.numEntries() > kNumFactoryEntries)
     {
         juce::PopupMenu user;
         for (int i = kNumFactoryEntries; i < presets.numEntries(); ++i)
-            user.addItem (presets.entryName (i), [this, i] { processor.getPatternPresets().load (i); refresh(); });
+            user.addItem (presets.entryName (i), [this, i] { loadEntry (i); });
         menu.addSubMenu ("My patterns", user);
     }
 
@@ -609,7 +647,7 @@ void SequencerView::exportMidi (int bars)
     if (cycle == 0)
     {
         juce::AlertWindow::showAsync (juce::MessageBoxOptions::makeOptionsOk (juce::MessageBoxIconType::InfoIcon, "Nothing to export",
-                                                                              "No pattern that plays has a note to play. Switch a layer on with the dot under its letter."),
+                                                                              "No pattern that plays has a note to play. Switch a layer on with the tick under its letter."),
                                       nullptr);
         return;
     }

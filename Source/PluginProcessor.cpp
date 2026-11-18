@@ -66,6 +66,16 @@ BleepWerkProcessor::BleepWerkProcessor()
       apvts (*this, nullptr, "PARAMS", createParameterLayout()),
       userSettings (settingsOptions())
 {
+    // What a new instance starts as: the Log Drum sound and the sequencer on (the defaults of
+    // the parameters themselves, see starterValue; loading the preset also names it), and the set
+    // Five Over Seven in A and B with both playing. A project or the host's state replaces all
+    // of this on loading, so older projects keep theirs.
+    for (int i = 0; i < soundPresets.numFactory(); ++i)
+        if (soundPresets.entryName (i) == bleepwerk::kStarterPreset)
+            soundPresets.load (i);
+    for (int i = 0; i < patternPresets.numEntries(); ++i)
+        if (patternPresets.isSet (i) && patternPresets.entryName (i) == "Five Over Seven")
+            patternPresets.load (i);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout BleepWerkProcessor::createParameterLayout()
@@ -85,9 +95,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepWerkProcessor::createPa
     auto linear = [info] (const char* id, float step = 0.0f) { return NormalisableRange<float> (info (id).min, info (id).max, step); };
     auto skewed = [info] (const char* id, float centre) { return skewedRange (info (id).min, info (id).max, centre); };
     auto sound = [&params, info] (const char* id, const char* name, NormalisableRange<float> range, const char* unit = "")
-    { params.push_back (floatParam (id, name, range, info (id).defaultValue, unit)); };
+    { params.push_back (floatParam (id, name, range, bleepwerk::starterValue (id), unit)); };
     auto choice = [&params] (const char* id, const char* name, const StringArray& names)
-    { params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { id, 1 }, name, names, (int) soundDefault (id))); };
+    { params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { id, 1 }, name, names, (int) bleepwerk::starterValue (id))); };
     auto namesOf = [] (const auto& list)
     {
         StringArray names;
@@ -121,7 +131,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepWerkProcessor::createPa
     // The step sequencer: switched on it plays against the host's transport. The patterns
     // themselves are stored with the project, not as parameters. The list of slots must never
     // change length: hosts store automation as 0..1 and would land on other slots.
-    choice ("seqEnabled", "Sequencer", { "Off", "On" });
+    // On by default for a new instance (the host's default value must match what a new instance
+    // has); a project saved before the sequencer existed is given Off when it loads, see
+    // setStateInformation
+    params.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "seqEnabled", 1 }, "Sequencer", StringArray { "Off", "On" }, 1));
     {
         StringArray slotNames;
         for (int i = 0; i < bleepwerk::kNumPatternSlots; ++i)
@@ -326,6 +339,7 @@ void BleepWerkProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         noteInput.reset();
         allNotesOff();
         numHeldKeys = 0;
+        externalRoot = -1;
         sequencerRunning = wanted;
     }
     // the Pattern parameter (automation) makes one slot the only one that plays
@@ -397,6 +411,8 @@ void BleepWerkProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     }
     playSequencerUpTo (numSamples);
     renderRange (position, numSamples);
+    // for the panel only: the Root parameter is never written from MIDI
+    externalRoot = numHeldKeys > 0 ? heldKeys[(size_t) numHeldKeys - 1] : -1;
 
     effects.setParams (patch.effects, hostBpm);
     effects.process (left, right, numSamples);
@@ -415,6 +431,7 @@ void BleepWerkProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer,
     for (auto& layer : layers)
         layer.reset();
     numHeldKeys = 0;
+    externalRoot = -1;
     sequencerRunning = false;
 }
 
@@ -474,6 +491,7 @@ void BleepWerkProcessor::setStateInformation (const void* data, int sizeInBytes)
     {
         if (xml->hasTagName (apvts.state.getType()))
         {
+
             auto state = juce::ValueTree::fromXml (*xml);
             const int savedVersion = (int) state.getProperty ("stateVersion", 0);
             soundPresets.readState (state);
@@ -520,6 +538,25 @@ void BleepWerkProcessor::setStateInformation (const void* data, int sizeInBytes)
                     state.appendChild (param, nullptr);
                 }
             }
+            // a project from before the sequencer had no Sequencer parameter, and keeps it off
+            // (a missing parameter would otherwise load as its default, which is now on)
+            if (! state.getChildWithProperty ("id", "seqEnabled").isValid())
+            {
+                juce::ValueTree param ("PARAM");
+                param.setProperty ("id", "seqEnabled", nullptr);
+                param.setProperty ("value", 0, nullptr);
+                state.appendChild (param, nullptr);
+            }
+            // a sound parameter an older project doesn't have loads as its old default, not as the
+            // starting sound that the parameters declare as theirs now
+            for (const auto& sound : bleepwerk::kSoundParams)
+                if (! state.getChildWithProperty ("id", sound.id).isValid())
+                {
+                    juce::ValueTree param ("PARAM");
+                    param.setProperty ("id", sound.id, nullptr);
+                    param.setProperty ("value", sound.defaultValue, nullptr);
+                    state.appendChild (param, nullptr);
+                }
             for (int i = state.getNumChildren(); --i >= 0;)
                 if (apvts.getParameter (state.getChild (i).getProperty ("id").toString()) == nullptr)
                     state.removeChild (i, nullptr);

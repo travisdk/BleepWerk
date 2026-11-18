@@ -11,10 +11,10 @@
 // with its menu, the dice and the MIDI export; sixteen steps; and the groove (length, rate,
 // swing, gate, drift, hits, vary, transpose; the first row and Transpose belong to the shown
 // pattern) and, apart from them, the root note, which is common to all layers.
-//   A-H:   click a letter to edit that pattern; the dot under it makes it play (as a layer, any
+//   A-H:   click a letter to edit that pattern; the tick under it makes it play (as a layer, any
 //          number at once, each with its own length)
 //   step:  click the bar to switch it on or off, drag it up and down or scroll to change the
-//          note, double-click to reset the note to the root; the dot above is an accent; the
+//          note, double-click to reset the note to the root; "ACC" above it is the accent; the
 //          arrows below move the note an octave up or down
 //   MIDI:  click for a menu: the shown pattern as a MIDI file (one pass), or everything the
 //          layers play over 4 to 64 bars; on Windows drag the button into the host to take the
@@ -42,6 +42,8 @@ private:
 
     void timerCallback() override;
     void showPatternMenu();
+    void loadEntry (int entry);
+    void showExternalRoot (int note);
     void showMidiMenu();
     void exportMidi (int bars);
     void showExported (const juce::File&, bool layers);
@@ -60,6 +62,7 @@ private:
     juce::TextButton shapeButton; // how Vary moves the length: Walk, Random or Skip
     Knob root;
 
+    int externalRoot = -1; // the key from the host that plays the pattern from its note, or -1
     int shownVersion = -1;
     int exportBars = 0; // what the MIDI button writes: 0 the shown pattern for one pass, else all layers for this many bars
 

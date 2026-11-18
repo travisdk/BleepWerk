@@ -56,6 +56,9 @@ public:
     bleepwerk::PatternBank& getPatternBank() { return patternBank; }
     PatternPresets& getPatternPresets() { return patternPresets; }
     bool isSequencerRunning() const { return sequencerRunning.load(); }
+    // The key held now that makes the sequencer play from it instead of from the Root knob, or -1.
+    // The Root parameter itself is never changed by incoming notes; this is for showing them.
+    int getExternalRoot() const { return externalRoot.load(); }
     int getSequencerStep() const { return layers[(size_t) patternBank.active()].getCurrentStep(); } // of the slot the panel shows
     void editPatternSlot (int slot) { patternBank.select (slot); }
     static juce::File patternFolder();
@@ -105,6 +108,7 @@ private:
     std::atomic<int> lastPatternParam { 0 };
     std::array<int, 16> heldKeys {}; // keys held while the sequencer runs; the last one is the root
     int numHeldKeys = 0;
+    std::atomic<int> externalRoot { -1 }; // the last held key, for the panel
     juce::LinearSmoothedValue<float> outputGain { 1.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BleepWerkProcessor)
