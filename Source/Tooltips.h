@@ -18,7 +18,7 @@ struct Entry
 
 inline constexpr Entry kEntries[] = {
     // the whole instrument
-    { "engine", "Which engine plays: Bleep (a tone with a pitch sweep) or Strike (something hits something)" },
+    { "engine", "Which engine plays: Bleep (a tone with a pitch sweep) or Werk (something hits something)" },
     { "voiceMode", "Mono plays one note at a time, the last one held wins; Poly plays chords" },
     { "glide", "How long the pitch takes to slide to a new note in Mono; 0 is no glide" },
     { "bendRange", "How far the pitch wheel bends the note, in semitones" },
@@ -36,7 +36,7 @@ inline constexpr Entry kEntries[] = {
     { "bleepRelease", "How long the sound fades after the key is let go, if it is still sounding" },
     { "bleepNoise", "How much noise is mixed into the bleep" },
 
-    // Strike
+    // Werk
     { "strikeExciter", "How you play the object: Knock (a short click), Brush (a burst of noise), Blow (a steady hiss with a puff) or Squeal (metal rubbing on the object, with a slide and a chatter)" },
     { "strikeBody", "What you play on: Bar (a free bar of wood or metal) or Skin (a drum skin)" },
     { "strikeLength", "How long a Brush burst, or a Blow or Squeal, lasts; not used by Knock" },

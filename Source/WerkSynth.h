@@ -9,7 +9,7 @@
 #include <array>
 #include <iterator>
 
-// The Strike engine: you play something on an object. Two choices and five knobs, read as an
+// The Werk engine: you play something on an object. Two choices and five knobs, read as an
 // action on an object: "Play" (the exciter in the code) and "On" (the body). The choices are
 // saved by index, so their order must not change.
 //
@@ -35,18 +35,18 @@
 // The note sets the fundamental. Chaos moves the body's modes a little on every note. JUCE-free.
 namespace bleepwerk
 {
-enum class StrikeExciter { Knock, Brush, Blow, Squeal };
-inline constexpr const char* kStrikeExciterNames[] = { "Knock", "Brush", "Blow", "Squeal" };
-inline constexpr int kNumStrikeExciters = (int) std::size (kStrikeExciterNames);
+enum class WerkExciter { Knock, Brush, Blow, Squeal };
+inline constexpr const char* kWerkExciterNames[] = { "Knock", "Brush", "Blow", "Squeal" };
+inline constexpr int kNumWerkExciters = (int) std::size (kWerkExciterNames);
 
-enum class StrikeBody { Bar, Skin };
-inline constexpr const char* kStrikeBodyNames[] = { "Bar", "Skin" };
-inline constexpr int kNumStrikeBodies = (int) std::size (kStrikeBodyNames);
+enum class WerkBody { Bar, Skin };
+inline constexpr const char* kWerkBodyNames[] = { "Bar", "Skin" };
+inline constexpr int kNumWerkBodies = (int) std::size (kWerkBodyNames);
 
-struct StrikeParams
+struct WerkParams
 {
-    StrikeExciter exciter = StrikeExciter::Knock;
-    StrikeBody body = StrikeBody::Bar;
+    WerkExciter exciter = WerkExciter::Knock;
+    WerkBody body = WerkBody::Bar;
     float lengthMs = 300.0f;
     float ring = 0.5f;
     float tone = 0.5f;
@@ -54,18 +54,18 @@ struct StrikeParams
     float sweepSemis = 0.0f;
 };
 
-inline constexpr int kNumStrikeModes = 8;
+inline constexpr int kNumWerkModes = 8;
 
 // Mode frequencies relative to the fundamental, how long the body rings relative to the Ring
 // setting, and how much faster the higher modes die out (ring time ~ ratio^-x).
 struct BodyModel
 {
-    std::array<float, kNumStrikeModes> ratios;
+    std::array<float, kNumWerkModes> ratios;
     float decayScale;
     float highModeDamping;
     float extraTilt; // added to the tilt of the mode levels: the higher, the less the high modes are heard
-    std::array<float, kNumStrikeModes> levels; // each mode's own weight on top of the tilt: what makes a body sound like itself
-    std::array<float, kNumStrikeModes> decayTrim; // each mode's ring time times this, on top of the damping
+    std::array<float, kNumWerkModes> levels; // each mode's own weight on top of the tilt: what makes a body sound like itself
+    std::array<float, kNumWerkModes> decayTrim; // each mode's ring time times this, on top of the damping
 };
 
 // A free bar (beam modes; Bar) and a circular membrane (Skin; the Bessel zeros j01, j11, j21, j02, j31,
@@ -83,42 +83,42 @@ inline constexpr BodyModel kSkinBody { { 1.0f, 1.594f, 2.136f, 2.296f, 2.653f, 2
                                     { 1.0f, 6.5f, 11.0f, 10.0f, 3.0f, 2.0f, 1.5f, 1.0f },
                                     { 1.0f, 1.7f, 2.4f, 2.5f, 1.0f, 1.0f, 1.0f, 1.0f } }; // the close tones above the fundamental (1.59, 2.14, 2.30) are the drum's "bum"
 
-inline const BodyModel& bodyModel (StrikeBody body)
+inline const BodyModel& bodyModel (WerkBody body)
 {
-    return body == StrikeBody::Skin ? kSkinBody : kBarBody;
+    return body == WerkBody::Skin ? kSkinBody : kBarBody;
 }
 
 // Choice indices saved before the Crackle exciter and the Metal body were removed (projects
 // before state version 5, presets before file version 2) move to the ones that replaced them:
 // Crackle is a burst like Brush, Metal sounds like Bar.
-inline int migrateStrikeExciter (int saved)
+inline int migrateWerkExciter (int saved)
 {
-    if (saved == 2) return (int) StrikeExciter::Brush;
+    if (saved == 2) return (int) WerkExciter::Brush;
     return saved > 2 ? saved - 1 : saved;
 }
 
-inline int migrateStrikeBody (int saved)
+inline int migrateWerkBody (int saved)
 {
-    return saved == 2 ? (int) StrikeBody::Skin : (int) StrikeBody::Bar;
+    return saved == 2 ? (int) WerkBody::Skin : (int) WerkBody::Bar;
 }
 
 // How long the body's lowest mode takes to die away (-60 dB): 20 ms .. 3 s at Ring 0..1, scaled
 // by the body.
-inline float strikeRingSeconds (const BodyModel& body, float ring)
+inline float werkRingSeconds (const BodyModel& body, float ring)
 {
     return 0.02f * std::pow (150.0f, std::clamp (ring, 0.0f, 1.0f)) * body.decayScale;
 }
 
 // Motion's rate in Hz; 0 means no movement.
-inline float strikeMotionHz (float motion)
+inline float werkMotionHz (float motion)
 {
     return motion <= 0.0f ? 0.0f : 0.1f * std::pow (160.0f, std::clamp (motion, 0.0f, 1.0f));
 }
 
 // Blow and Squeal are steady sources that Length shapes; the others are one-off strikes.
-inline bool strikeIsSteady (StrikeExciter e) { return e == StrikeExciter::Blow || e == StrikeExciter::Squeal; }
+inline bool werkIsSteady (WerkExciter e) { return e == WerkExciter::Blow || e == WerkExciter::Squeal; }
 
-class StrikeVoice
+class WerkVoice
 {
 public:
     static constexpr float kLevel = 0.5f;
@@ -222,7 +222,7 @@ public:
             bend = semis;
     }
 
-    void render (float* out, int numSamples, const StrikeParams& p, float glideCoef)
+    void render (float* out, int numSamples, const WerkParams& p, float glideCoef)
     {
         if (! active)
             return;
@@ -230,7 +230,7 @@ public:
             begin (p);
 
         // Steady sources: a fade in, a plateau, then a fade to silence that ends at Length
-        const bool squeal = p.exciter == StrikeExciter::Squeal;
+        const bool squeal = p.exciter == WerkExciter::Squeal;
         const float lengthSamples = std::max (1.0f, std::clamp (p.lengthMs, 5.0f, 6000.0f) * 0.001f * fs * variation.decayScale);
         const float attackSamples = squeal ? std::clamp (0.15f * lengthSamples, 0.01f * fs, 0.08f * fs)
                                              : std::clamp (0.1f * lengthSamples, 0.001f * fs, 0.02f * fs);
@@ -239,7 +239,7 @@ public:
 
         const float tone = toneOf (p);
         const float mix = std::clamp (p.ring, 0.0f, 1.0f);
-        const float lfoInc = strikeMotionHz (p.motion) / fs;
+        const float lfoInc = werkMotionHz (p.motion) / fs;
         const bool moving = lfoInc > 0.0f;
         const float followCoef = 1.0f - std::exp (-1.0f / (0.03f * fs));
         // the strike's tone: a one-pole lowpass from 600 Hz to 16 kHz
@@ -334,7 +334,7 @@ private:
     float softness() const { return 1.0f - std::clamp (strength, 0.0f, 1.0f); }
 
     // the patch's tone moved by this note's Chaos tone and how soft it is
-    float toneOf (const StrikeParams& p) const
+    float toneOf (const WerkParams& p) const
     {
         return std::clamp (p.tone + 0.5f * variation.tone - kSoftDarkening * softness(), 0.0f, 1.0f);
     }
@@ -359,10 +359,10 @@ private:
     };
 
     // What depends on the parameters, at the first render of a note.
-    void begin (const StrikeParams& p)
+    void begin (const WerkParams& p)
     {
         initPending = false;
-        steady = strikeIsSteady (p.exciter);
+        steady = werkIsSteady (p.exciter);
         exciterPos = 0;
         if (steady)
         {
@@ -375,7 +375,7 @@ private:
         stage = Stage::Idle;
         // a softer strike is a longer, gentler touch (up to twice as long at velocity 0)
         const float touch = 1.0f + kSoftTouch * softness();
-        if (p.exciter == StrikeExciter::Knock)
+        if (p.exciter == WerkExciter::Knock)
         {
             // Tone sets the pulse: 3 ms (dark, a soft mallet) .. 0.15 ms (bright, a click)
             const float ms = 0.15f * std::pow (20.0f, 1.0f - toneOf (p));
@@ -400,21 +400,21 @@ private:
     // The body's coefficients and gains, and Blow's bandpass and Squeal's partials. A
     // one-off strike gets each mode at its share of the unit pulse; a steady source gets unity
     // gain at each peak, and render() matches the ring to the source's level.
-    void updateCoefs (const StrikeParams& p, float tone)
+    void updateCoefs (const WerkParams& p, float tone)
     {
         needsCoefs = false;
         sweepSemis = p.sweepSemis;
-        const bool squeal = p.exciter == StrikeExciter::Squeal;
+        const bool squeal = p.exciter == WerkExciter::Squeal;
         // Squeal's body follows the note it sounds, not its wavering, so the squeal swells
         // and fades as it passes the modes
         const float f0 = pitchHz (squeal ? kScreechSemis : 0.0f);
         const auto& body = bodyModel (p.body);
-        const float baseT60 = strikeRingSeconds (body, p.ring) * variation.decayScale * (1.0f - kSoftRing * softness());
+        const float baseT60 = werkRingSeconds (body, p.ring) * variation.decayScale * (1.0f - kSoftRing * softness());
         rattleUntil = (int) std::min (baseT60 * fs, 1.0e9f);
         const float tilt = 1.6f - 1.3f * tone + body.extraTilt; // high modes quieter when dark, and on a skin
 
         float total = 0.0f;
-        std::array<float, kNumStrikeModes> amps {};
+        std::array<float, kNumWerkModes> amps {};
         for (size_t k = 0; k < modes.size(); ++k)
             total += amps[k] = body.levels[k] * std::pow ((float) k + 1.0f, -tilt);
 
@@ -435,7 +435,7 @@ private:
             m.gain = (steady ? 1.0f - r : 1.0f) * amps[k] / total;
         }
 
-        if (p.exciter == StrikeExciter::Blow)
+        if (p.exciter == WerkExciter::Blow)
         {
             // no higher than 16 kHz: above it a hiss is felt more than heard
             const float centre = std::clamp (pitchHz (48.0f * tone + hissShift), 20.0f, std::min (16000.0f, 0.45f * fs));
@@ -478,7 +478,7 @@ private:
     }
 
     // One sample of a one-off strike; each delivers about the same strength to the fundamental.
-    float excite (const StrikeParams& p, float tone)
+    float excite (const WerkParams& p, float tone)
     {
         float x = 0.0f;
         if (exciterLeft > 0)
@@ -487,7 +487,7 @@ private:
             --exciterLeft;
             switch (p.exciter)
             {
-                case StrikeExciter::Knock:
+                case WerkExciter::Knock:
                     // half-sine pulse with unit area: longer is a softer mallet with fewer
                     // overtones, and a few ms of decaying noise, highpassed at 2 kHz and
                     // lowpassed by Tone, adds the bite of a hard hit
@@ -501,16 +501,16 @@ private:
                         x += strength * 0.3f * (biteLowpass - biteHighpass) * (1.0f - (float) pos / (float) biteLength);
                     }
                     break;
-                case StrikeExciter::Brush:
+                case WerkExciter::Brush:
                     // decaying noise burst with unit energy
                     x = strength * noise.next() * (1.0f - (float) pos / (float) exciterLength) * std::sqrt (3.0f / (float) exciterLength);
                     break;
-                case StrikeExciter::Blow:
-                case StrikeExciter::Squeal:
+                case WerkExciter::Blow:
+                case WerkExciter::Squeal:
                     break; // steady sources are not one-off strikes (see render())
             }
         }
-        else if (p.exciter == StrikeExciter::Knock && p.motion > 0.0f && elapsed < rattleUntil && 0.5f + 0.5f * noise.next() < 25.0f * p.motion * p.motion / fs)
+        else if (p.exciter == WerkExciter::Knock && p.motion > 0.0f && elapsed < rattleUntil && 0.5f + 0.5f * noise.next() < 25.0f * p.motion * p.motion / fs)
         {
             // Motion: knocks for as long as the body rings (its ring time, so a rattle can't
             // go on for ever), up to about 25 a second, each a different strength, like a
@@ -600,7 +600,7 @@ private:
 
     float fs = 48000.0f;
     WhiteNoise noise;
-    std::array<Mode, kNumStrikeModes> modes {}; // the body
+    std::array<Mode, kNumWerkModes> modes {}; // the body
     bool active = false, initPending = false, steady = false, needsCoefs = true;
     Stage stage = Stage::Idle;
     int elapsed = 0, rattleUntil = 0, exciterPos = 0, exciterLeft = 0, exciterLength = 1, pulseLength = 1, biteLength = 1;
@@ -623,5 +623,5 @@ private:
     int note = -1;
 };
 
-using StrikeSynth = VoicePool<StrikeVoice, StrikeParams>;
+using WerkSynth = VoicePool<WerkVoice, WerkParams>;
 } // namespace bleepwerk

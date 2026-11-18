@@ -5,7 +5,7 @@
 # and dice on their own.
 # Add a name here for each tests/test_<name>.cpp. BleepWerk_Tests builds them all, so CI needs
 # no list of its own.
-set(BLEEPWERK_TESTS bleep note_input strike sequencer effects presets randomizer themes tooltips)
+set(BLEEPWERK_TESTS bleep note_input werk sequencer effects presets randomizer themes tooltips)
 add_custom_target (BleepWerk_Tests)
 foreach (name ${BLEEPWERK_TESTS})
     add_executable (test_${name} test_${name}.cpp)

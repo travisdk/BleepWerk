@@ -25,7 +25,7 @@ struct Variation
     float pitchSemis = 0.0f;
     float decayScale = 1.0f;
     float tone = 0.0f; // -1 darker .. 1 brighter
-    float modeSpread = 0.0f; // 0..1: how far a resonator may detune its modes (Strike)
+    float modeSpread = 0.0f; // 0..1: how far a resonator may detune its modes (Werk)
     uint32_t noiseSeed = 0x9e3779b9u; // where the voice's noise starts on this hit
 };
 

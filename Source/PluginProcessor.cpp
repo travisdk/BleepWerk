@@ -110,12 +110,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepWerkProcessor::createPa
     sound ("bleepRelease", "Release", skewed ("bleepRelease", 50.0f), "ms");
     sound ("bleepNoise", "Noise", linear ("bleepNoise"));
 
-    // Strike engine
-    choice ("strikeExciter", "Play", namesOf (bleepwerk::kStrikeExciterNames));
-    choice ("strikeBody", "On", namesOf (bleepwerk::kStrikeBodyNames));
-    sound ("strikeLength", "Strike Length", skewed ("strikeLength", 30.0f), "ms");
+    // Werk engine
+    choice ("strikeExciter", "Play", namesOf (bleepwerk::kWerkExciterNames));
+    choice ("strikeBody", "On", namesOf (bleepwerk::kWerkBodyNames));
+    sound ("strikeLength", "Werk Length", skewed ("strikeLength", 30.0f), "ms");
     sound ("strikeRing", "Ring", linear ("strikeRing"));
-    sound ("strikeTone", "Strike Tone", linear ("strikeTone"));
+    sound ("strikeTone", "Werk Tone", linear ("strikeTone"));
     sound ("strikeMotion", "Motion", linear ("strikeMotion"));
     sound ("strikeSweep", "Sweep", linear ("strikeSweep", 0.1f), "st");
 
@@ -219,7 +219,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepWerkProcessor::createPa
 void BleepWerkProcessor::prepareToPlay (double sampleRate, int)
 {
     bleep.prepare (sampleRate);
-    strike.prepare (sampleRate);
+    werk.prepare (sampleRate);
     effects.prepare (sampleRate);
     noteInput.reset(); // prepare() has silenced the voices, so no key is held any more
     for (auto& layer : layers)
@@ -243,13 +243,13 @@ void BleepWerkProcessor::readParams()
     patch = bleepwerk::readPatch ([this] (const char* id) { return apvts.getRawParameterValue (id)->load(); });
 
     bleep.setParams (patch.bleep);
-    strike.setParams (patch.strike);
+    werk.setParams (patch.werk);
     bleep.setMode (patch.mono ? bleepwerk::BleepSynth::Mode::Mono : bleepwerk::BleepSynth::Mode::Poly);
-    strike.setMode (patch.mono ? bleepwerk::StrikeSynth::Mode::Mono : bleepwerk::StrikeSynth::Mode::Poly);
+    werk.setMode (patch.mono ? bleepwerk::WerkSynth::Mode::Mono : bleepwerk::WerkSynth::Mode::Poly);
     bleep.setGlideMs (patch.glideMs);
-    strike.setGlideMs (patch.glideMs);
+    werk.setGlideMs (patch.glideMs);
     bleep.setChaos (patch.chaos);
-    strike.setChaos (patch.chaos);
+    werk.setChaos (patch.chaos);
     // the range may change while a bend is held
     Engines { *this }.pitchBend (noteInput.currentBend());
 }
@@ -259,27 +259,27 @@ void BleepWerkProcessor::Engines::noteOn (int note, float velocity)
     switch (p.patch.engine)
     {
         case bleepwerk::Engine::Bleep: p.bleep.noteOn (note, velocity); break;
-        case bleepwerk::Engine::Strike: p.strike.noteOn (note, velocity); break;
+        case bleepwerk::Engine::Werk: p.werk.noteOn (note, velocity); break;
     }
 }
 
 void BleepWerkProcessor::Engines::noteOff (int note)
 {
     p.bleep.noteOff (note);
-    p.strike.noteOff (note);
+    p.werk.noteOff (note);
 }
 
 void BleepWerkProcessor::Engines::pitchBend (float amount)
 {
     const float semis = amount * p.apvts.getRawParameterValue ("bendRange")->load();
     p.bleep.setPitchBend (semis);
-    p.strike.setPitchBend (semis);
+    p.werk.setPitchBend (semis);
 }
 
 void BleepWerkProcessor::allNotesOff()
 {
     bleep.allNotesOff();
-    strike.allNotesOff();
+    werk.allNotesOff();
 }
 
 void BleepWerkProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
@@ -300,7 +300,7 @@ void BleepWerkProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         if (to <= from)
             return;
         bleep.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
-        strike.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
+        werk.renderAdding (left + from, right != nullptr ? right + from : nullptr, to - from);
     };
 
     // The sequencer plays while it is switched on and the host's transport runs. Then the
@@ -499,16 +499,16 @@ void BleepWerkProcessor::setStateInformation (const void* data, int sizeInBytes)
                 else
                     state.removeChild (i, nullptr);
             }
-            // before version 5 the Strike choices were longer (see migrateStrikeExciter)
+            // before version 5 the Werk choices were longer (see migrateWerkExciter)
             if (savedVersion < 5)
                 for (int i = 0; i < state.getNumChildren(); ++i)
                 {
                     auto child = state.getChild (i);
                     const auto id = child.getProperty ("id").toString();
                     if (id == "strikeExciter")
-                        child.setProperty ("value", (float) bleepwerk::migrateStrikeExciter (juce::roundToInt ((float) child.getProperty ("value"))), nullptr);
+                        child.setProperty ("value", (float) bleepwerk::migrateWerkExciter (juce::roundToInt ((float) child.getProperty ("value"))), nullptr);
                     else if (id == "strikeBody")
-                        child.setProperty ("value", (float) bleepwerk::migrateStrikeBody (juce::roundToInt ((float) child.getProperty ("value"))), nullptr);
+                        child.setProperty ("value", (float) bleepwerk::migrateWerkBody (juce::roundToInt ((float) child.getProperty ("value"))), nullptr);
                 }
             // before version 3 the delay time was one list; it becomes a time and a feel
             if (auto old = state.getChildWithProperty ("id", "delayTime"); old.isValid())
