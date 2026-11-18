@@ -204,9 +204,16 @@ void PatternPresets::randomize()
     changed();
 }
 
+// Empty and back to the plain settings: 16 steps, 1/16, straight, and no drift, vary or transpose.
+static void blank (Pattern& target)
+{
+    target.clear();
+    target.setGroove (Groove {});
+}
+
 void PatternPresets::clear()
 {
-    pattern().clear();
+    blank (pattern());
     slot() = { "Empty", -1 };
     changed();
 }
@@ -232,7 +239,7 @@ void PatternPresets::clearAll()
 {
     for (int i = 0; i < kNumPatternSlots; ++i)
     {
-        bank.slot (i).clear();
+        blank (bank.slot (i));
         slots[(size_t) i] = { "Empty", -1 };
     }
     bank.setPlayingMask (0u);

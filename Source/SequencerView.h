@@ -16,8 +16,8 @@
 //   step:  click the bar to switch it on or off, drag it up and down or scroll to change the
 //          note, double-click to reset the note to the root; "ACC" above it is the accent; the
 //          arrows below move the note an octave up or down
-//   CLEAR: under the MIDI button; asks whether to clear every note of all eight patterns (and
-//          switch every layer off) or only those of the shown one
+//   CLEAR: under the MIDI button; asks whether to empty all eight patterns (notes and settings,
+//          and switch every layer off) or only the shown one
 //   MIDI:  click for a menu: the shown pattern as a MIDI file (one pass), or everything the
 //          layers play over 4 to 64 bars; on Windows drag the button into the host to take the
 //          last choice as a clip

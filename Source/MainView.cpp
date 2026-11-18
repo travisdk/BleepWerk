@@ -73,8 +73,9 @@ MainView::MainView (BleepWerkProcessor& p)
     {
         // three ways out: all patterns, only the shown one (the one Return takes, as it loses less), or nothing
         const auto letter = juce::String::charToString ((juce::juce_wchar) ('A' + processor.getPatternBank().active()));
-        auto* window = new juce::AlertWindow ("Clear notes", "Clear every note in all eight patterns (and switch all layers off), or only in pattern " + letter
-                                                               + "? What you have made and not saved is lost.", juce::MessageBoxIconType::NoIcon);
+        auto* window = new juce::AlertWindow ("Clear patterns", "Empty all eight patterns (and switch all layers off), or only pattern " + letter
+                                                                 + "? Length, rate and the other settings of the pattern go back to the plain ones too. "
+                                                                   "What you have made and not saved is lost.", juce::MessageBoxIconType::NoIcon);
         window->addButton ("All patterns", 1);
         window->addButton ("Only " + letter, 2, juce::KeyPress (juce::KeyPress::returnKey));
         window->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));

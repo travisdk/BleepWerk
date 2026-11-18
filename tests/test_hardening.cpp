@@ -450,8 +450,8 @@ void presetSearch()
     CHECK (names ("drum").contains ("Frame Drum") && names ("drum").contains ("Log Drum"));
     CHECK (names ("no such preset").isEmpty());
 }
-// Clear all empties every note of every pattern and switches every layer off, and leaves the
-// grooves, Root and the sound alone.
+// Clear empties a pattern's notes and puts its settings back to the plain ones; all of them also
+// switches every layer off. Root and the sound are left alone.
 void clearPatterns()
 {
     using namespace bleepwerk;
@@ -462,7 +462,14 @@ void clearPatterns()
     processor.apvts.getParameter ("seqRoot")->setValueNotifyingHost (0.7f);
     const auto root = processor.apvts.getRawParameterValue ("seqRoot")->load();
     const auto sound = processor.getSoundPresets().name();
-    const auto groove = bank.slot (1).groove().toString();
+    Groove odd;
+    odd.length = 5;
+    odd.rate = 3;
+    odd.swing = 0.6f;
+    odd.drift = 2;
+    odd.transpose = -7;
+    bank.slot (1).setGroove (odd);
+    bank.slot (2).setGroove (odd);
 
     // clearing only the shown pattern leaves the others, and which layers play, as they are
     auto notes = [&] (int slot) { int n = 0; for (int step = 0; step < kMaxSteps; ++step) n += bank.slot (slot).get (step).gate ? 1 : 0; return n; };
@@ -470,6 +477,8 @@ void clearPatterns()
     bank.select (1);
     patterns.clear();
     CHECK (notes (1) == 0 && notes (0) > 0 && bank.playing() == 0xf3u);
+    CHECK (bank.slot (1).groove().toString() == Groove {}.toString()); // the settings went back to the plain ones
+    CHECK (bank.slot (2).groove().toString() == odd.toString());        // the others were left alone
 
     patterns.clearAll();
     CHECK (bank.playing() == 0u);
@@ -479,7 +488,7 @@ void clearPatterns()
             CHECK (! bank.slot (slot).get (step).gate);
         CHECK (patterns.slotName (slot) == "Empty");
     }
-    CHECK (bank.slot (1).groove().toString() == groove);
+    CHECK (bank.slot (2).groove().toString() == Groove {}.toString());
     CHECK (juce::approximatelyEqual (processor.apvts.getRawParameterValue ("seqRoot")->load(), root));
     CHECK (processor.getSoundPresets().name() == sound);
 }
