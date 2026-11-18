@@ -112,7 +112,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout BleepWerkProcessor::createPa
 
     // Werk engine
     choice ("strikeExciter", "Play", namesOf (bleepwerk::kWerkExciterNames));
-    choice ("strikeBody", "On", namesOf (bleepwerk::kWerkBodyNames));
     sound ("strikeLength", "Werk Length", skewed ("strikeLength", 30.0f), "ms");
     sound ("strikeRing", "Ring", linear ("strikeRing"));
     sound ("strikeTone", "Werk Tone", linear ("strikeTone"));
@@ -499,7 +498,7 @@ void BleepWerkProcessor::setStateInformation (const void* data, int sizeInBytes)
                 else
                     state.removeChild (i, nullptr);
             }
-            // before version 5 the Werk choices were longer (see migrateWerkExciter)
+            // before version 5 the Werk exciter choices were longer (see migrateWerkExciter)
             if (savedVersion < 5)
                 for (int i = 0; i < state.getNumChildren(); ++i)
                 {
@@ -507,8 +506,6 @@ void BleepWerkProcessor::setStateInformation (const void* data, int sizeInBytes)
                     const auto id = child.getProperty ("id").toString();
                     if (id == "strikeExciter")
                         child.setProperty ("value", (float) bleepwerk::migrateWerkExciter (juce::roundToInt ((float) child.getProperty ("value"))), nullptr);
-                    else if (id == "strikeBody")
-                        child.setProperty ("value", (float) bleepwerk::migrateWerkBody (juce::roundToInt ((float) child.getProperty ("value"))), nullptr);
                 }
             // before version 3 the delay time was one list; it becomes a time and a feel
             if (auto old = state.getChildWithProperty ("id", "delayTime"); old.isValid())

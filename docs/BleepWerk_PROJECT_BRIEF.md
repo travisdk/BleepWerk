@@ -38,23 +38,24 @@ Each note is rendered by one of two engines, selectable per preset:
 - Optional noise blend
 
 **Werk engine** (the Foley and Machine engines of earlier versions became this one)
-You play something on an object: two choices and five knobs, with the choices labelled as an
-action on an object.
+You play something on an object: one choice (Play) and five knobs. The object is always the
+same free bar; there is no choice of body.
 - Play (the action): Knock (a short pulse with a little noise bite; Tone is how hard), Brush (a
   decaying burst of noise), Blow (steady noise through a bandpass on the note, opening with a
   puff) and Squeal (metal rubbing on the object: a bright tone two octaves up that slides into
   the note, with a hiss; Motion makes it waver, chatter and jump)
-- The object (no longer a choice in the UI, since Bar and Skin could not be told apart by ear;
-  the parameter and both models are still there until one is picked): a free bar of wood or
-  metal, or a drum skin (the Bessel zeros of a circular membrane). Eight tuned two-pole
-  resonators that follow the note
+- The object: a free bar of wood or metal (beam modes), as eight tuned two-pole resonators that
+  follow the note. A drum skin was tried as a second body (the Bessel zeros of a circular
+  membrane) but could not be told apart from the bar by ear, so it was removed, together with
+  the "On" parameter (strikeBody). Older projects and presets that still carry it are loaded
+  as usual and the value is ignored
 - Length (a burst, or how long Blow and Squeal last), Ring (how long the object rings), Tone
   (dark to bright), Motion (a rattle, a flutter, a waver) and Sweep (the object slides into the
   note: drips, a drum's fall)
 - Heavy industrial sounds come from a hard-hit bar with Drive and reverb, not from a special
   noise engine
-- The choices are stored by index, so their order never changes; older projects and presets
-  that still have the Crackle action or the Metal body are moved to Brush and Bar on loading
+- The Play choice is stored by index, so its order never changes; older projects and presets
+  that still have the Crackle action are moved to Brush on loading
 
 ### 4.2 Voice mode
 
@@ -126,7 +127,7 @@ patterns A-H, locked to the host's transport (sample-accurate, loops and jumps h
 ## 7. Presets
 
 - Factory presets defined in code or as bundled parameter files (no audio content)
-- A large factory set (over 100), grouped by category: Bleeps, Pulses, FM, Lo-fi, Dub, Bar, Skin, Industrial, Blow & Squeal, Cosmic and Drive
+- A large factory set (over 100), grouped by category: Bleeps, Pulses, FM, Lo-fi, Dub, Percussion, Industrial, Blow & Squeal, Cosmic and Drive
 - Sound presets never change the Bend Range
 
 ## 8. Quality and testing

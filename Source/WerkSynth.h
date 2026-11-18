@@ -9,9 +9,9 @@
 #include <array>
 #include <iterator>
 
-// The Werk engine: you play something on an object. Two choices and five knobs, read as an
-// action on an object: "Play" (the exciter in the code) and "On" (the body). The choices are
-// saved by index, so their order must not change.
+// The Werk engine: you play something on an object. One choice and five knobs: "Play" (the
+// exciter in the code) is what you do to the object, which is always the same free bar. The
+// choice is saved by index, so its order must not change.
 //
 // Play (the exciter), into a bank of eight tuned two-pole bandpass resonators:
 //   Knock     a short pulse with a little noise bite; Tone is how hard: dark is a soft mallet,
@@ -21,8 +21,8 @@
 //             octaves above), opening with a puff; Motion makes it flutter
 //   Squeal    metal rubbing on the object: a bright tone two octaves up that slides into the
 //             note, with a hiss around it; Motion makes it waver, chatter and jump
-// On (the body): Bar (a free bar of wood or metal) or Skin (a drum skin, the
-// zeros of the Bessel functions of a circular membrane).
+// The object is a free bar of wood or metal (the beam modes). A drum skin was tried as a second
+// body, but it could not be told apart from the bar by ear, so there is only one.
 // Knobs:
 //   Length  Brush: how long the burst lasts. Blow, Squeal: how long the whole sound
 //           lasts, fade included (it ends by itself; note-offs don't stop it). Not for Knock
@@ -39,14 +39,9 @@ enum class WerkExciter { Knock, Brush, Blow, Squeal };
 inline constexpr const char* kWerkExciterNames[] = { "Knock", "Brush", "Blow", "Squeal" };
 inline constexpr int kNumWerkExciters = (int) std::size (kWerkExciterNames);
 
-enum class WerkBody { Bar, Skin };
-inline constexpr const char* kWerkBodyNames[] = { "Bar", "Skin" };
-inline constexpr int kNumWerkBodies = (int) std::size (kWerkBodyNames);
-
 struct WerkParams
 {
     WerkExciter exciter = WerkExciter::Knock;
-    WerkBody body = WerkBody::Bar;
     float lengthMs = 300.0f;
     float ring = 0.5f;
     float tone = 0.5f;
@@ -68,38 +63,19 @@ struct BodyModel
     std::array<float, kNumWerkModes> decayTrim; // each mode's ring time times this, on top of the damping
 };
 
-// A free bar (beam modes; Bar) and a circular membrane (Skin; the Bessel zeros j01, j11, j21, j02, j31,
-// j12, j41, j22 divided by j01).
-// The Bar rings briefly and its high modes decay a little faster than its low ones; its second
-// mode (2.756) is lifted so the dry "tok" of a beam or wood block stands out. The Skin is a drum: it
-// rings only a little longer than the Bar. Its close cluster above the fundamental (1.59, 2.14, 2.30)
-// is what gives the "bum", so those modes are strong (1.59 at least as strong as the fundamental,
-// like a drum struck a little off centre) and last 50-150 ms; the modes above (ratios up to 3.5) are
-// a short colour at the hit, so it does not ring on as a thin metal plate.
+// A free bar (beam modes). It rings briefly and its high modes decay a little faster than its
+// low ones; its second mode (2.756) is lifted so the dry "tok" of a beam or wood block stands out.
 inline constexpr BodyModel kBarBody { { 1.0f, 2.756f, 5.404f, 8.933f, 13.34f, 18.64f, 24.81f, 31.97f }, 0.35f, 1.3f, 0.0f,
                                    { 1.0f, 6.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f },
                                    { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f } }; // 2.756 stands out: the dry "tok" of a bar
-inline constexpr BodyModel kSkinBody { { 1.0f, 1.594f, 2.136f, 2.296f, 2.653f, 2.918f, 3.156f, 3.500f }, 0.5f, 1.5f, 1.0f,
-                                    { 1.0f, 6.5f, 11.0f, 10.0f, 3.0f, 2.0f, 1.5f, 1.0f },
-                                    { 1.0f, 1.7f, 2.4f, 2.5f, 1.0f, 1.0f, 1.0f, 1.0f } }; // the close tones above the fundamental (1.59, 2.14, 2.30) are the drum's "bum"
 
-inline const BodyModel& bodyModel (WerkBody body)
-{
-    return body == WerkBody::Skin ? kSkinBody : kBarBody;
-}
-
-// Choice indices saved before the Crackle exciter and the Metal body were removed (projects
-// before state version 5, presets before file version 2) move to the ones that replaced them:
-// Crackle is a burst like Brush, Metal sounds like Bar.
+// Exciter indices saved before the Crackle exciter was removed (projects before state version 5,
+// presets before file version 2) move to the one that replaced it: Crackle is a burst like Brush.
+// (The old "On" choice, strikeBody, is no longer a parameter; saved values are ignored.)
 inline int migrateWerkExciter (int saved)
 {
     if (saved == 2) return (int) WerkExciter::Brush;
     return saved > 2 ? saved - 1 : saved;
-}
-
-inline int migrateWerkBody (int saved)
-{
-    return saved == 2 ? (int) WerkBody::Skin : (int) WerkBody::Bar;
 }
 
 // How long the body's lowest mode takes to die away (-60 dB): 20 ms .. 3 s at Ring 0..1, scaled
@@ -408,10 +384,10 @@ private:
         // Squeal's body follows the note it sounds, not its wavering, so the squeal swells
         // and fades as it passes the modes
         const float f0 = pitchHz (squeal ? kScreechSemis : 0.0f);
-        const auto& body = bodyModel (p.body);
+        const auto& body = kBarBody;
         const float baseT60 = werkRingSeconds (body, p.ring) * variation.decayScale * (1.0f - kSoftRing * softness());
         rattleUntil = (int) std::min (baseT60 * fs, 1.0e9f);
-        const float tilt = 1.6f - 1.3f * tone + body.extraTilt; // high modes quieter when dark, and on a skin
+        const float tilt = 1.6f - 1.3f * tone + body.extraTilt; // high modes quieter when dark
 
         float total = 0.0f;
         std::array<float, kNumWerkModes> amps {};

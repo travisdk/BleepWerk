@@ -44,7 +44,6 @@ inline constexpr SoundParam kSoundParams[] = {
     { "bleepNoise", 0, 1, 0 },
 
     { "strikeExciter", 0, kNumWerkExciters - 1, (float) WerkExciter::Knock },
-    { "strikeBody", 0, kNumWerkBodies - 1, (float) WerkBody::Bar },
     { "strikeLength", 0.1f, 6000, 300 },
     { "strikeRing", 0, 1, 0.5f },
     { "strikeTone", 0, 1, 0.5f },
@@ -132,7 +131,6 @@ Patch readPatch (Get&& get)
 
     auto& k = patch.werk;
     k.exciter = (WerkExciter) index ("strikeExciter", kNumWerkExciters);
-    k.body = (WerkBody) index ("strikeBody", kNumWerkBodies);
     k.lengthMs = get ("strikeLength");
     k.ring = get ("strikeRing");
     k.tone = get ("strikeTone");

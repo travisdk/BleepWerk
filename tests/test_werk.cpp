@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Henrik Juhl. Part of BleepWerk, licensed under the GNU AGPLv3 (see LICENSE).
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// The Werk engine: every exciter on every body gives finite output at a sensible level, it is
-// silent with no notes, every voice ends by itself (note-offs or not), the body rings on the
+// The Werk engine: every exciter gives finite output at a sensible level, it is
+// silent with no notes, every voice ends by itself (note-offs or not), the object rings on the
 // note, Ring sets how long, Length sets how long Blow and Squeal last, Sweep slides into the
 // note, bend moves it, and Chaos and velocity behave.
 #include "WerkSynth.h"
@@ -35,12 +35,11 @@ static std::vector<float> play (const WerkParams& p, int note, double millisecon
     return render (synth, ms (milliseconds));
 }
 
-static WerkParams params (WerkExciter exciter, WerkBody body, float ring = 0.5f, float tone = 0.5f, float motion = 0.0f,
+static WerkParams params (WerkExciter exciter, float ring = 0.5f, float tone = 0.5f, float motion = 0.0f,
                             float lengthMs = 300.0f)
 {
     WerkParams p;
     p.exciter = exciter;
-    p.body = body;
     p.ring = ring;
     p.tone = tone;
     p.motion = motion;
@@ -99,12 +98,11 @@ static double strongestHz (const std::vector<float>& v, int from, int to, double
 static void everyCombinationIsSane()
 {
     for (int e = 0; e < kNumWerkExciters; ++e)
-        for (int b = 0; b < kNumWerkBodies; ++b)
-            for (float ring : { 0.0f, 0.5f, 1.0f })
-                for (float tone : { 0.0f, 1.0f })
-                    for (float motion : { 0.0f, 1.0f })
+        for (float ring : { 0.0f, 0.5f, 1.0f })
+            for (float tone : { 0.0f, 1.0f })
+                for (float motion : { 0.0f, 1.0f })
                     {
-                        auto p = params ((WerkExciter) e, (WerkBody) b, ring, tone, motion, 200.0f);
+                        auto p = params ((WerkExciter) e, ring, tone, motion, 200.0f);
                         p.sweepSemis = motion > 0.5f ? 12.0f : -12.0f;
                         // Squeal sounds two octaves above the note, so the top note is beyond what can be played
                         for (int note : { 12, 60, 120 })
@@ -115,7 +113,7 @@ static void everyCombinationIsSane()
                             CHECK (finite (out));
                             const float pk = peak (out);
                             if (! (pk > 1.0e-4f && pk < 1.0f))
-                                std::printf ("level %.5f: exciter %d body %d ring %.1f tone %.0f motion %.0f note %d\n", pk, e, b, ring, tone, motion, note);
+                                std::printf ("level %.5f: exciter %d ring %.1f tone %.0f motion %.0f note %d\n", pk, e, ring, tone, motion, note);
                             CHECK (pk > 1.0e-4f && pk < 1.0f);
                         }
                     }
@@ -127,7 +125,7 @@ static void silentWithNoNotes()
     synth.prepare (fs);
     for (int e = 0; e < kNumWerkExciters; ++e)
     {
-        synth.setParams (params ((WerkExciter) e, WerkBody::Bar));
+        synth.setParams (params ((WerkExciter) e));
         CHECK (peak (render (synth, ms (200))) == 0.0f);
     }
     CHECK (synth.activeVoices() == 0);
@@ -137,74 +135,50 @@ static void silentWithNoNotes()
 static void voicesEndByThemselves()
 {
     for (int e = 0; e < kNumWerkExciters; ++e)
-        for (int b = 0; b < kNumWerkBodies; ++b)
-            for (bool noteOff : { false, true })
-            {
-                WerkSynth synth;
-                synth.prepare (fs);
-                synth.setParams (params ((WerkExciter) e, (WerkBody) b, 0.6f, 0.5f, 0.5f, 400.0f));
-                synth.noteOn (48, 0.9f);
-                synth.noteOn (55, 0.5f);
-                render (synth, ms (50));
-                if (noteOff)
-                {
-                    synth.noteOff (48);
-                    synth.noteOff (55);
-                }
-                render (synth, ms (12000));
-                if (synth.activeVoices() != 0)
-                    std::printf ("still active: exciter %d body %d noteOff %d\n", e, b, (int) noteOff);
-                CHECK (synth.activeVoices() == 0);
-                CHECK (peak (render (synth, ms (100))) == 0.0f);
-            }
-}
-
-// Every body rings on the note, whichever way it is struck.
-static void bodyRingsOnTheNote()
-{
-    for (int b = 0; b < kNumWerkBodies; ++b)
-        for (int note : { 45, 57 })
+        for (bool noteOff : { false, true })
         {
-            const double hz = noteHz (note);
-            const auto out = play (params (WerkExciter::Knock, (WerkBody) b, 1.0f, 0.3f), note, 600);
-            const double found = strongestHz (out, ms (20), ms (400), hz * 0.85, hz * 1.15);
-            std::printf ("body %d note %d: %.1f Hz (note %.1f)\n", b, note, found, hz);
-            CHECK (std::abs (found / hz - 1.0) < 0.01);
+            WerkSynth synth;
+            synth.prepare (fs);
+            synth.setParams (params ((WerkExciter) e, 0.6f, 0.5f, 0.5f, 400.0f));
+            synth.noteOn (48, 0.9f);
+            synth.noteOn (55, 0.5f);
+            render (synth, ms (50));
+            if (noteOff)
+            {
+                synth.noteOff (48);
+                synth.noteOff (55);
+            }
+            render (synth, ms (12000));
+            if (synth.activeVoices() != 0)
+                std::printf ("still active: exciter %d noteOff %d\n", e, (int) noteOff);
+            CHECK (synth.activeVoices() == 0);
+            CHECK (peak (render (synth, ms (100))) == 0.0f);
         }
 }
 
-// Ring sets how long it rings, and each body has its own scale.
-static void ringSetsTheRingTime()
+// The object rings on the note.
+static void objectRingsOnTheNote()
 {
-    auto tail = [] (WerkBody body, float ring)
+    for (int note : { 45, 57 })
     {
-        const auto out = play (params (WerkExciter::Knock, body, ring), 60, 1500);
-        return rms (out, ms (300), ms (400));
-    };
-    CHECK (tail (WerkBody::Bar, 0.9f) > 5.0 * tail (WerkBody::Bar, 0.3f));
-    CHECK (werkRingSeconds (kBarBody, 0.0f) < werkRingSeconds (kBarBody, 1.0f));
+        const double hz = noteHz (note);
+        const auto out = play (params (WerkExciter::Knock, 1.0f, 0.3f), note, 600);
+        const double found = strongestHz (out, ms (20), ms (400), hz * 0.85, hz * 1.15);
+        std::printf ("note %d: %.1f Hz (note %.1f)\n", note, found, hz);
+        CHECK (std::abs (found / hz - 1.0) < 0.01);
+    }
 }
 
-// A skin is a drum, not a plate: it rings only a little longer than a bar, its high modes die much
-// faster than its low ones, and the low modes are the loudest.
-static void aSkinSoundsLikeADrum()
+// Ring sets how long it rings.
+static void ringSetsTheRingTime()
 {
-    for (float ring : { 0.2f, 0.5f, 0.8f })
+    auto tail = [] (float ring)
     {
-        const float ratio = werkRingSeconds (kSkinBody, ring) / werkRingSeconds (kBarBody, ring);
-        CHECK (ratio >= 1.0f && ratio <= 1.6f);
-    }
-    // each mode's ring time falls with its ratio (as updateCoefs sets it); the top one is a short
-    // colour: under a fifth of the fundamental's ring, and every mode rings shorter than the one below it
-    for (size_t k = 1; k < kSkinBody.ratios.size(); ++k)
-        CHECK (std::pow (kSkinBody.ratios[k], -kSkinBody.highModeDamping) < std::pow (kSkinBody.ratios[k - 1], -kSkinBody.highModeDamping));
-    CHECK (kSkinBody.decayTrim.back() * std::pow (kSkinBody.ratios.back(), -kSkinBody.highModeDamping) < 0.2f);
-    CHECK (kSkinBody.extraTilt > kBarBody.extraTilt);
-
-    // heard: a hit's tail is dominated by the fundamental, so the hit decays to a low note, not a ring of
-    // high partials; compare the level of the first 20 ms with a late stretch
-    const auto out = play (params (WerkExciter::Knock, WerkBody::Skin, 0.5f, 0.5f), 48, 1500);
-    CHECK (rms (out, 0, ms (20)) > 3.0 * rms (out, ms (300), ms (400)));
+        const auto out = play (params (WerkExciter::Knock, ring), 60, 1500);
+        return rms (out, ms (300), ms (400));
+    };
+    CHECK (tail (0.9f) > 5.0 * tail (0.3f));
+    CHECK (werkRingSeconds (kBarBody, 0.0f) < werkRingSeconds (kBarBody, 1.0f));
 }
 
 // Magnitude of one frequency in v[from, to) (Goertzel).
@@ -221,56 +195,27 @@ static double magnitudeAt (const std::vector<float>& v, int from, int to, double
     return std::sqrt (std::max (0.0, s1 * s1 + s2 * s2 - c * s1 * s2)) / std::max (1, to - from);
 }
 
-// Bar and Skin must not melt together: struck the same way on the same note, their spectra differ
-// clearly. The Skin's close tones above the fundamental (1.59, 2.14, 2.30) are heard for the first
-// 50-150 ms and the one at 1.59 is at least as strong as the fundamental; the Bar's 2.76 stands out.
-static void barAndSkinSoundDifferent()
+// The bar's second mode (2.756) is lifted so the dry "tok" of a beam or wood block stands out
+// in the first few milliseconds.
+static void theBarHasItsTok()
 {
-    for (int note : { 57, 64, 69 }) // high enough for 50 ms to hold a few cycles
+    for (int note : { 57, 64, 69 })
     {
         const double f0 = noteHz (note);
-        const auto bar = play (params (WerkExciter::Knock, WerkBody::Bar), note, 1000);
-        const auto skin = play (params (WerkExciter::Knock, WerkBody::Skin), note, 1000);
-        const int from = ms (10), to = ms (150);
-
-        // the two spectra over f0 .. 6 f0 in third-of-a-semitone-ish bins, each as shares of its own total
-        auto shares = [&] (const std::vector<float>& v)
-        {
-            std::vector<double> s;
-            double total = 0.0;
-            for (double r = 0.9; r < 6.0; r *= 1.012)
-                total += s.emplace_back (std::pow (magnitudeAt (v, from, to, f0 * r), 2.0));
-            for (auto& x : s)
-                x /= total;
-            return s;
-        };
-        const auto a = shares (bar), b = shares (skin);
-        double difference = 0.0; // 0 identical .. 1 nothing in common
-        for (size_t i = 0; i < a.size(); ++i)
-            difference += 0.5 * std::abs (a[i] - b[i]);
-
-        auto level = [&] (const std::vector<float>& v, double ratio, int a0, int a1) { return magnitudeAt (v, a0, a1, f0 * ratio); };
-        const double skin159 = level (skin, 1.594, from, ms (60)), skin1 = level (skin, 1.0, from, ms (60));
-        const double skinLate = level (skin, 2.136, ms (60), ms (120));
-        const double barTok = level (bar, 2.756, ms (3), ms (25)) / level (bar, 1.0, ms (3), ms (25));
-        const double skinTok = level (skin, 2.756, ms (3), ms (25)) / level (skin, 1.0, ms (3), ms (25));
-        std::printf ("note %d: difference %.2f, skin 1.59/1 %.2f, skin 2.14 late/1 %.3f, bar 2.76/1 %.2f (skin %.2f)\n", note, difference,
-                     skin159 / skin1, skinLate / level (skin, 1.0, ms (60), ms (120)), barTok, skinTok);
-
-        CHECK (difference > 0.4);
-        CHECK (skin159 >= skin1);
-        CHECK (skinLate > 0.2 * level (skin, 1.0, ms (60), ms (120))); // still there at 60-120 ms
-        CHECK (barTok > 0.5 && barTok > 3.0 * skinTok);
+        const auto bar = play (params (WerkExciter::Knock), note, 1000);
+        const double tok = magnitudeAt (bar, ms (3), ms (25), f0 * 2.756) / magnitudeAt (bar, ms (3), ms (25), f0);
+        std::printf ("note %d: bar 2.76/1 %.2f\n", note, tok);
+        CHECK (tok > 0.5);
     }
 }
 
-// Length sets how long Blow and Squeal last, fade included, and note-offs don't stop them.
+// Blow and Squeal: Length is how long the whole sound lasts, and note-offs don't stop it.
 static void lengthSetsHowLongItLasts()
 {
     for (auto exciter : { WerkExciter::Blow, WerkExciter::Squeal })
     {
-        const auto shortOne = play (params (exciter, WerkBody::Bar, 0.5f, 0.5f, 0.0f, 150.0f), 48, 3000);
-        const auto longOne = play (params (exciter, WerkBody::Bar, 0.5f, 0.5f, 0.0f, 1500.0f), 48, 3000);
+        const auto shortOne = play (params (exciter, 0.5f, 0.5f, 0.0f, 150.0f), 48, 3000);
+        const auto longOne = play (params (exciter, 0.5f, 0.5f, 0.0f, 1500.0f), 48, 3000);
         CHECK (rms (shortOne, ms (600), ms (800)) < 0.02 * rms (shortOne, ms (20), ms (60)));
         CHECK (rms (longOne, ms (600), ms (800)) > 0.1 * rms (longOne, ms (200), ms (400)));
         CHECK (rms (longOne, ms (2800), ms (3000)) < 0.01 * rms (longOne, ms (200), ms (400)));
@@ -278,7 +223,7 @@ static void lengthSetsHowLongItLasts()
 
     WerkSynth synth;
     synth.prepare (fs);
-    synth.setParams (params (WerkExciter::Blow, WerkBody::Bar, 0.5f, 0.5f, 0.0f, 1000.0f));
+    synth.setParams (params (WerkExciter::Blow, 0.5f, 0.5f, 0.0f, 1000.0f));
     synth.noteOn (48, 1.0f);
     render (synth, ms (50));
     synth.noteOff (48);
@@ -288,14 +233,14 @@ static void lengthSetsHowLongItLasts()
 // Brush: Length is the burst, not the sound; a longer burst is not louder.
 static void burstLengthDoesNotChangeTheLevelMuch()
 {
-    const auto shortOne = play (params (WerkExciter::Brush, WerkBody::Bar, 0.5f, 0.5f, 0.0f, 2.0f), 48, 800);
-    const auto longOne = play (params (WerkExciter::Brush, WerkBody::Bar, 0.5f, 0.5f, 0.0f, 40.0f), 48, 800);
+    const auto shortOne = play (params (WerkExciter::Brush, 0.5f, 0.5f, 0.0f, 2.0f), 48, 800);
+    const auto longOne = play (params (WerkExciter::Brush, 0.5f, 0.5f, 0.0f, 40.0f), 48, 800);
     const double ratio = rms (longOne, 0, ms (400)) / rms (shortOne, 0, ms (400));
     CHECK (ratio > 0.2 && ratio < 5.0);
 }
 
-// Presets and projects saved before Crackle and Metal were removed keep their sound: the old
-// choice indices map to the ones that replaced them (Crackle to Brush, Metal to Bar).
+// Presets and projects saved before Crackle was removed keep their sound: the old
+// choice indices map to the ones that replaced them (Crackle to Brush).
 static void oldChoicesMigrate()
 {
     CHECK (migrateWerkExciter (0) == (int) WerkExciter::Knock);
@@ -303,9 +248,6 @@ static void oldChoicesMigrate()
     CHECK (migrateWerkExciter (2) == (int) WerkExciter::Brush);
     CHECK (migrateWerkExciter (3) == (int) WerkExciter::Blow);
     CHECK (migrateWerkExciter (4) == (int) WerkExciter::Squeal);
-    CHECK (migrateWerkBody (0) == (int) WerkBody::Bar);
-    CHECK (migrateWerkBody (1) == (int) WerkBody::Bar);
-    CHECK (migrateWerkBody (2) == (int) WerkBody::Skin);
 }
 
 // Tone: bright strikes have more high end, dark ones less.
@@ -313,8 +255,8 @@ static void toneAddsBrightness()
 {
     for (int e = 0; e < kNumWerkExciters; ++e)
     {
-        const auto dark = play (params ((WerkExciter) e, WerkBody::Bar, 0.5f, 0.0f), 48, 400);
-        const auto bright = play (params ((WerkExciter) e, WerkBody::Bar, 0.5f, 1.0f), 48, 400);
+        const auto dark = play (params ((WerkExciter) e, 0.5f, 0.0f), 48, 400);
+        const auto bright = play (params ((WerkExciter) e, 0.5f, 1.0f), 48, 400);
         if (! (brightness (bright) > brightness (dark)))
             std::printf ("exciter %d: dark %.4f bright %.4f\n", e, brightness (dark), brightness (bright));
         CHECK (brightness (bright) > brightness (dark));
@@ -325,7 +267,7 @@ static void toneAddsBrightness()
 static void sweepSlidesIntoTheNote()
 {
     const double hz = noteHz (57);
-    auto p = params (WerkExciter::Knock, WerkBody::Bar, 1.0f, 0.3f);
+    auto p = params (WerkExciter::Knock, 1.0f, 0.3f);
     p.sweepSemis = 12.0f;
     const auto up = play (p, 57, 700);
     CHECK (strongestHz (up, 0, ms (14), hz * 0.4, hz * 1.2) < hz * 0.8); // starts an octave below...
@@ -341,7 +283,7 @@ static void bendMovesTheNote()
     const double hz = noteHz (57);
     WerkSynth synth;
     synth.prepare (fs);
-    synth.setParams (params (WerkExciter::Knock, WerkBody::Bar, 1.0f, 0.3f));
+    synth.setParams (params (WerkExciter::Knock, 1.0f, 0.3f));
     synth.setPitchBend (12.0f);
     synth.noteOn (57, 1.0f);
     const auto out = render (synth, ms (700));
@@ -352,7 +294,7 @@ static void velocityScalesTheLevel()
 {
     for (int e = 0; e < kNumWerkExciters; ++e)
     {
-        const auto p = params ((WerkExciter) e, WerkBody::Bar);
+        const auto p = params ((WerkExciter) e);
         const auto loud = play (p, 55, 400, 1.0f);
         const auto soft = play (p, 55, 400, 0.3f);
         CHECK (peak (loud) > peak (soft));
@@ -367,7 +309,7 @@ static void chaosVariesTheHits()
     {
         WerkSynth synth;
         synth.prepare (fs);
-        synth.setParams (params (WerkExciter::Brush, WerkBody::Bar, 0.6f, 0.5f, 0.0f, 3.0f));
+        synth.setParams (params (WerkExciter::Brush, 0.6f, 0.5f, 0.0f, 3.0f));
         ChaosDepths depths;
         if (chaos)
             depths.pitch = depths.decay = depths.tone = 0.8f;
@@ -392,7 +334,7 @@ static void monoAndPolyBehave()
 {
     WerkSynth synth;
     synth.prepare (fs);
-    synth.setParams (params (WerkExciter::Blow, WerkBody::Bar, 0.5f, 0.5f, 0.0f, 3000.0f));
+    synth.setParams (params (WerkExciter::Blow, 0.5f, 0.5f, 0.0f, 3000.0f));
     synth.setMode (WerkSynth::Mode::Mono);
     synth.noteOn (48, 1.0f);
     synth.noteOn (55, 1.0f);
@@ -413,7 +355,7 @@ static void retriggerDoesNotClickLoudly()
 {
     WerkSynth synth;
     synth.prepare (fs);
-    synth.setParams (params (WerkExciter::Knock, WerkBody::Skin, 0.8f, 0.5f));
+    synth.setParams (params (WerkExciter::Knock, 0.8f, 0.5f));
     synth.noteOn (48, 0.8f);
     const auto first = render (synth, ms (100));
     synth.noteOn (48, 0.8f);
@@ -427,10 +369,9 @@ int main()
     everyCombinationIsSane();
     silentWithNoNotes();
     voicesEndByThemselves();
-    bodyRingsOnTheNote();
+    objectRingsOnTheNote();
     ringSetsTheRingTime();
-    aSkinSoundsLikeADrum();
-    barAndSkinSoundDifferent();
+    theBarHasItsTok();
     lengthSetsHowLongItLasts();
     burstLengthDoesNotChangeTheLevelMuch();
     toneAddsBrightness();
