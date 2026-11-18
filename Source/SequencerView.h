@@ -16,8 +16,8 @@
 //   step:  click the bar to switch it on or off, drag it up and down or scroll to change the
 //          note, double-click to reset the note to the root; "ACC" above it is the accent; the
 //          arrows below move the note an octave up or down
-//   CLEAR: under the MIDI button; after a question, every note of all eight patterns is cleared
-//          and no layer plays
+//   CLEAR: under the MIDI button; asks whether to clear every note of all eight patterns (and
+//          switch every layer off) or only those of the shown one
 //   MIDI:  click for a menu: the shown pattern as a MIDI file (one pass), or everything the
 //          layers play over 4 to 64 bars; on Windows drag the button into the host to take the
 //          last choice as a clip
@@ -35,7 +35,7 @@ public:
     // Set by the main view, which owns the dialogs.
     std::function<void()> onSave;                    // the playing pattern, to be saved as a file
     std::function<void (int entry)> onDelete;        // a user pattern, to be moved to the trash
-    std::function<void()> onClearAll;                // every note of every pattern, to be confirmed
+    std::function<void()> onClearAll;                // asks all or the shown pattern
 
 private:
     class StepGrid;

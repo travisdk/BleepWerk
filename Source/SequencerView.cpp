@@ -365,7 +365,7 @@ SequencerView::SequencerView (BleepWerkProcessor& p)
     addAndMakeVisible (dice);
 
     clearButton.getProperties().set ("smallFont", true);
-    clearButton.setTooltip ("Clear every note in all eight patterns and switch all layers off. Length, rate and the other settings of each pattern stay, and so do Root and the sound.");
+    clearButton.setTooltip ("Clear the notes of all eight patterns (and switch all layers off) or only of the shown one; you are asked which. Length, rate and the other settings stay, and so do Root and the sound.");
     clearButton.onClick = [this] { if (onClearAll) onClearAll(); };
     addAndMakeVisible (clearButton);
 

@@ -464,6 +464,13 @@ void clearPatterns()
     const auto sound = processor.getSoundPresets().name();
     const auto groove = bank.slot (1).groove().toString();
 
+    // clearing only the shown pattern leaves the others, and which layers play, as they are
+    auto notes = [&] (int slot) { int n = 0; for (int step = 0; step < kMaxSteps; ++step) n += bank.slot (slot).get (step).gate ? 1 : 0; return n; };
+    CHECK (notes (0) > 0 && notes (1) > 0);
+    bank.select (1);
+    patterns.clear();
+    CHECK (notes (1) == 0 && notes (0) > 0 && bank.playing() == 0xf3u);
+
     patterns.clearAll();
     CHECK (bank.playing() == 0u);
     for (int slot = 0; slot < kNumPatternSlots; ++slot)

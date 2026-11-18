@@ -71,9 +71,25 @@ MainView::MainView (BleepWerkProcessor& p)
     };
     sequencerView.onClearAll = [this]
     {
-        confirm ("Clear all patterns?", "Every note in all eight patterns is cleared and no layer plays. "
-                                         "Patterns you have made or edited are lost unless you saved them.", "Clear all",
-                 [this] { processor.getPatternPresets().clearAll(); });
+        // three ways out: all patterns, only the shown one (the one Return takes, as it loses less), or nothing
+        const auto letter = juce::String::charToString ((juce::juce_wchar) ('A' + processor.getPatternBank().active()));
+        auto* window = new juce::AlertWindow ("Clear notes", "Clear every note in all eight patterns (and switch all layers off), or only in pattern " + letter
+                                                               + "? What you have made and not saved is lost.", juce::MessageBoxIconType::NoIcon);
+        window->addButton ("All patterns", 1);
+        window->addButton ("Only " + letter, 2, juce::KeyPress (juce::KeyPress::returnKey));
+        window->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+        addAndMakeVisible (window);
+        window->setCentrePosition (getLocalBounds().getCentre());
+        window->enterModalState (true, juce::ModalCallbackFunction::create (
+            [safeThis = juce::Component::SafePointer<MainView> (this)] (int result)
+            {
+                if (safeThis == nullptr)
+                    return;
+                if (result == 1)
+                    safeThis->processor.getPatternPresets().clearAll();
+                else if (result == 2)
+                    safeThis->processor.getPatternPresets().clear();
+            }), true);
     };
     refreshSequencer();
 

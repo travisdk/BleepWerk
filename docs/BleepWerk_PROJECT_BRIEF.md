@@ -126,8 +126,9 @@ patterns A-H, locked to the host's transport (sample-accurate, loops and jumps h
   one that does not fit from the shown slot is refused with a message saying which slot and how
   many slots are missing. Afterwards the slots are ordinary, independent patterns, and only the
   set's layers play
-- CLEAR, under the MIDI button, clears every note of all eight patterns and switches every layer
-  off (after a question); each pattern's length, rate and other settings, Root and the sound stay
+- CLEAR, under the MIDI button, asks whether to clear every note of all eight patterns (and
+  switch every layer off) or only those of the shown pattern; each pattern's length, rate and
+  other settings, Root and the sound stay
 - Symbols: a tick under a letter is a pattern that plays; "ACC" above a step is its accent
 - A new instance starts as the factory preset Log Drum, with the sequencer off (SEQ
   switches it on) and the set Five Over Seven in A and B, both playing. The parameters declare the Log Drum sound as their
