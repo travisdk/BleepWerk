@@ -492,6 +492,49 @@ void clearPatterns()
     CHECK (juce::approximatelyEqual (processor.apvts.getRawParameterValue ("seqRoot")->load(), root));
     CHECK (processor.getSoundPresets().name() == sound);
 }
+// With the transport running and no note played, nothing sounds before the first note arrives,
+// with the sequencer off and with a held key only setting the root while it is on.
+void silentBeforeTheFirstNote()
+{
+    struct Host : juce::AudioPlayHead
+    {
+        juce::Optional<PositionInfo> getPosition() const override
+        {
+            PositionInfo info;
+            info.setPpqPosition (ppq);
+            info.setIsPlaying (true);
+            info.setBpm (135.0);
+            return info;
+        }
+        double ppq = 0.0;
+    } host;
+
+    for (const bool sequencerOn : { false, true })
+    {
+        BleepWerkProcessor processor;
+        processor.setRateAndBufferSizeDetails (kSampleRate, kBlockSize);
+        processor.prepareToPlay (kSampleRate, kBlockSize);
+        processor.setPlayHead (&host);
+        processor.apvts.getParameter ("seqEnabled")->setValueNotifyingHost (sequencerOn ? 1.0f : 0.0f);
+        // every layer off, so only a key could make a sound
+        processor.getPatternBank().setPlayingMask (0);
+
+        juce::AudioBuffer<float> buffer (2, kBlockSize);
+        float loudestBefore = 0.0f;
+        for (int block = 0; block < 40; ++block)
+        {
+            juce::MidiBuffer midi;
+            if (block == 30)
+                midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 100);
+            host.ppq = block * kBlockSize / kSampleRate * 135.0 / 60.0;
+            processor.processBlock (buffer, midi);
+            if (block < 30)
+                loudestBefore = juce::jmax (loudestBefore, buffer.getMagnitude (0, kBlockSize));
+        }
+        CHECK (loudestBefore == 0.0f);
+        processor.setPlayHead (nullptr);
+    }
+}
 } // namespace
 
 int main (int argc, char* argv[])
@@ -508,6 +551,7 @@ int main (int argc, char* argv[])
         { "pattern-sets", patternSets },
         { "held-key-shows-root", heldKeyShowsRoot },
         { "preset-search", presetSearch },
+        { "silent-before-first-note", silentBeforeTheFirstNote },
         { "clear-patterns", clearPatterns },
     };
     const juce::String name = argc > 1 ? argv[1] : "";
