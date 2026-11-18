@@ -364,11 +364,13 @@ SequencerView::SequencerView (BleepWerkProcessor& p)
     dice.onClick = [this] { processor.getPatternPresets().randomize(); refresh(); };
     addAndMakeVisible (dice);
 
+    clearButton.getProperties().set ("smallFont", true);
     clearButton.setTooltip ("Clear every note in all eight patterns and switch all layers off. Length, rate and the other settings of each pattern stay, and so do Root and the sound.");
     clearButton.onClick = [this] { if (onClearAll) onClearAll(); };
     addAndMakeVisible (clearButton);
 
     midiButton = std::make_unique<MidiButton>();
+    midiButton->getProperties().set ("smallFont", true);
     midiButton->writeFile = [this] { return writeMidi(); };
     midiButton->onClick = [this] { showMidiMenu(); };
     addAndMakeVisible (*midiButton);
@@ -552,9 +554,11 @@ void SequencerView::resized()
         top.removeFromLeft (kSlotWidth);
     }
     top.removeFromLeft (10);
+    // MIDI and CLEAR: two identical small buttons one above the other, the lower ending above the steps
+    constexpr int kSmallButtonHeight = 18;
     const auto midiBounds = top.removeFromRight (62);
-    midiButton->setBounds (midiBounds);
-    clearButton.setBounds (midiBounds.getX(), midiBounds.getBottom() + 3, midiBounds.getWidth(), 16); // ends above the steps
+    midiButton->setBounds (midiBounds.withHeight (kSmallButtonHeight));
+    clearButton.setBounds (midiBounds.getX(), midiBounds.getY() + kSmallButtonHeight + 2, midiBounds.getWidth(), kSmallButtonHeight);
     top.removeFromRight (6);
     dice.setBounds (top.removeFromRight (22).withSizeKeepingCentre (22, 22));
     top.removeFromRight (6);

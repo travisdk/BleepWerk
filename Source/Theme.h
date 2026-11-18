@@ -202,7 +202,11 @@ public:
 
     juce::Font getComboBoxFont (juce::ComboBox&) override { return fonts::label (15.0f); }
     juce::Font getPopupMenuFont() override { return fonts::label (16.0f); }
-    juce::Font getTextButtonFont (juce::TextButton&, int) override { return fonts::label (14.5f); }
+    // a button with the property "smallFont" (MIDI and CLEAR in the sequencer) has a smaller one
+    juce::Font getTextButtonFont (juce::TextButton& button, int) override
+    {
+        return fonts::label (button.getProperties().getWithDefault ("smallFont", false) ? 11.5f : 14.5f);
+    }
 
     juce::Label* createSliderTextBox (juce::Slider& slider) override
     {
