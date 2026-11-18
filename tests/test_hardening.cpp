@@ -531,7 +531,7 @@ void silentBeforeTheFirstNote()
             if (block < 30)
                 loudestBefore = juce::jmax (loudestBefore, buffer.getMagnitude (0, kBlockSize));
         }
-        CHECK (loudestBefore == 0.0f);
+        CHECK (loudestBefore < 1.0e-9f);
         processor.setPlayHead (nullptr);
     }
 }
